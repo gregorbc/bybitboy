@@ -472,18 +472,16 @@ class BybitFutures {
         return (float)(isset($r['list'][0]['lastPrice']) ? $r['list'][0]['lastPrice'] : 0);
     }
     public function klines($symbol, $interval, $limit) {
-        $binSymbol = strtoupper($symbol);
-        $binIv     = $interval . 'm';
+        $bybitSymbol = strtoupper($symbol);
+        $bybitIv     = $interval . 'm';
         if (in_array($interval, ['60','120','240','360','720'])) {
             $hrs = (int)($interval) / 60;
-            $binIv = $hrs . 'h';
+            $bybitIv = $hrs . 'h';
         } elseif ($interval === '1D' || $interval === 'D') {
-            $binIv = '1d';
+            $bybitIv = '1d';
         }
         $sources = [
-            ['url' => "https://fapi.binance.com/fapi/v1/klines?symbol={$binSymbol}&interval={$binIv}&limit={$limit}", 'parser' => 'binance', 'tag' => 'binance-fapi'],
-            ['url' => "https://api.binance.com/api/v3/klines?symbol={$binSymbol}&interval={$binIv}&limit={$limit}",   'parser' => 'binance', 'tag' => 'binance-spot'],
-            ['url' => "https://api.bybit.com/v5/market/kline?category=linear&symbol={$symbol}&interval={$interval}&limit={$limit}", 'parser' => 'bybit', 'tag' => 'bybit-mainnet'],
+            ['url' => "https://api.bybit.com/v5/market/kline?category=linear&symbol={$bybitSymbol}&interval={$interval}&limit={$limit}", 'parser' => 'bybit', 'tag' => 'bybit-mainnet'],
         ];
         foreach ($sources as $src) {
             try {
@@ -506,16 +504,7 @@ class BybitFutures {
                     continue;
                 }
                 $out = [];
-                if ($src['parser'] === 'binance') {
-                    if (!is_array($data) || empty($data)) {
-                        lW(sprintf("[klines] %s lista vacía", $src['tag']));
-                        continue;
-                    }
-                    foreach ($data as $k) {
-                        if (!isset($k[4])) continue;
-                        $out[] = [(int)$k[0], (float)$k[1], (float)$k[2], (float)$k[3], (float)$k[4], (float)$k[5]];
-                    }
-                } else {
+                if ($src['parser'] === 'bybit') {
                     $rc = isset($data['retCode']) ? $data['retCode'] : -1;
                     if ($rc !== 0) {
                         lW(sprintf("[klines] %s retCode=%d", $src['tag'], $rc));

@@ -1,7 +1,7 @@
 #!/bin/bash
 # train_ml_cron.sh — Wrapper para cron del ML trainer
-# Uso en crontab: 0 */6 * * * /bin/bash /home/erika/web/binance.gregorbritez.cat/public_html/train_ml_cron.sh
-cd /home/erika/web/binance.gregorbritez.cat/public_html
+# Uso en crontab: 0 */6 * * * /bin/bash /home/erika/web/bybit.gregorbritez.cat/public_html/train_ml_cron.sh
+cd /home/erika/web/bybit.gregorbritez.cat/public_html
 LOGFILE="train_ml_cron.log"
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') — Iniciando entrenamiento ===" >> "$LOGFILE"
 python3 train_ml_weights.py \
