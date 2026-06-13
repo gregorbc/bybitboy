@@ -46,7 +46,7 @@
     "min_notional": 3.0
   },
   "ml": {
-    "weights_file": "/home/erika/web/binance.gregorbritez.cat/public_html/ml_weights_v2.json",
+    "weights_file": "/home/erika/web/bybit.gregorbritez.cat/public_html/ml_weights_v2.json",
     "min_confidence": 45,
     "min_accuracy": 0.85,
     "blend_weight": 0.90,
@@ -68,13 +68,13 @@
     "password": "Enladisco123@"
   },
   "paths": {
-    "log":        "/home/erika/web/binance.gregorbritez.cat/public_html/bot.log",
-    "web_dir":    "/home/erika/web/binance.gregorbritez.cat/public_html",
-    "config_dir": "/home/erika/web/binance.gregorbritez.cat/private",
-    "status":     "/home/erika/web/binance.gregorbritez.cat/private/grid_status.json",
-    "pid":        "/home/erika/web/binance.gregorbritez.cat/public_html/grid_bot.pid",
-    "conf_hist":  "/home/erika/web/binance.gregorbritez.cat/private/grid_confidence.json",
-    "ctrl":       "/home/erika/web/binance.gregorbritez.cat/private/grid_control.json"
+    "log":        "/home/erika/web/bybit.gregorbritez.cat/public_html/bot.log",
+    "web_dir":    "/home/erika/web/bybit.gregorbritez.cat/public_html",
+    "config_dir": "/home/erika/web/bybit.gregorbritez.cat/private",
+    "status":     "/home/erika/web/bybit.gregorbritez.cat/private/grid_status.json",
+    "pid":        "/home/erika/web/bybit.gregorbritez.cat/public_html/grid_bot.pid",
+    "conf_hist":  "/home/erika/web/bybit.gregorbritez.cat/private/grid_confidence.json",
+    "ctrl":       "/home/erika/web/bybit.gregorbritez.cat/private/grid_control.json"
   },
   "security_token": "",
   "ws_token": ""

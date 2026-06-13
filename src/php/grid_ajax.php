@@ -339,7 +339,6 @@ if (isset($_GET['_market'])) {
 
     $klines = []; $closes = []; $volumes = [];
     $klSources = [
-        ['url' => 'https://fapi.binance.com/fapi/v1/klines?symbol=ETHUSDT&interval=5m&limit=100', 'type' => 'binance'],
         ['url' => $pubBase . '/v5/market/kline?category=linear&symbol=ETHUSDT&interval=5&limit=100', 'type' => 'bybit'],
     ];
     foreach ($klSources as $src) {
@@ -348,16 +347,7 @@ if (isset($_GET['_market'])) {
                                 CURLOPT_SSL_VERIFYPEER => false, CURLOPT_FOLLOWLOCATION => true]);
         $resp = curl_exec($ch); curl_close($ch);
         if (!$resp) continue;
-        if ($src['type'] === 'binance') {
-            $kd = json_decode($resp, true);
-            if (!is_array($kd) || empty($kd)) continue;
-            foreach ($kd as $k) {
-                if (!isset($k[4])) continue;
-                $klines[] = ['t' => (int)$k[0], 'o' => (float)$k[1], 'h' => (float)$k[2],
-                             'l' => (float)$k[3], 'c' => (float)$k[4], 'v' => (float)$k[5]];
-                $closes[] = (float)$k[4]; $volumes[] = (float)$k[5];
-            }
-        } else {
+        if ($src['type'] === 'bybit') {
             $kd = json_decode($resp, true);
             if (($kd['retCode'] ?? -1) !== 0) continue;
             foreach (array_reverse($kd['result']['list'] ?? []) as $k) {
