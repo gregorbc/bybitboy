@@ -1,135 +1,220 @@
-# Grid Bot v15.4 - Trading Automático para Bybit
+# Grid Bot MT5 - Sistema de Trading Automatizado
 
-Sistema avanzado de trading automatizado diseñado para operar en el exchange **Bybit** utilizando una estrategia de **Grid Trading** potenciada con indicadores técnicos (EMA, RSI, MACD) y un panel de control en tiempo real.
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](docs/LICENSE)
+[![PHP](https://img.shields.io/badge/PHP-7.4+-blue.svg)](https://php.net)
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
+[![MT5](https://img.shields.io/badge/MT5-Expert%20Advisor-green.svg)](https://www.metatrader5.com)
 
-## 🚀 Características Principales
+Sistema avanzado de trading automatizado tipo Grid para MetaTrader 5, con interfaz web en PHP, machine learning en Python, y gestión inteligente de operaciones.
 
-- **Estrategia Grid Inteligente**: Compra y venta automática en rangos de precio definidos.
-- **Indicadores Técnicos**: Integración de EMA, RSI y MACD para filtrar operaciones y optimizar entradas.
-- **Panel de Control en Tiempo Real**: Dashboard web con gráficos, posiciones abiertas, historial de órdenes y P&L actualizado vía WebSocket.
-- **Gestión de Riesgo**: Configuración de Stop Loss, Take Profit y tamaño de posición.
-- **Base de Datos MySQL**: Almacenamiento histórico de operaciones, logs y configuración.
-- **Instalador Web**: Sistema de instalación automática compatible con cPanel y hosting compartido.
-- **Optimizado para Rendimiento**: Caché de datos, consultas eficientes y gestión de memoria mejorada (v15.4).
+## 📋 Características Principales
 
-## 📋 Requisitos del Servidor
+- **Grid Trading**: Estrategia automatizada de compras y ventas en niveles predefinidos
+- **Machine Learning**: Modelos predictivos para optimización de parámetros y volatilidad
+- **Interfaz Web**: Panel de control completo con gráficos en tiempo real
+- **WebSocket**: Comunicación bidireccional para actualizaciones instantáneas
+- **Caché Redis**: Alto rendimiento en el manejo de datos
+- **Systemd**: Ejecución como servicio del sistema
+- **Seguridad**: Implementación de mejores prácticas de seguridad
 
-Para ejecutar este sistema necesitas un hosting o VPS con las siguientes características:
+## 📁 Estructura del Proyecto
 
-- **PHP**: Versión 7.4 o superior (recomendado 8.0+).
-- **MySQL/MariaDB**: Base de datos para almacenar el historial.
-- **Extensiones PHP**: `pdo`, `pdo_mysql`, `curl`, `json`, `openssl`.
-- **Acceso a Terminal (SSH)**: Necesario para ejecutar el bot en segundo plano (`nohup` o `screen`).
-- **Permisos de Escritura**: Para generar archivos de configuración y logs.
-- **WebSocket**: El servidor debe permitir conexiones persistentes (puerto 8090 por defecto).
+```
+├── src/                    # Código fuente
+│   ├── php/                # Backend y frontend PHP
+│   ├── python/             # Scripts de Machine Learning
+│   └── mt5/                # Expert Advisor para MetaTrader 5
+├── config/                 # Archivos de configuración
+├── data/                   # Datos, logs y modelos
+│   ├── models/             # Modelos ML entrenados
+│   ├── logs/               # Logs del sistema
+│   └── cache/              # Caché de la aplicación
+├── scripts/                # Scripts de instalación y utilidad
+├── systemd/                # Configuración de servicios
+├── docs/                   # Documentación completa
+└── tests/                  # Pruebas y tests
+```
 
-## 🛠️ Instalación
+Ver [ESTRUCTURA.md](docs/ESTRUCTURA.md) para detalles completos.
 
-### Opción A: Instalador Web (Recomendado para cPanel/Hosting Compartido)
+## 🚀 Instalación Rápida
 
-1. Sube todos los archivos del proyecto a tu carpeta pública (`public_html` o similar).
-2. Accede a `http://tudominio.com/install.php` desde tu navegador.
-3. Sigue los pasos del asistente:
-   - Verificación de requisitos.
-   - Configuración de la base de datos.
-   - Credenciales de API de Bybit.
-   - Configuración del bot.
-4. El instalador creará las tablas automáticamente y generará el archivo `.env`.
-5. **Importante**: Elimina el archivo `install.php` después de la instalación por seguridad.
+### Requisitos Previos
 
-### Opción B: Instalación Manual
+- PHP 7.4 o superior
+- Python 3.8 o superior
+- MySQL/MariaDB
+- Redis (opcional pero recomendado)
+- MetaTrader 5
 
-1. Clona o sube los archivos al servidor.
-2. Crea una base de datos MySQL y un usuario con privilegios.
-3. Importa el esquema inicial desde `install.sql`.
-4. Copia el archivo `.env.example` a `.env` y edita tus credenciales:
-   ```env
-   DB_HOST=localhost
-   DB_NAME=tu_base_datos
-   DB_USER=tu_usuario
-   DB_PASS=tu_contraseña
-   BYBIT_API_KEY=tu_api_key
-   BYBIT_API_SECRET=tu_api_secret
-   ```
-5. Ajusta los permisos de la carpeta `logs` (chmod 755 o 777 según sea necesario).
+### Pasos de Instalación
 
-## ▶️ Ejecución
-
-El sistema consta de dos procesos principales que deben ejecutarse simultáneamente:
-
-### 1. Iniciar el Bot de Trading
-Este script se encarga de la lógica de operación, monitoreo de precios y envío de órdenes a Bybit. Debe ejecutarse en segundo plano.
-
+1. **Clonar el repositorio**
 ```bash
-# Usando nohup (recomendado para que siga corriendo al cerrar sesión)
-nohup php bot.php > logs/bot.log 2>&1 &
+git clone <repository-url>
+cd grid-bot-mt5
+```
 
-# O usando screen
-screen -S gridbot
+2. **Ejecutar script de instalación**
+```bash
+chmod +x scripts/install.sh
+./scripts/install.sh
+```
+
+3. **Configurar base de datos**
+```bash
+mysql -u root -p < scripts/install.sql
+```
+
+4. **Configurar Redis (opcional)**
+```bash
+chmod +x scripts/install_redis.sh
+./scripts/install_redis.sh
+```
+
+5. **Instalar servicio systemd (Linux)**
+```bash
+cd systemd
+chmod +x install_systemd.sh
+./install_systemd.sh
+```
+
+Para instrucciones detalladas, ver [INSTALACION.md](docs/INSTALACION.md).
+
+## 💻 Uso
+
+### Iniciar el Bot
+
+**Como servicio:**
+```bash
+sudo systemctl start grid-bot
+sudo systemctl enable grid-bot
+```
+
+**Manual:**
+```bash
+cd src/php
 php bot.php
-# Presiona Ctrl+A, luego D para salir de la pantalla sin detener el bot
 ```
 
-### 2. Iniciar el Servidor WebSocket
-Necesario para que el dashboard reciba datos en tiempo real sin recargar la página.
+### Entrenar Modelos ML
 
 ```bash
-nohup php websocket_server.php > logs/websocket.log 2>&1 &
+cd src/python
+python train_ml_weights.py
+python train_volatility_ridge.py
 ```
 
-> **Nota**: Asegúrate de que el puerto del WebSocket (por defecto 8090) esté abierto en tu firewall o configurado correctamente en tu hosting.
+### Acceder a la Interfaz Web
 
-### 3. Acceder al Dashboard
-Abre tu navegador y ve a `http://tudominio.com/index.php`. Verás el panel de control con toda la información en tiempo real.
+Abrir en el navegador: `http://localhost/index.php`
 
-## ⚙️ Configuración
+## 📖 Documentación
 
-La configuración principal se gestiona desde la interfaz web o directamente en la base de datos (tabla `configuraciones`). Los parámetros clave incluyen:
+| Documento | Descripción |
+|-----------|-------------|
+| [INSTALACION.md](docs/INSTALACION.md) | Guía completa de instalación |
+| [ESTRUCTURA.md](docs/ESTRUCTURA.md) | Estructura del proyecto |
+| [IMPLEMENTACION_COMPLETA.md](docs/IMPLEMENTACION_COMPLETA.md) | Detalles de implementación |
+| [REDIS_CACHE.md](docs/REDIS_CACHE.md) | Configuración de Redis |
+| [SECURITY_MIGRATION.md](docs/SECURITY_MIGRATION.md) | Migración de seguridad |
+| [README_SYSTEMD.md](systemd/README_SYSTEMD.md) | Configuración de systemd |
 
-- **Símbolo**: Par de trading (ej. `BTCUSDT`).
-- **Rango de Grid**: Precio mínimo y máximo para operar.
-- **Número de Órdenes**: Cantidad de niveles de compra/venta.
-- **Inversión por Orden**: Cantidad USDT a utilizar en cada nivel.
-- **Indicadores**: Activación y parámetros de EMA, RSI y MACD.
-- **Stop Loss / Take Profit**: Niveles de seguridad globales.
+## 🔧 Configuración
 
-## 📁 Estructura de Archivos
+El archivo principal de configuración es `config/config.json`:
+
+```json
+{
+  "database": {
+    "host": "localhost",
+    "name": "grid_bot",
+    "user": "grid_user",
+    "password": "your_password"
+  },
+  "mt5": {
+    "path": "/path/to/mt5",
+    "symbol": "EURUSD",
+    "timeframe": "M15"
+  },
+  "grid": {
+    "levels": 10,
+    "distance": 0.001,
+    "lot_size": 0.01
+  },
+  "ml": {
+    "enabled": true,
+    "model_path": "data/models/"
+  }
+}
+```
+
+## 🧪 Testing
+
+```bash
+cd src/php
+php test_config.php
+
+cd src/python
+python test_ml_models.py
+```
+
+## 📊 Arquitectura
 
 ```
-/
-├── bot.php                 # Núcleo del bot de trading
-├── websocket_server.php    # Servidor para datos en tiempo real
-├── index.php               # Panel de control (Dashboard)
-├── install.php             # Instalador web automático
-├── install.sql             # Esquema de base de datos
-├── .env                    # Archivo de configuración (generado)
-├── .env.example            # Ejemplo de configuración
-├── INSTALACION.md          # Guía detallada de instalación
-└── logs/                   # Carpeta para registros de actividad
+┌─────────────────┐     ┌──────────────┐     ┌─────────────┐
+│   MetaTrader 5  │◄───►│  Bot PHP     │◄───►│  MySQL DB   │
+│   (EA MQL5)     │     │  (Core)      │     │             │
+└─────────────────┘     └──────┬───────┘     └─────────────┘
+                               │
+                        ┌──────▼───────┐
+                        │   Redis      │
+                        │   Cache      │
+                        └──────┬───────┘
+                               │
+                        ┌──────▼───────┐
+                        │  WebSocket   │
+                        │   Server     │
+                        └──────┬───────┘
+                               │
+                        ┌──────▼───────┐
+                        │  Frontend    │
+                        │  (Web UI)    │
+                        └──────────────┘
+                               ▲
+                        ┌──────┴───────┐
+                        │  Python ML   │
+                        │  Training    │
+                        └──────────────┘
 ```
 
-## 🔒 Seguridad
+## 🤝 Contribuir
 
-- Las claves de API se guardan en el archivo `.env` fuera del acceso público directo (si es posible) o protegidas por el instalador.
-- El instalador web debe eliminarse tras su uso.
-- Se recomienda usar claves de API con permisos limitados solo a "Trading" (sin retiros 
-- Los logs no deben exponer información sensible en entornos públicos.
-
-## 🆘 Solución de Problemas
-
-- **El bot no inicia**: Revisa los permisos de ejecución de PHP y la ruta del archivo `bot.php`. Verifica el archivo `logs/bot.log` para errores.
-- **Error de conexión a Bybit**: Comprueba que tu API Key y Secret sean correctos y tengan permisos de trading. Verifica que la IP del servidor no esté bloqueada en Bybit.
-- **El dashboard no muestra datos en tiempo real**: Asegúrate de que `websocket_server.php` esté ejecutándose y que el puerto correspondiente esté abierto. Revisa `logs/websocket.log`.
-- **Errores de base de datos**: Verifica las credenciales en `.env` y que el usuario tenga privilegios sobre la base de datos.
+1. Fork el proyecto
+2. Crea una rama (`git checkout -b feature/nueva-funcionalidad`)
+3. Commit tus cambios (`git commit -am 'Añadir nueva funcionalidad'`)
+4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
+5. Abre un Pull Request
 
 ## 📄 Licencia
 
-Este proyecto es de uso personal. Úsalo bajo tu propia responsabilidad. El trading de criptomonedas implica riesgos significativos.
+Este proyecto está bajo la licencia MIT. Ver [LICENSE](docs/LICENSE) para más detalles.
 
-## 🤝 Contribuciones
+## ⚠️ Descargo de Responsabilidad
 
-Las mejoras y reportes de errores son bienvenidos. Por favor, revisa la documentación antes de sugerir cambios.
+**ADVERTENCIA**: El trading de divisas y CFDs conlleva un alto nivel de riesgo y puede no ser adecuado para todos los inversores. El uso de este software es bajo tu propia responsabilidad. Nunca inviertas dinero que no puedas permitirte perder.
+
+Este software se proporciona "TAL CUAL", sin garantía de ningún tipo.
+
+## 📞 Soporte
+
+Para problemas, preguntas o sugerencias:
+- Abrir un issue en el repositorio
+- Revisar la documentación existente
+- Verificar los logs en `data/logs/`
 
 ---
-**Versión**: 15.4 (Optimizada)
-**Última actualización**: 2024
+
+**Versión**: 2.0  
+**Última actualización**: 2024  
+**Desarrollado con ❤️ para traders**
