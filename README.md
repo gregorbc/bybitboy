@@ -112,7 +112,7 @@ La configuración principal se gestiona desde la interfaz web o directamente en 
 
 - Las claves de API se guardan en el archivo `.env` fuera del acceso público directo (si es posible) o protegidas por el instalador.
 - El instalador web debe eliminarse tras su uso.
-- Se recomienda usar claves de API con permisos limitados solo a "Trading" (sin retiros).
+- Se recomienda usar claves de API con permisos limitados solo a "Trading" (sin retiros 
 - Los logs no deben exponer información sensible en entornos públicos.
 
 ## 🆘 Solución de Problemas
