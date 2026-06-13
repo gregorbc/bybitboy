@@ -9,8 +9,14 @@ __pycache__/
 .env.local
 *.env.*
 
-# Logs
+# Logs and temp files
 *.log
+*.tmp
+*.swp
+
+# Editors
+.vscode/
+.idea/
 
 # Dependencies
 vendor/
