@@ -113,7 +113,8 @@ Abrir en el navegador: `http://localhost/index.php`
 
 | Documento | Descripción |
 |-----------|-------------|
-| [INSTALACION.md](docs/INSTALACION.md) | Guía completa de instalación |
+| [INSTALACION.md](docs/INSTALACION.md) | Guía completa de instalación (cPanel y genérico) |
+| [INSTALACION_HESTIA.md](docs/INSTALACION_HESTIA.md) | **Instalador web para HestiaCP** |
 | [ESTRUCTURA.md](docs/ESTRUCTURA.md) | Estructura del proyecto |
 | [IMPLEMENTACION_COMPLETA.md](docs/IMPLEMENTACION_COMPLETA.md) | Detalles de implementación |
 | [REDIS_CACHE.md](docs/REDIS_CACHE.md) | Configuración de Redis |
