@@ -24,7 +24,7 @@ function trimRecursive(array $arr): array {
     return $out;
 }
 $cfg = trimRecursive($cfg); $mc = $cfg['mysql'] ?? [];
-define('EXPORT_TOKEN', 'g273f123');
+define('EXPORT_TOKEN', getenv('SECURITY_TOKEN') ?: 'g273f123');
 $AI_INT   = (int)($cfg['bot']['ai_interval_sec'] ?? 120);
 $CAPITAL  = (int)($cfg['bot']['capital_usd']     ?? 20);
 $LEVERAGE = (int)($cfg['bot']['leverage']        ?? 100);
