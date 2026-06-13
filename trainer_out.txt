@@ -1,0 +1,5 @@
+📥 Descargando 40000 velas de ETHUSDT...
+✅ Descargadas 40000 velas.
+MAE = 0.0201%   R² = 0.8774   σ_error = 0.0310
+Prediction clips: lower=0.0856%  upper=0.3510%
+✅ Regresor Ridge guardado en volatility_weights_ridge.json
