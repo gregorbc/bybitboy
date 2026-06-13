@@ -254,9 +254,16 @@ function dbInit() {
 }
 
 // ════════════════════════════════════════════════════════
-// 7. INDICADORES TÉCNICOS
+// 7. INDICADORES TÉCNICOS OPTIMIZADOS
 // ════════════════════════════════════════════════════════
+// Caché estática para indicadores calculados recientemente
+$_IND_CACHE = [];
+
 function ema($v, $p) {
+    static $cache = [];
+    $key = md5(serialize(array_slice($v, -50)) . '_' . $p);
+    if (isset($cache[$key])) return $cache[$key];
+    
     $n = count($v); if ($n === 0 || $p <= 0) return [];
     $r = array_fill(0, min($p - 1, $n), null);
     if ($n < $p) return $r;
@@ -264,9 +271,17 @@ function ema($v, $p) {
     $e = array_sum(array_slice($v, 0, $p)) / $p;
     $r[] = $e;
     for ($i = $p; $i < $n; $i++) { $e = $v[$i] * $k + $e * (1 - $k); $r[] = $e; }
+    
+    if (count($cache) > 100) array_shift($cache);
+    $cache[$key] = $r;
     return $r;
 }
+
 function rsiLast($c, $p = 14) {
+    static $cache = [];
+    $key = md5(serialize(array_slice($c, -30)) . '_' . $p);
+    if (isset($cache[$key])) return $cache[$key];
+    
     $n = count($c); if ($n <= $p) return 50.0;
     $ag = $al = 0.0;
     for ($i = 1; $i <= $p; $i++) {
@@ -279,15 +294,28 @@ function rsiLast($c, $p = 14) {
         $ag = ($ag * ($p - 1) + max($d, 0)) / $p;
         $al = ($al * ($p - 1) + max(-$d, 0)) / $p;
     }
-    return $al == 0 ? 100.0 : round(100 - 100 / (1 + $ag / $al), 2);
+    $result = $al == 0 ? 100.0 : round(100 - 100 / (1 + $ag / $al), 2);
+    
+    if (count($cache) > 100) array_shift($cache);
+    $cache[$key] = $result;
+    return $result;
 }
+
 function macdHistLast($c) {
+    static $cache = [];
+    $key = md5(serialize(array_slice($c, -50)));
+    if (isset($cache[$key])) return $cache[$key];
+    
     $ef = ema($c, 12); $es = ema($c, 26); $ml = [];
     for ($i = 0; $i < count($ef); $i++)
         if ($ef[$i] !== null && $es[$i] !== null) $ml[] = $ef[$i] - $es[$i];
-    if (count($ml) < 9) return 0.0;
+    if (count($ml) < 9) { $cache[$key] = 0.0; return 0.0; }
     $sig = ema($ml, 9); $sv = end($sig); $vl = end($ml);
-    return round((float)($vl - ($sv !== false ? $sv : 0)), 8);
+    $result = round((float)($vl - ($sv !== false ? $sv : 0)), 8);
+    
+    if (count($cache) > 100) array_shift($cache);
+    $cache[$key] = $result;
+    return $result;
 }
 function emaTrend($c) {
     $e9 = ema($c, 9); $e21 = ema($c, 21); $e50 = ema($c, 50);

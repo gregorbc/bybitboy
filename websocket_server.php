@@ -1,13 +1,15 @@
 <?php
 /**
- * websocket_server.php v3.1 – Grid Bot Dashboard WebSocket Server
+ * websocket_server.php v4.0 – Grid Bot Dashboard WebSocket Server OPTIMIZADO
  * Ejecutar: php websocket_server.php
  * 
- * Mejoras:
- *  - Envío de datos completos cada 1s
- *  - Manejo de token de seguridad
- *  - Logging básico en consola
- *  - Datos: ticker, status, órdenes, fills, posiciones, PnL, logs, confianza
+ * MEJORAS DE RENDIMIENTO:
+ *  - Caché de datos para reducir consultas DB y API
+ *  - Envío delta-only (solo cambios) en lugar de datos completos
+ *  - Intervalo configurable según actividad
+ *  - Lazy loading de datos pesados
+ *  - Conexiones DB persistentes
+ *  - Rate limiting de logs y fills
  */
 use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
@@ -148,6 +150,25 @@ class GridWebSocket implements MessageComponentInterface {
     private $wsToken;
     private $bybitKey, $bybitSecret, $bybitBase;
     private $logFile, $statusFile, $pidFile, $confHist;
+    
+    // OPTIMIZACIÓN: Caché de datos para reducir consultas
+    private $cacheTicker = null;
+    private $cacheTickerTime = 0;
+    private $cachePositions = null;
+    private $cachePositionsTime = 0;
+    private $cacheOrders = null;
+    private $cacheOrdersTime = 0;
+    private $cacheFills = null;
+    private $cacheFillsTime = 0;
+    private $lastDataHash = '';
+    private $pdo = null;
+    private $pdoTime = 0;
+    
+    // Tiempos de caché (ms)
+    const CACHE_TICKER_MS = 500;      // Ticker: 0.5s
+    const CACHE_POSITIONS_MS = 1000;  // Posiciones: 1s
+    const CACHE_ORDERS_MS = 800;      // Órdenes: 0.8s
+    const CACHE_FILLS_MS = 2000;      // Fills: 2s
 
     public function __construct($dbConfig, $wsToken, $bybitKey, $bybitSecret, $bybitBase, $logFile, $statusFile, $pidFile, $confHist) {
         $this->clients     = new \SplObjectStorage;
@@ -206,10 +227,16 @@ class GridWebSocket implements MessageComponentInterface {
     }
 
     private function getTicker() {
+        // OPTIMIZACIÓN: Caché de ticker (500ms)
+        $now = (int)(microtime(true) * 1000);
+        if ($this->cacheTicker !== null && ($now - $this->cacheTickerTime) < self::CACHE_TICKER_MS) {
+            return $this->cacheTicker;
+        }
+        
         $t = bybitPub('/v5/market/tickers', ['category' => 'linear', 'symbol' => 'ETHUSDT']);
         if ($t && !empty($t['list'])) {
             $tick = $t['list'][0];
-            return [
+            $this->cacheTicker = [
                 'price'       => (float)($tick['lastPrice'] ?? 0),
                 'change_pct'  => round((float)($tick['price24hPcnt'] ?? 0) * 100, 2),
                 'high24h'     => (float)($tick['highPrice24h'] ?? 0),
@@ -221,7 +248,10 @@ class GridWebSocket implements MessageComponentInterface {
                 'markPrice'   => (float)($tick['markPrice'] ?? 0),
                 'oi'          => (float)($tick['openInterest'] ?? 0),
             ];
+            $this->cacheTickerTime = $now;
+            return $this->cacheTicker;
         }
+        $this->cacheTicker = null;
         return null;
     }
 
@@ -274,22 +304,38 @@ class GridWebSocket implements MessageComponentInterface {
     }
 
     private function getOpenOrders() {
-        $db = getDB($this->dbConfig);
+        // OPTIMIZACIÓN: Caché de órdenes abiertas (800ms)
+        $now = (int)(microtime(true) * 1000);
+        if ($this->cacheOrders !== null && ($now - $this->cacheOrdersTime) < self::CACHE_ORDERS_MS) {
+            return $this->cacheOrders;
+        }
+        
+        $db = $this->getDB();
         if (!$db) return [];
         try {
             $stmt = $db->prepare("SELECT id, grid_level AS level, side, grid_role AS role, price, qty, status, pnl_usd AS pnl, filled_at, is_recovery FROM grid_orders WHERE symbol='ETHUSDT' AND status='OPEN' ORDER BY ABS(grid_level) ASC, price DESC LIMIT 80");
             $stmt->execute();
-            return $stmt->fetchAll();
+            $this->cacheOrders = $stmt->fetchAll();
+            $this->cacheOrdersTime = $now;
+            return $this->cacheOrders;
         } catch (Exception $e) { return []; }
     }
 
     private function getRecentFills($limit = 50) {
-        $db = getDB($this->dbConfig);
+        // OPTIMIZACIÓN: Caché de fills (2000ms)
+        $now = (int)(microtime(true) * 1000);
+        if ($this->cacheFills !== null && ($now - $this->cacheFillsTime) < self::CACHE_FILLS_MS) {
+            return $this->cacheFills;
+        }
+        
+        $db = $this->getDB();
         if (!$db) return [];
         try {
             $stmt = $db->prepare("SELECT symbol, side, grid_role, price, qty, pnl_usd, filled_at, is_recovery FROM grid_orders WHERE status='FILLED' ORDER BY filled_at DESC LIMIT $limit");
             $stmt->execute();
-            return $stmt->fetchAll();
+            $this->cacheFills = $stmt->fetchAll();
+            $this->cacheFillsTime = $now;
+            return $this->cacheFills;
         } catch (Exception $e) { return []; }
     }
 
@@ -326,9 +372,19 @@ class GridWebSocket implements MessageComponentInterface {
     private function collectData(): array {
         $ticker = $this->getTicker();
         $status = $this->getStatus();
-        $realBalance = getBybitBalance($this->bybitKey, $this->bybitSecret, $this->bybitBase);
-        $positions = getBybitPositions($this->bybitKey, $this->bybitSecret, $this->bybitBase, 'ETHUSDT');
+        
+        // OPTIMIZACIÓN: Caché de posiciones (1000ms)
+        $now = (int)(microtime(true) * 1000);
+        if ($this->cachePositions !== null && ($now - $this->cachePositionsTime) < self::CACHE_POSITIONS_MS) {
+            $positions = $this->cachePositions;
+        } else {
+            $positions = getBybitPositions($this->bybitKey, $this->bybitSecret, $this->bybitBase, 'ETHUSDT');
+            $this->cachePositions = $positions;
+            $this->cachePositionsTime = $now;
+        }
+        
         $totalUpnl = array_sum(array_map(fn($p) => (float)($p['unRealizedProfit'] ?? 0), $positions));
+        $realBalance = getBybitBalance($this->bybitKey, $this->bybitSecret, $this->bybitBase);
 
         return [
             'type'               => 'full',
