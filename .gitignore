@@ -1,25 +1,41 @@
 ```
-# Cache and temporary files
-*.pyc
-__pycache__/
+# Logs and temporary files
+*.log
 *.tmp
+*.pid
+*.pkl
+
+# Compiled MT5 files
+*.ex5
+
+# Cache and compiled Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Configuration backups
+*.json.backup*
+
+# Dependencies and build artifacts
+node_modules/
+venv/
+.venv/
+dist/
+build/
+target/
+.gradle/
 
 # Environment files
 .env
 .env.local
-*.env.*
+.env.*
 
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-
-# Editors
+# Editor/IDE files
 .vscode/
 .idea/
-
-# Dependencies
-vendor/
+*.swp
+*.swo
 
 # System files
 .DS_Store
@@ -30,9 +46,9 @@ coverage/
 htmlcov/
 .coverage
 
-# IDE specific
-.vscode/
-.idea/
-*.swp
-*.swo
+# MyPy cache
+.mypy_cache/
+
+# PyTest cache
+.pytest_cache/
 ```
