@@ -1,74 +1,45 @@
-```
-# Environment variables
+```bash
+# Environment
 .env
 .env.local
 .env.*
 
-# Logs
+# Logs and temp files
 *.log
+*.tmp
 
 # Dependencies
 node_modules/
-vendor/
-
-# Build artifacts
-dist/
-build/
-target/
-
-# Python
+venv/
+.venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-env/
-venv/
-.venv/
-.eggs/
-.egg-info/
-*.egg-info/
 
-# PHP
-*.phar
-vendor/
+# Build artifacts
+dist/
+build/
+*.so
+*.dylib
+*.dll
 
-# OS generated files
-.DS_Store
-Thumbs.db
-ehthumbs.db
-Icon?
-.directory
-.Trashes
-*.nib
-*~
-.DS_Store?
-._*
-
-# Temporary files
-*.tmp
-*.temp
-*.bak
-*.backup
-*.swp
-*.swo
-
-# IDE
+# Editors
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Cache
-.cache/
-*.cache
-.mypy_cache/
-.pytest_cache/
-.coverage
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
 coverage/
 htmlcov/
+.coverage
 
-# Compressed files
+# Compression
 *.zip
 *.gz
 *.tar
