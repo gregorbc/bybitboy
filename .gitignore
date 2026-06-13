@@ -1,8 +1,13 @@
 ```
+# Cache and temporary files
+*.pyc
+__pycache__/
+*.tmp
+
 # Environment files
 .env
 .env.local
-.env.*
+*.env.*
 
 # Logs and temp files
 *.log
@@ -14,16 +19,20 @@
 .idea/
 
 # Dependencies
-node_modules/
 vendor/
-composer.lock
 
-# OS generated files
+# System files
 .DS_Store
 Thumbs.db
 
-# Backup files
-*~
-*.bak
-*.backup
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
 ```
