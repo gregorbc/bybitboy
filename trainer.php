@@ -15,7 +15,25 @@ define('TRAIN_VOL_PY', PUBHTML . '/train_volatility_ridge.py');
 define('TRAIN_LOG', PUBHTML . '/trainer_history.json');
 define('PID_FILE', PUBHTML . '/trainer.pid');
 define('OUT_FILE', PUBHTML . '/trainer_out.txt');
-define('EXPORT_TOKEN', 'g273f123');
+define('EXPORT_TOKEN', getenv('SECURITY_TOKEN') ?: 'g273f123');
+
+/* ── Helpers de sanitización ── */
+function sanitizeInput($input, $type = 'string') {
+    if ($input === null) return null;
+    
+    switch ($type) {
+        case 'int':
+            return filter_var($input, FILTER_VALIDATE_INT) ?: 0;
+        case 'float':
+            return filter_var($input, FILTER_VALIDATE_FLOAT) ?: 0.0;
+        case 'symbol':
+            return strtoupper(preg_replace('/[^A-Z0-9]/', '', (string)$input));
+        case 'bool':
+            return filter_var($input, FILTER_VALIDATE_BOOLEAN);
+        default:
+            return htmlspecialchars(trim((string)$input), ENT_QUOTES, 'UTF-8');
+    }
+}
 
 /* ── Security token ── */
 $token = $_GET['token'] ?? $_POST['token'] ?? '';
@@ -82,10 +100,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         }
         
-        $type = $_POST['train_type'] ?? 'classifier';
-        $symbol = preg_replace('/[^A-Z0-9]/', '', strtoupper($_POST['symbol'] ?? 'ETHUSDT'));
-        $horizon = max(1, min(24, (int)($_POST['horizon'] ?? 4)));
-        $candles = max(5000, min(60000, (int)($_POST['candles'] ?? 40000)));
+        $type = sanitizeInput($_POST['train_type'] ?? 'classifier');
+        $symbol = sanitizeInput($_POST['symbol'] ?? 'ETHUSDT', 'symbol');
+        $horizon = sanitizeInput($_POST['horizon'] ?? 4, 'int');
+        $horizon = max(1, min(24, $horizon));
+        $candles = sanitizeInput($_POST['candles'] ?? 40000, 'int');
+        $candles = max(5000, min(60000, $candles));
         
         // Verificar existencia del script adecuado
         if ($type === 'classifier') {
@@ -93,9 +113,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 echo json_encode(['ok' => false, 'msg' => 'train_ml_weights.py no encontrado en ' . PUBHTML]);
                 exit;
             }
-            $up_thr = max(0.1, min(2.0, (float)($_POST['up_thr'] ?? 0.5)));
-            $down_thr = max(0.1, min(2.0, (float)($_POST['down_thr'] ?? 0.5)));
-            $c_reg = max(0.01, min(5.0, (float)($_POST['c_reg'] ?? 0.1)));
+            $up_thr = sanitizeInput($_POST['up_thr'] ?? 0.5, 'float');
+            $up_thr = max(0.1, min(2.0, $up_thr));
+            $down_thr = sanitizeInput($_POST['down_thr'] ?? 0.5, 'float');
+            $down_thr = max(0.1, min(2.0, $down_thr));
+            $c_reg = sanitizeInput($_POST['c_reg'] ?? 0.1, 'float');
+            $c_reg = max(0.01, min(5.0, $c_reg));
             // Forzar modelo logistic (evitar randomforest que da pesos planos)
             $model = 'logistic';
             
@@ -115,7 +138,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 echo json_encode(['ok' => false, 'msg' => 'train_volatility_ridge.py no encontrado en ' . PUBHTML]);
                 exit;
             }
-            $alpha = max(0.01, min(10.0, (float)($_POST['c_reg_vol'] ?? 1.0)));
+            $alpha = sanitizeInput($_POST['c_reg_vol'] ?? 1.0, 'float');
+            $alpha = max(0.01, min(10.0, $alpha));
             // Nota: train_volatility_ridge.py acepta --horizon y --alpha
             $cmd = "cd " . escapeshellarg(PUBHTML) .
                    " && " . escapeshellarg('python3') . " " . escapeshellarg(TRAIN_VOL_PY) .

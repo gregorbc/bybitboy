@@ -10,6 +10,7 @@
  *  - Verificación de token en _control
  *  - Respuestas consistentes y manejo de errores
  *  - Soporte para WebSocket (token opcional)
+ *  - Sanitización de inputs
  */
 error_reporting(0);
 ini_set('display_errors', '0');
@@ -17,6 +18,8 @@ header('Access-Control-Allow-Origin: *');
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-cache, no-store, must-revalidate');
 header('X-Bot-Version: 15.4');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
 
 // Cargar configuración: private/ primero (fuera de HTTP), luego public_html/
 $_cfgOpts = [dirname(__DIR__) . '/private/config.json', __DIR__ . '/config.json'];
@@ -39,12 +42,12 @@ $ctrlFile    = $cfg['paths']['ctrl'] ?? (dirname($configPath) . '/grid_control.j
 $confHist    = $cfg['paths']['conf_hist'] ?? (dirname($configPath) . '/grid_confidence.json');
 $statusFile  = $cfg['paths']['status'] ?? (dirname($configPath) . '/grid_status.json');
 $mlWeightsFile = $cfg['ml']['weights_file'] ?? (__DIR__ . '/ml_weights_v2.json');
-$bybitKey    = $cfg['bybit']['api_key']    ?? '';
-$bybitSecret = $cfg['bybit']['api_secret'] ?? '';
-$bybitTest   = (bool)($cfg['bybit']['testnet'] ?? false);
+$bybitKey    = $cfg['bybit']['api_key']    ?? getenv('BYBIT_API_KEY') ?: '';
+$bybitSecret = $cfg['bybit']['api_secret'] ?? getenv('BYBIT_API_SECRET') ?: '';
+$bybitTest   = (bool)($cfg['bybit']['testnet'] ?? filter_var(getenv('BYBIT_TESTNET'), FILTER_VALIDATE_BOOLEAN));
 $bybitBase   = $bybitTest ? 'https://api-demo.bybit.com' : 'https://api.bybit.com';
 $pubBase     = 'https://api.bybit.com';
-$requiredToken = $cfg['security_token'] ?? '';
+$requiredToken = $cfg['security_token'] ?? getenv('SECURITY_TOKEN') ?: '';
 
 // ─── Helpers ───────────────────────────────────────────
 function checkToken(): bool {
