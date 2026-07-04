@@ -1288,6 +1288,10 @@ class GridManager {
         }
                 $this->checkFills($price);
                 $this->riskCheck($price);
+                
+                // Trailing stop management for trend modes
+                $this->manageTrailingStops($price);
+                
                 $this->profitOptimize($price);
                 $this->breakoutCheck($price);
                 if ($this->cycleN % 5 === 0) $this->writeStatus($price);
@@ -2177,6 +2181,118 @@ class GridManager {
 }
 
 // ════════════════════════════════════════════════════════
+// 12. TRAILING STOP MANAGEMENT FOR TREND MODES
+// ════════════════════════════════════════════════════════
+    private $trendPeakPrice = 0;
+    private $trendEntryPrice = 0;
+    private $trendPositionSide = null; // 'LONG' o 'SHORT'
+    private $trendStopPercent = 0.02; // 2% trailing stop
+
+    private function manageTrailingStops($currentPrice) {
+        $mode = isset($this->cfg['mode']) ? $this->cfg['mode'] : 'SIDEWAYS';
+        
+        if ($mode === 'SIDEWAYS') {
+            // Reset tracking when in sideways mode
+            $this->trendPeakPrice = 0;
+            $this->trendEntryPrice = 0;
+            $this->trendPositionSide = null;
+            return;
+        }
+        
+        // Get current position
+        $positions = $this->api->positions(G_SYM);
+        $hasPosition = false;
+        $positionSide = null;
+        $entryPrice = 0;
+        
+        foreach ($positions as $p) {
+            $sz = abs($p['positionAmt'] ?? ($p['size'] ?? 0));
+            if ($sz > 0.001) {
+                $hasPosition = true;
+                $positionSide = ($p['side'] === 'Buy' || $p['side'] === 'LONG') ? 'LONG' : 'SHORT';
+                $entryPrice = $p['entryPrice'] ?? $p['avgPrice'] ?? 0;
+                break;
+            }
+        }
+        
+        if (!$hasPosition) {
+            // No position, reset tracking
+            $this->trendPeakPrice = 0;
+            $this->trendEntryPrice = 0;
+            $this->trendPositionSide = null;
+            return;
+        }
+        
+        // Update peak price
+        if ($this->trendPeakPrice == 0) {
+            $this->trendPeakPrice = $currentPrice;
+            $this->trendEntryPrice = $entryPrice;
+            $this->trendPositionSide = $positionSide;
+            lI("[TREND] Trailing stop iniciado: entry=$entryPrice, side=$positionSide");
+        }
+        
+        // Update peak based on position side
+        if ($positionSide === 'LONG' && $currentPrice > $this->trendPeakPrice) {
+            $this->trendPeakPrice = $currentPrice;
+            lI("[TREND] Nuevo peak LONG: $this->trendPeakPrice");
+        } elseif ($positionSide === 'SHORT' && $currentPrice < $this->trendPeakPrice) {
+            $this->trendPeakPrice = $currentPrice;
+            lI("[TREND] Nuevo peak SHORT: $this->trendPeakPrice");
+        }
+        
+        // Check if trailing stop is hit
+        $stopHit = false;
+        if ($positionSide === 'LONG') {
+            $dropPct = ($this->trendPeakPrice - $currentPrice) / $this->trendPeakPrice;
+            if ($dropPct >= $this->trendStopPercent) {
+                lI("[TREND] Trailing stop LONG activado: drop=" . round($dropPct * 100, 2) . "%");
+                $stopHit = true;
+            }
+        } else { // SHORT
+            $risePct = ($currentPrice - $this->trendPeakPrice) / $this->trendPeakPrice;
+            if ($risePct >= $this->trendStopPercent) {
+                lI("[TREND] Trailing stop SHORT activado: rise=" . round($risePct * 100, 2) . "%");
+                $stopHit = true;
+            }
+        }
+        
+        if ($stopHit) {
+            $this->closeTrendPosition($currentPrice, 'trailing_stop');
+        }
+    }
+
+    private function closeTrendPosition($price, $reason = 'trailing_stop') {
+        lI("[TREND] Cerrando posición trending (razón: $reason)");
+        
+        // Cancel all orders first
+        $this->api->cancelAll(G_SYM);
+        usleep(500000); // 0.5s
+        
+        // Close all positions
+        $this->closeAllPositions();
+        
+        // Reset grid
+        $this->gridBuilt = false;
+        $this->lastGridBuild = 0;
+        
+        // Reset tracking
+        $this->trendPeakPrice = 0;
+        $this->trendEntryPrice = 0;
+        $this->trendPositionSide = null;
+        
+        // Log the exit in trade_journal if available
+        try {
+            dbx(function($d) use ($price, $reason) {
+                return $d->prepare("INSERT INTO trade_journal (symbol, side, entry_price, exit_price, pnl, tags, notes) VALUES (?, ?, ?, ?, ?, ?, ?)")
+                    ->execute([G_SYM, 'EXIT', $this->trendEntryPrice, $price, 0, json_encode(['trend_exit', $reason]), "Trend position closed via $reason");
+            });
+        } catch (Exception $e) {
+            lE("[TREND] Error logging trend exit: " . $e->getMessage());
+        }
+        
+        lI("[TREND] Posición trending cerrada. Reconstruyendo grilla...");
+    }
+
 // 13. BOOTSTRAP
 // ════════════════════════════════════════════════════════
 dbInit();
