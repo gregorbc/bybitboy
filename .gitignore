@@ -1,0 +1,8 @@
+config.json
+private/config.json
+grid_bot.pid
+*.log
+*_out.txt
+__pycache__/
+*.pyc
+.env

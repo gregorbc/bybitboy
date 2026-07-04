@@ -1,0 +1,42 @@
+XM MT5 Grid Bot v1.2 - ETHUSD | 30 USD | 100x
+================================================
+Dashboard:  http://localhost/grid/
+Trainer ML: http://localhost/grid/trainer.php
+
+ORDEN DE USO
+------------
+1. XAMPP: iniciar Apache + MySQL
+2. phpMyAdmin > SQL > importar backup.sql (o ejecutar setup_mysql.sql)
+3. Doble click en 1_INSTALAR.bat (como Administrador)
+4. Abrir MetaTrader 5 (logueado con XM)
+5. Doble click en 2_VERIFICAR.bat
+6. Doble click en 3_INICIAR_BOT.bat
+7. Opcional: 7_WEBSOCKET.bat en otra ventana (como Admin)
+
+CONTROLES
+---------
+3_INICIAR_BOT    Iniciar bot
+4_DETENER_BOT    Detener limpiamente
+5_RESET_GRID     Reconstruir grid
+6_FORCE_AI       Forzar re-evaluacion AI
+7_WEBSOCKET      WebSocket PHP puerto 8082 (opcional)
+8_ENTRENAR_ML    Re-entrenar modelos ML
+9_MONITOR        Monitor de posiciones en consola
+
+CORRECCIONES v1.2
+-----------------
+- grid_ajax.php: _ticker lee precio real de grid_status.json (bot.py)
+- grid_ajax.php: _pnl_float lee posiciones reales de grid_status.json
+- grid_ajax.php: _status incluye pnl_today, fills, orders, balance
+- grid_ajax.php: _ml_info calcula importancias reales de ml_weights_v2.json
+- index.php: AJAX polling actualiza precio, PnL, fills sin WebSocket
+- index.php: WS fallo no rompe el dashboard (fallback a AJAX automatico)
+- index.php: WS reconexion cada 15s en vez de 3s (menos ruido en log)
+- bot.py: escribe PID file al iniciar (dashboard detecta si corre)
+- bot.py: logger forzado (siempre escribe bot_xm.log)
+
+NOTA WS
+-------
+El dashboard funciona SIN WebSocket via AJAX polling cada 3 segundos.
+El WebSocket (7_WEBSOCKET.bat) da actualizaciones cada 1 segundo
+pero es opcional. Si da errores de permisos ejecutar como Administrador.

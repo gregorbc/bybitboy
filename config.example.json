@@ -1,0 +1,51 @@
+{
+  "exchange": "bybit",
+  "bybit": {
+    "api_key": "TU_API_KEY",
+    "api_secret": "TU_API_SECRET",
+    "testnet": true
+  },
+  "mt5": {
+    "login": 0,
+    "password": "",
+    "server": "XMGlobal-MT5 3"
+  },
+  "bot": {
+    "symbol": "ETHUSDT",
+    "capital_usd": 30,
+    "leverage": 100,
+    "timeframe": "5",
+    "candles_feed": 150,
+    "cycle_sec": 8,
+    "ai_interval_sec": 120,
+    "levels": 16,
+    "long_levels": 8,
+    "short_levels": 8
+  },
+  "ml": {
+    "weights_file": "ml_weights_v2.json",
+    "min_confidence": 45
+  },
+  "nvidia": {
+    "api_key": "",
+    "enabled": false,
+    "interval_sec": 480
+  },
+  "mysql": {
+    "host": "localhost",
+    "dbname": "erika_bot",
+    "user": "root",
+    "password": ""
+  },
+  "paths": {
+    "log": "bot.log",
+    "web_dir": ".",
+    "config_dir": "private",
+    "status": "private/grid_status.json",
+    "pid": "grid_bot.pid",
+    "conf_hist": "private/grid_confidence.json",
+    "ctrl": "private/grid_control.json"
+  },
+  "security_token": "CAMBIAR_TOKEN",
+  "ws_token": "CAMBIAR_WS_TOKEN"
+}
