@@ -703,7 +703,7 @@ class GridML {
         $features = [];
         foreach ($this->featureNames as $feat) {
             switch ($feat) {
-                case 'rsi_14':         $features[$feat] = rsiLast($cl); break;
+
                 case 'stoch_14':       $features[$feat] = stochLast($candles); break;
                 case 'macd_hist':      $features[$feat] = macdHistLast($cl); break;
                 case 'ema_diff_9_21':
@@ -1471,8 +1471,53 @@ class GridManager {
         
         $maxIdx = (int)array_search(max($blended), $blended);
         $classes = ['DOWN', 'SIDEWAYS', 'UP'];
-        $direction = $classes[$maxIdx];
-        $confidence = (int)round($blended[$maxIdx] * 100);
+        $rawDirection = $classes[$maxIdx];
+        $rawConfidence = (int)round($blended[$maxIdx] * 100);
+        
+        // --- DUAL CONFIRMATION PARA MODOS TRENDING ---
+        $prevMode = isset($this->cfg['mode']) ? $this->cfg['mode'] : 'SIDEWAYS';
+        $mode = $prevMode;
+        $direction = $rawDirection;
+        $confidence = $rawConfidence;
+        
+        // Thresholds para activación de modos trending
+        $TREND_ML_CONF = 70;      // ML confidence >= 70%
+        $TREND_H_SCORE = 1.0;     // hScore >= 1.0 (o <= -1.0)
+        $TREND_STRONG_H = 1.5;    // hScore >= 1.5 para override fuerte
+        
+        // Determinar si hay confirmación dual para trending
+        $upConfirmed = ($rawDirection === 'UP' && $rawConfidence >= $TREND_ML_CONF && $hScore >= $TREND_H_SCORE);
+        $downConfirmed = ($rawDirection === 'DOWN' && $rawConfidence >= $TREND_ML_CONF && $hScore <= -$TREND_H_SCORE);
+        
+        // Log de estado de confirmación
+        if ($upConfirmed) {
+            lI("[AI] Dual confirm UP: ML=$rawDirection (conf=$rawConfidence%) + hScore=$hScore");
+        } elseif ($downConfirmed) {
+            lI("[AI] Dual confirm DOWN: ML=$rawDirection (conf=$rawConfidence%) + hScore=$hScore");
+        }
+        
+        // Lógica de cambio de modo
+        if ($upConfirmed) {
+            if ($prevMode !== 'UP_TREND') {
+                lI("[AI] Activando modo UP_TREND (dual confirm)");
+                $mode = 'UP_TREND';
+            }
+        } elseif ($downConfirmed) {
+            if ($prevMode !== 'DOWN_TREND') {
+                lI("[AI] Activando modo DOWN_TREND (dual confirm)");
+                $mode = 'DOWN_TREND';
+            }
+        } else {
+            // Si estamos en modo trending pero ya no hay confirmación
+            if ($prevMode !== 'SIDEWAYS') {
+                lI("[AI] Revirtiendo a SIDEWAYS (trend lost)");
+                $mode = 'SIDEWAYS';
+                $direction = 'SIDEWAYS';
+                $confidence = 50;
+            }
+        }
+        
+        $this->currentMode = $mode;
         
         // --- PERSISTENCIA DE DIRECCIÓN (cambio solo tras 2 ciclos consecutivos) ---
         $prevDir = isset($this->cfg['direction']) ? $this->cfg['direction'] : 'SIDEWAYS';
@@ -1551,9 +1596,9 @@ class GridManager {
         $reason = sprintf("ML:%s(%d%%) H:%.1f Blend:%s(%d%%) acc=%.0f%% VolPred=%.2f%%",
             $mlResult['direction'], $mlResult['confidence'], $hScore, $direction, $confidence, $mlAcc * 100, $atr_predicho);
         
-        dbx(function($d) use ($direction, $confidence, $reason, $levels, $spacing, $longLev, $shortLev, $qty, $f, $mlAcc) {
-            return $d->prepare("UPDATE grid_configs SET direction=?,confidence=?,ai_reason=?,last_ai_check=NOW(),levels=?,spacing_pct=?,long_levels=?,short_levels=?,qty_per_level=?,pp=?,qp=?,ml_accuracy=? WHERE symbol=?")
-                ->execute([$direction, $confidence, $reason, $levels, $spacing, $longLev, $shortLev, $qty, $f['pp'], $f['qp'], $mlAcc, G_SYM]);
+        dbx(function($d) use ($direction, $confidence, $mode, $reason, $levels, $spacing, $longLev, $shortLev, $qty, $f, $mlAcc) {
+            return $d->prepare("UPDATE grid_configs SET direction=?,confidence=?,mode=?,ai_reason=?,last_ai_check=NOW(),levels=?,spacing_pct=?,long_levels=?,short_levels=?,qty_per_level=?,pp=?,qp=?,ml_accuracy=? WHERE symbol=?")
+                ->execute([$direction, $confidence, $mode, $reason, $levels, $spacing, $longLev, $shortLev, $qty, $f['pp'], $f['qp'], $mlAcc, G_SYM]);
         });
         $this->cfg = dbx(function($d) { return $d->query("SELECT * FROM grid_configs WHERE symbol='" . G_SYM . "' LIMIT 1")->fetch(); });
         $this->lastAI = time();

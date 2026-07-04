@@ -1,0 +1,13 @@
+TODO list for ML model improvements:
+
+1. Drop 'rsi_14' feature:
+   - Remove from ml_weights_v2.json
+   - Remove usage in bot.php
+2. Update retraining configuration in config.json:
+   - Enable auto_retrain_enabled
+   - Set daily retraining schedule to 03:00 UTC
+   - Set min_fills_required to 100
+3. Perform manual retraining using retrain.php
+4. Verify retraining process and new model weights
+5. Run tests
+6. Commit all changes
