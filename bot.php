@@ -1049,6 +1049,7 @@ class GridManager {
     
     private $last_atr_predicho = null;
     private $last_vl_result = null;
+    private $currentMode = 'SIDEWAYS';
     private $recentFillTimes = [];
     private $cascadeSpacing = 1.0;
     
