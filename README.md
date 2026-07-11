@@ -1,40 +1,152 @@
-# Grid Bot ETH/USDT
+# 🤖 Bybit Grid Bot v14.1 - ETH/USDT
 
-Proyecto completo para ejecutar un dashboard web, bot grid PHP/Bybit, variante Python/MT5, entrenamiento ML y WebSocket opcional.
+Bot de grid trading profesional para Bybit Futures con IA, gestión de riesgo, journal de trades y auto-reentrenamiento ML.
 
-## Instalacion rapida en Windows/XAMPP
+## 🚀 Características Principales
 
-1. Copia la carpeta del proyecto dentro de `htdocs`.
-2. Inicia Apache y MySQL desde XAMPP.
-3. Ejecuta `1_INSTALAR.bat`.
-4. Completa `install.php` con MySQL, Bybit/MT5 y tokens.
-5. Ejecuta `2_VERIFICAR.bat`.
-6. Abre `index.php` desde el navegador.
-7. Ejecuta `3_INICIAR_BOT.bat` para iniciar el bot.
+- **Grid Trading Adaptativo**: Spacing dinámico basado en ATR + predicción de volatilidad
+- **IA Híbrida**: ML (Logistic Regression) + Heurísticas + Regímenes de mercado (UP/DOWN/SIDEWAYS)
+- **RiskEngine**: VaR 95%, Kelly Criterion, Hard-stop 3% capital / 80% margen
+- **NotificationManager**: Alertas Telegram/Discord con rate-limiting
+- **Trade Journal**: Auto-población en EXIT fills, tags, notas, export CSV
+- **ML Auto-Retrain**: Pipeline walk-forward 70/30, deploy si accuracy mejora >1%
+- **Theme System**: Dark/Light mode con persistencia localStorage
+- **Keyboard Shortcuts**: h=help, t=theme, 1-5=tabs, Space=pause log, f=speed, Esc=close
 
-## Archivos principales
+## 📋 Requisitos
 
-- `install.php`: instalador web, genera configuracion y tablas MySQL.
-- `setup_mysql.sql`: esquema SQL importable manualmente.
-- `index.php`: dashboard.
-- `grid_ajax.php`: endpoints AJAX del dashboard.
-- `bot.php`: bot principal PHP para Bybit.
-- `grid_bot_mt5.py`: version Python/MetaTrader 5.
-- `trainer.php`: panel web de entrenamiento.
-- `websocket_server.php`: servidor WebSocket opcional.
-- `1_INSTALAR.bat` a `9_MONITOR.bat`: accesos rapidos Windows.
+- Docker 20+ y Docker Compose 2+
+- Puerto 8080 libre (web dashboard)
+- Cuenta Bybit (testnet/mainnet) con API keys
 
-## Requisitos
+## 🛠️ Despliegue Rápido
 
-- PHP 8.x con `pdo_mysql`, `curl`, `json` y `openssl`.
-- MySQL/MariaDB.
-- Python 3.10+ para entrenamiento y MT5.
-- Dependencias Python: `pip install -r requirements.txt`.
-- API key de Bybit para el bot PHP.
-- MetaTrader 5 instalado si usas `grid_bot_mt5.py`.
+```bash
+# 1. Clonar
+git clone https://github.com/gregorbc/bybitboy.git
+cd bybitboy
 
-## Seguridad
+# 2. Configurar variables
+cp .env.example .env
+# Editar .env con tus credenciales Bybit
 
-`config.json` contiene credenciales. No lo subas a repositorios publicos. Usa `config.example.json` como plantilla limpia.
+# 3. Levantar stack
+docker compose up -d --build
 
-En produccion, elimina o protege `install.php` despues de instalar.
+# 4. Verificar
+docker compose logs -f bot
+```
+
+## 🌐 Acceso
+
+| Servicio | URL |
+|----------|-----|
+| Dashboard | http://localhost:8080 |
+| API Endpoints | http://localhost:8080/grid_ajax.php |
+| Bot Logs | `docker compose logs -f bot` |
+
+## 🔧 Comandos Útiles
+
+```bash
+# Ver logs del bot
+docker compose logs -f bot
+
+# Reiniciar bot
+docker compose restart bot
+
+# Ejecutar reentrenamiento ML manual
+docker compose --profile tools run --rm retrain
+
+# Backup BD
+docker compose exec mysql mysqldump -u erika_bot -p erika_bot > backup.sql
+
+# Acceso shell al contenedor PHP
+docker compose exec php sh
+```
+
+## 📊 Dashboard Tabs
+
+1. **Stats** - KPIs sesión, métricas mercado, PnL charts
+2. **Posiciones** - 12 columnas: ROE, IM/MM, dist liq, ADL, tiempo, mark price
+3. **Fills** - Historial paginado con PnL
+4. **Journal** - Trade journal con tags, notas, export CSV
+5. **ML** - Accuracy, feature importance bars, last update
+6. **Log** - Logs en tiempo real con búsqueda y pausa
+
+## ⌨️ Atajos de Teclado
+
+| Tecla | Acción |
+|-------|--------|
+| `h` | Toggle help modal |
+| `t` | Toggle dark/light theme |
+| `1-5` | Cambiar tab (Stats→Log) |
+| `r` | Force refresh all data |
+| `Space` | Pause/resume log scroll |
+| `f` | Toggle fast/normal speed |
+| `Esc` | Close modals/drawers |
+
+## 🧠 ML Pipeline
+
+- **Features**: RSI, Stoch, MACD, EMA diff, ATR%, BB%, VWAP ratio, spread, momentum
+- **Model**: Logistic Regression (multinomial) + decision stumps ensemble
+- **Retrain**: Diario 03:00 UTC si hay >100 fills y accuracy mejora >1%
+- **Manual**: `docker compose --profile tools run --rm retrain`
+
+## 🛡️ Risk Management
+
+| Parámetro | Valor | Descripción |
+|-----------|-------|-------------|
+| Hard Stop Capital | 3% | Cierra todo si pérdida >3% capital |
+| Hard Stop Margin | 80% | Cierra si margen usado >80% |
+| Kelly Max Fraction | 0.25 | Tamaño máximo según Kelly |
+| VaR Confidence | 95% | Value at Risk diario |
+| Max Daily DD | 10% | Drawdown máximo diario |
+
+## 📁 Estructura
+
+```
+├── bot.php              # Bot principal (~2200 líneas)
+├── grid_ajax.php        # API endpoints (~850 líneas)
+├── index.php            # Dashboard SPA (~1500 líneas)
+├── retrain.php          # ML auto-retrain CLI
+├── config.json          # Configuración completa
+├── setup_mysql.sql      # Schema BD
+├── Dockerfile           # Imagen PHP 8.3 + extensiones
+├── docker-compose.yml   # Stack completo
+├── docker/nginx.conf    # Nginx config
+└── .env.example         # Variables de entorno
+```
+
+## 🔐 Seguridad
+
+- Testnet obligatorio hasta aprobación explícita
+- Tokens en `.env` (no en repo)
+- Rate-limiting en alertas (60s default)
+- No exponer puerto 3306 (MySQL solo interno)
+
+## 📈 Monitoreo
+
+```bash
+# Health check
+curl http://localhost:8080/grid_ajax.php?_status=1
+
+# PnL flotante
+curl http://localhost:8080/grid_ajax.php?_pnl_float=1
+
+# ML info
+curl http://localhost:8080/grid_ajax.php?_ml_info=1
+```
+
+## 🤝 Contribuir
+
+1. Fork → Feature branch → PR
+2. Tests: `php -l *.php` (syntax check)
+3. Commits convencionales: `feat:`, `fix:`, `chore:`, `docs:`
+
+## 📄 Licencia
+
+MIT License - Uso libre con atribución.
+
+---
+
+**⚠️ Disclaimer**: Trading conlleva riesgo. Úsalo en testnet primero. Autor no responsable de pérdidas.

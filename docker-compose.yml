@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: grid-bot-mysql
+    environment:
+      MYSQL_DATABASE: erika_bot
+      MYSQL_USER: erika_bot
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-Enladisco123@}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./setup_mysql.sql:/docker-entrypoint-initdb.d/setup_mysql.sql:ro
+    networks:
+      - grid-bot-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: grid-bot-php
+    volumes:
+      - .:/var/www/html
+      - ./private:/var/www/html/private
+      - ./bot.log:/var/www/html/bot.log
+    environment:
+      - PHP_MEMORY_LIMIT=256M
+    networks:
+      - grid-bot-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:alpine
+    container_name: grid-bot-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - grid-bot-network
+    depends_on:
+      - php
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: grid-bot
+    command: php bot.php
+    volumes:
+      - .:/var/www/html
+      - ./private:/var/www/html/private
+      - ./bot.log:/var/www/html/bot.log
+    environment:
+      - PHP_MEMORY_LIMIT=256M
+    networks:
+      - grid-bot-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+  retrain:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: grid-bot-retrain
+    command: php retrain.php
+    volumes:
+      - .:/var/www/html
+      - ./private:/var/www/html/private
+    environment:
+      - PHP_MEMORY_LIMIT=256M
+    networks:
+      - grid-bot-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+    profiles:
+      - tools
+
+volumes:
+  mysql_data:
+
+networks:
+  grid-bot-network:
+    driver: bridge
