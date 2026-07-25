@@ -23,7 +23,10 @@
     "autoload": {
         "psr-4": {
             "BinanceBot\\": "src/php/"
-        }
+        },
+        "files": [
+            "src/php/Helpers.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
