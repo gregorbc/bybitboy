@@ -26,6 +26,10 @@ class Api
         $db = Database::getInstance();
         $health['mysql'] = $db->isConnected();
 
+        $pubBase = 'https://api.bybit.com';
+        $ticker = getBybitTicker($pubBase, 'ETHUSDT');
+        $health['bybit_api'] = !empty($ticker);
+
         return $health;
     }
 

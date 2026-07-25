@@ -7,9 +7,9 @@ class Router
 {
     private Api $api;
 
-    public function __construct()
+    public function __construct(?Api $api = null)
     {
-        $this->api = new Api();
+        $this->api = $api ?? new Api();
     }
 
     public function dispatch(array $get): void

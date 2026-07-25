@@ -49,8 +49,19 @@ $bybitBase   = $bybitTest ? 'https://api-demo.bybit.com' : 'https://api.bybit.co
 $pubBase     = 'https://api.bybit.com';
 $requiredToken = $cfg['security_token'] ?? getenv('SECURITY_TOKEN') ?: '';
 
-// ─── Helpers ───────────────────────────────────────────
-require_once __DIR__ . '/Helpers.php';
+// ─── Autoload (loads Helpers.php via composer files directive) ───
+$autoloadPaths = [
+    __DIR__ . '/../../../vendor/autoload.php',
+    dirname(__DIR__, 2) . '/vendor/autoload.php',
+];
+foreach ($autoloadPaths as $_al) {
+    if (file_exists($_al)) { require_once $_al; break; }
+}
+
+// ─── Helpers (standalone fallback when autoloader unavailable) ───
+if (!function_exists('sanitize')) {
+    require_once __DIR__ . '/Helpers.php';
+}
 
 // ═══════════════════════════════════════════════════════
 // 1. TICKER (sin token)
@@ -278,9 +289,15 @@ if (isset($_GET['_market'])) {
 }
 
 // ═══════════════════════════════════════════════════════
-// 4. LOGS (con token opcional)
+// 4. LOGS (via Router/Api)
 // ═══════════════════════════════════════════════════════
 if (isset($_GET['_logs'])) {
+    if (class_exists(\BinanceBot\Dashboard\Router::class)) {
+        $router = new \BinanceBot\Dashboard\Router();
+        $router->dispatch($_GET);
+        exit;
+    }
+    // Fallback: inline implementation
     $lines = [];
     $logExists = file_exists($logFile);
     if ($logExists) {
@@ -471,9 +488,15 @@ if (isset($_GET['_fills_history'])) {
 }
 
 // ═══════════════════════════════════════════════════════
-// 11. HEALTH ENDPOINT (sin token, solo info no sensible)
+// 11. HEALTH ENDPOINT (via Router/Api)
 // ═══════════════════════════════════════════════════════
 if (isset($_GET['_health'])) {
+    if (class_exists(\BinanceBot\Dashboard\Router::class)) {
+        $router = new \BinanceBot\Dashboard\Router();
+        $router->dispatch($_GET);
+        exit;
+    }
+    // Fallback: inline implementation
     $health = ['ok' => true, 'ts' => date('Y-m-d H:i:s')];
     // Bot running?
     $health['bot_running'] = botRunning($pidFile, $logFile);
