@@ -174,8 +174,8 @@ function getBybitFunding(string $base, string $symbol): array {
     $d = json_decode($resp, true);
     return ($d['retCode'] ?? -1) === 0 ? ($d['result']['list'][0] ?? []) : [];
 }
-
-function getBybitOI(string $base, string $symbol): array {
+function getBybitOI(string $base, string $symbol): array
+{
     $url = $base . '/v5/market/open-interest?category=linear&symbol=' . urlencode($symbol) . '&intervalTime=5min&limit=1';
     $ch  = curl_init($url);
     curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 6, CURLOPT_SSL_VERIFYPEER => true]);
@@ -183,4 +183,11 @@ function getBybitOI(string $base, string $symbol): array {
     if (!$resp) return [];
     $d = json_decode($resp, true);
     return ($d['retCode'] ?? -1) === 0 ? ($d['result']['list'][0] ?? []) : [];
+}
+
+if (!function_exists('analyzeChartWithVL')) {
+    function analyzeChartWithVL(string $imagePath, string $apiKey): ?array
+    {
+        return \BinanceBot\Strategy\ChartVL::analyze($imagePath, $apiKey);
+    }
 }
