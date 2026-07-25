@@ -6,6 +6,9 @@ namespace Tests\Unit\Strategy;
 use PHPUnit\Framework\TestCase;
 use BinanceBot\Strategy\GridML;
 
+require_once __DIR__ . '/../../Integration/indicator_stubs.php';
+if (!defined('G_ML_MIN_ACCURACY')) define('G_ML_MIN_ACCURACY', 0.85);
+
 class GridMLTest extends TestCase
 {
     private function makeCandles(array $closes): array
@@ -36,18 +39,26 @@ class GridMLTest extends TestCase
 
     public function testPredictReturnsFallbackWhenNoWeightsLoaded(): void
     {
-        if (!defined('G_ML_MIN_ACCURACY')) define('G_ML_MIN_ACCURACY', 0.85);
-
         $ml = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
         $candles = $this->makeCandles(array_fill(0, 50, 100));
+        $result = $ml->predict($candles);
 
-        try {
-            $result = $ml->predict($candles);
-            $this->assertContains($result['direction'], ['UP', 'DOWN', 'SIDEWAYS']);
-        } catch (\Error $e) {
-            $this->markTestSkipped(
-                'Global indicator functions (rsiLast, ema...) not available in test context: ' . $e->getMessage()
-            );
-        }
+        $this->assertContains($result['direction'], ['UP', 'DOWN', 'SIDEWAYS']);
+        $this->assertEquals(35, $result['confidence']);
+        $this->assertStringContainsString('ML-fallback', $result['reason']);
+    }
+
+    public function testPredictFallbackDirectionUpWhenPricesRising(): void
+    {
+        $ml = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $upCloses = array_merge(
+            array_fill(0, 14, 100),
+            [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114]
+        );
+        $candles = $this->makeCandles($upCloses);
+        $result = $ml->predict($candles);
+
+        // With consistent upward price movement, RSI goes to 100, direction should be UP
+        $this->assertEquals('UP', $result['direction']);
     }
 }

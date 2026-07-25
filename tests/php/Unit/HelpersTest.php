@@ -7,6 +7,7 @@ use function sanitize;
 use function checkToken;
 use function getUptime;
 use function botRunning;
+use function analyzeChartWithVL;
 use PHPUnit\Framework\TestCase;
 
 class HelpersTest extends TestCase
@@ -58,5 +59,11 @@ class HelpersTest extends TestCase
     public function testBotRunningNoPidFile(): void
     {
         $this->assertFalse(botRunning('/nonexistent/pid', '/nonexistent/log'));
+    }
+
+    public function testAnalyzeChartWithVlReturnsNullForMissingFile(): void
+    {
+        $result = analyzeChartWithVL('/tmp/nonexistent_image_' . uniqid() . '.png', 'fake_api_key');
+        $this->assertNull($result);
     }
 }
