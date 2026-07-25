@@ -1,0 +1,56 @@
+{
+    "name": "binance-gregorbritez/bot",
+    "description": "Binance Trading Bot for Gregor Britez",
+    "type": "project",
+    "require": {
+        "php": "^8.2",
+        "cboden/ratchet": "^0.4",
+        "ext-json": "*",
+        "ext-curl": "*",
+        "ext-mbstring": "*",
+        "ext-bcmath": "*",
+        "ext-pdo": "*",
+        "ext-pdo_sqlite": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5",
+        "phpstan/phpstan": "^1.10",
+        "phpstan/phpstan-phpunit": "^1.3",
+        "squizlabs/php_codesniffer": "^3.7",
+        "phpstan/phpstan-deprecation-rules": "^1.1",
+        "phpstan/phpstan-strict-rules": "^1.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "BinanceBot\\": "src/php/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:coverage": "phpunit --coverage-html coverage",
+        "lint": "phpcs --standard=PSR12 src/",
+        "lint:fix": "phpcbf --standard=PSR12 src/",
+        "analyse": "phpstan analyse src/",
+        "analyse:tests": "phpstan analyse tests/",
+        "ci": [
+            "@lint",
+            "@analyse",
+            "@test"
+        ]
+    },
+    "config": {
+        "allow-plugins": {
+            "phpstan/extension-installer": true
+        },
+        "platform": {
+            "php": "8.2"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

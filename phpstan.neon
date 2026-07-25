@@ -1,0 +1,20 @@
+includes:
+    - vendor/phpstan/phpstan-deprecation-rules/rules.neon
+
+parameters:
+    level: 5
+    paths:
+        - src/php
+    excludePaths:
+        - src/php/vendor
+    ignoreErrors:
+        - '/Function sanitizeInput invoked with 3 parameters, 1-2 required/'
+        - '/Parameter #1 \$array of function end is passed by reference, so it expects variables only/'
+        - '/Property GridManager::\$ai is never read, only written/'
+        - '/Undefined variable: \$cfg/'
+        - '/Variable \$currentUser might not be defined/'
+        - '/Property GridWebSocket::\$loop is never read, only written/'
+        - '/Property GridWebSocket::\$lastDataHash is never read, only written/'
+        - '/Access to an undefined property.*ConnectionInterface::\$httpRequest/'
+        - '/Access to an undefined property.*ConnectionInterface::\$resourceId/'
+    treatPhpDocTypesAsCertain: false
