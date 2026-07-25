@@ -53,13 +53,13 @@ class GridManager {
         $this->api = $api;
         $this->ai = $ai;
         $this->ml = $ml;
-        $this->volFile = __DIR__ . '/volatility_weights_ridge.json';
+        $this->volFile = dirname(__DIR__) . '/volatility_weights_ridge.json';
         $this->loadVolatilityModel();
     }
 
     private function loadVolatilityModel() {
-        $ridgeFile = __DIR__ . '/volatility_weights_ridge.json';
-        $linearFile = __DIR__ . '/volatility_weights.json';
+        $ridgeFile = dirname(__DIR__) . '/volatility_weights_ridge.json';
+        $linearFile = dirname(__DIR__) . '/volatility_weights.json';
         $chosen = null;
         if (file_exists($ridgeFile)) $chosen = $ridgeFile;
         elseif (file_exists($linearFile)) $chosen = $linearFile;

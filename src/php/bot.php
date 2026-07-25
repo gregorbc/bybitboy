@@ -393,9 +393,7 @@ function multiTFMomentum($cl) {
 
 
 
-// ════════════════════════════════════════════════════════
-// 12. GRID MANAGER (VERSIÓN CORREGIDA CON MAYOR TIEMPO DE CONFIRMACIÓN)
-// ════════════════════════════════════════════════════════
+// 12. GRID MANAGER → see src/php/Strategy/GridManager.php
 
 // ════════════════════════════════════════════════════════
 // 13. BOOTSTRAP

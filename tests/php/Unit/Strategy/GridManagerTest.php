@@ -61,6 +61,30 @@ namespace Tests\Unit\Strategy
                 );
             }
         }
+
+        public function testVolatilityModelLoadsFromParentDirectory(): void
+        {
+            // The model JSON must exist at src/php/volatility_weights_ridge.json
+            $modelFile = dirname(__DIR__, 4) . '/src/php/volatility_weights_ridge.json';
+            if (!file_exists($modelFile)) {
+                $modelFile = dirname(__DIR__, 4) . '/src/php/volatility_weights.json';
+            }
+            $this->assertFileExists($modelFile, 'Volatility model JSON must exist at src/php/');
+
+            $api = new BybitFutures('test_key', 'test_secret', true);
+            $ai  = new GridAI();
+            $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+
+            $manager = new GridManager($api, $ai, $ml);
+
+            $ref = new \ReflectionClass(GridManager::class);
+            $prop = $ref->getProperty('volWeights');
+            $prop->setAccessible(true);
+            $this->assertNotNull(
+                $prop->getValue($manager),
+                'volWeights must load from src/php/ (via dirname(__DIR__)) — not stay null'
+            );
+        }
     }
 }
 
