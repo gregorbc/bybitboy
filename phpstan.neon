@@ -1,6 +1,6 @@
 includes:
     - vendor/phpstan/phpstan-deprecation-rules/rules.neon
-    # phpstan-phpunit causes ClassCoversExistsRule error in PHPStan 1.12
+    # phpstan-phpunit causes ClassCoversExistsRule error in PHPStan 1.12 - excluded
     # - vendor/phpstan/phpstan-phpunit/rules.neon
 
 parameters:
@@ -10,8 +10,13 @@ parameters:
     excludePaths:
         - src/php/vendor
     ignoreErrors:
-        - '#^Function .* not found#'
-        - '#^Access to an undefined property#'
-        - '#^Class .* not found in .*#'
-        - '#^Service of type PHPStan\\Rules\\PHPUnit\\ClassCoversExistsRule#'
+        - '/^Function sanitizeInput invoked with 3 parameters, 1-2 required\.$/'
+        - '/^Parameter #1 \$array of function end is passed by reference, so it expects variables only\.$/'
+        - '/^Property GridManager::\$ai is never read, only written\.$/'
+        - '/^Undefined variable: \$cfg/'
+        - '/^Variable \$currentUser might not be defined\.$/'
+        - '/^Property GridWebSocket::\$loop is never read, only written\.$/'
+        - '/^Property GridWebSocket::\$lastDataHash is never read, only written\.$/'
+        - '/^Access to an undefined property.*ConnectionInterface::\$httpRequest/'
+        - '/^Access to an undefined property.*ConnectionInterface::\$resourceId/'
     treatPhpDocTypesAsCertain: false
