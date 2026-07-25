@@ -35,7 +35,7 @@ class ConfigTest extends TestCase
     public function testGetWithDotNotation(): void
     {
         $config = Config::getInstance();
-        $result = $config->get('bot.symbol', 'ETHUSDT');
-        $this->assertIsString($result);
+        $config->set(['bot', 'symbol'], 'BNBUSDT');
+        $this->assertSame('BNBUSDT', $config->get('bot.symbol'));
     }
 }

@@ -7,6 +7,7 @@ class Config
 {
     private static ?self $instance = null;
     private array $config = [];
+    private static array $envKeys = [];
 
     private function __construct()
     {
@@ -23,6 +24,10 @@ class Config
 
     public static function reset(): void
     {
+        foreach (self::$envKeys as $key) {
+            putenv($key);
+        }
+        self::$envKeys = [];
         self::$instance = null;
     }
 
@@ -62,7 +67,9 @@ class Config
                 continue;
             }
             [$key, $value] = explode('=', $line, 2);
-            putenv(trim($key) . '=' . trim($value, '"\' '));
+            $key = trim($key);
+            putenv($key . '=' . trim($value, '"\' '));
+            self::$envKeys[] = $key;
         }
     }
 
