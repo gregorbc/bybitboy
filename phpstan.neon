@@ -12,7 +12,7 @@ parameters:
     ignoreErrors:
         - '/^Function sanitizeInput invoked with 3 parameters, 1-2 required\.$/'
         - '/^Parameter #1 \$array of function end is passed by reference, so it expects variables only\.$/'
-        - '/^Property GridManager::\$ai is never read, only written\.$/'
+        - '/^(Property )?(BinanceBot\\Strategy\\)?GridManager::\$ai is never read, only written\.$/'
         - '/^Undefined variable: \$cfg/'
         - '/^Variable \$currentUser might not be defined\.$/'
         - '/^Property GridWebSocket::\$loop is never read, only written\.$/'
