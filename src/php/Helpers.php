@@ -9,7 +9,7 @@ function sanitize(string $s): string {
 }
 
 function checkToken(string $requiredToken): bool {
-    $clean = trim($requiredToken ?? '');
+    $clean = trim($requiredToken);
     if ($clean === '') return true;
     return hash_equals($clean, trim($_GET['token'] ?? ''));
 }

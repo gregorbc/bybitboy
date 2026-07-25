@@ -315,7 +315,7 @@ if (isset($_GET['_logs'])) {
 // 5. CONTROL (POST) – CON VERIFICACIÓN DE TOKEN
 // ═══════════════════════════════════════════════════════
 if (isset($_POST['_control'])) {
-    if (!checkToken()) {
+    if (!checkToken($requiredToken)) {
         echo json_encode(['ok' => false, 'msg' => 'Token inválido']);
         exit;
     }
