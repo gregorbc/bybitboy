@@ -1,0 +1,81 @@
+{
+  "exchange": "bybit",
+  "bybit": {
+    "api_key": "USE_ENV_VAR",
+    "api_secret": "USE_ENV_VAR",
+    "testnet": true
+  },
+  "bot": {
+    "symbol": "ETHUSDT",
+    "capital_usd": 30,
+    "leverage": 100,
+    "timeframe": "5",
+    "candles_feed": 150,
+    "cycle_sec": 8,
+    "ai_interval_sec": 120,
+    "levels": 16,
+    "long_levels": 8,
+    "short_levels": 8
+  },
+  "grid": {
+    "min_levels": 8,
+    "max_levels": 20,
+    "min_spacing": 0.0003,
+    "max_spacing": 0.0012,
+    "base_spacing": 0.0003,
+    "spacing_atr_mult": 0.28,
+    "min_build_interval_sec": 90
+  },
+  "risk": {
+    "margin_safety": 0.65,
+    "max_daily_loss": 12.0,
+    "hard_stop_pct": 3.0,
+    "recovery_thr": 1.0,
+    "recovery_loss_pct": 3.0
+  },
+  "fees": {
+    "maker": 0.0001,
+    "taker": 0.0006
+  },
+  "compound": {
+    "threshold": 1.5,
+    "multiplier": 1.05,
+    "cooldown_sec": 300
+  },
+  "exchange_rules": {
+    "min_notional": 3.0
+  },
+  "ml": {
+    "weights_file": "/path/to/ml_weights_v2.json",
+    "min_confidence": 45,
+    "min_accuracy": 0.85,
+    "blend_weight": 0.90,
+    "reload_cycles": 120
+  },
+  "nvidia": {
+    "api_key": "USE_ENV_VAR",
+    "enabled": false,
+    "interval_sec": 480,
+    "blend_weight": 0.10
+  },
+  "volatility": {
+    "reload_cycles": 120
+  },
+  "mysql": {
+    "host": "localhost",
+    "dbname": "erika_bot",
+    "user": "erika_bot",
+    "password": "USE_ENV_VAR"
+  },
+  "paths": {
+    "log": "/var/log/grid_bot/bot.log",
+    "web_dir": "/var/www/html/grid_bot",
+    "config_dir": "/etc/grid_bot/private",
+    "status": "/etc/grid_bot/private/grid_status.json",
+    "pid": "/var/run/grid_bot/grid_bot.pid",
+    "conf_hist": "/etc/grid_bot/private/grid_confidence.json",
+    "ctrl": "/etc/grid_bot/private/grid_control.json"
+  },
+  "security_token": "USE_ENV_VAR",
+  "ws_token": "USE_ENV_VAR"
+}

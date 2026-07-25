@@ -1,0 +1,22 @@
+================================================================================
+INSTALACIÓN COMPLETADA - Grid Bot ML Trader
+Fecha: 2026-07-16 04:37:56
+================================================================================
+
+ARCHIVOS PRINCIPALES:
+
+
+MODELOS GENERADOS:
+
+
+COMANDOS ÚTILES:
+  - Entrenar clasificador:  ./venv/bin/python3 train_ml_weights.py --type classifier --symbol ETHUSDT
+  - Entrenar volatilidad:   ./venv/bin/python3 trainer_run.py
+  - Ejecutar tests:         ./venv/bin/python3 -m pytest test_ml_models.py -v
+  - Activar entorno:        source venv/bin/activate
+
+CRON JOBS SUGERIDOS:
+  */30 * * * * cd /home/erika/web/binance.gregorbritez.cat/public_html/scripts && ./venv/bin/python3 train_ml_weights.py --type classifier --symbol ETHUSDT >> logs/train_classifier.log 2>&1
+  0 */6 * * * cd /home/erika/web/binance.gregorbritez.cat/public_html/scripts && ./venv/bin/python3 trainer_run.py >> logs/train_volatility.log 2>&1
+
+================================================================================

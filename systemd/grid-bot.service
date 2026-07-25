@@ -1,0 +1,43 @@
+[Unit]
+Description=Grid Bot ETH/USDT - Trading Automático
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/html/grid_bot
+
+# Cargar variables de entorno desde .env
+EnvironmentFile=/etc/grid_bot/.env
+
+# Configuración de ejecución
+ExecStart=/usr/bin/php /var/www/html/grid_bot/bot.php
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+
+# Límites y recursos
+LimitNOFILE=65535
+Nice=-5
+MemoryMax=512M
+CPUQuota=80%
+
+# Logging con systemd journal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gridbot
+
+# Seguridad
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/www/html/grid_bot /var/log/grid_bot /etc/grid_bot/private
+
+# Watchdog para detección de fallos
+WatchdogSec=120
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
