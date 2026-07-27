@@ -300,6 +300,8 @@ class GridWebSocket implements MessageComponentInterface {
                 $result['pair']['pnl_today']   = round((float)($today['p'] ?? 0), 6);
                 $result['pair']['fills_total'] = (int)($total['c'] ?? 0);
                 $result['pair']['pnl_total']   = round((float)($total['p'] ?? 0), 6);
+                $notionalRow = $db->query("SELECT COALESCE(SUM(price * qty),0) n FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED'")->fetch();
+                $result['pair']['fills_notional'] = round((float)($notionalRow['n'] ?? 0), 2);
                 $result['win_rate']            = ($wr && (int)$wr['t'] > 0) ? round($wr['w'] / $wr['t'] * 100, 1) : 0;
                 $result['open_orders']         = $openCnt;
             } catch (Exception $e) {}

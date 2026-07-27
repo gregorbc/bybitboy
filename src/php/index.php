@@ -757,8 +757,13 @@ function updateUIFromWebSocket(data) {
       const avgDaily = daysRunning > 0 ? pnlT / daysRunning : pnlD;
       $('wProj').innerHTML = fM(avgDaily * 30);
       const fillsCount = parseInt(($('stFills') || {}).textContent || '0');
-      const avgNotional = 115;
-      const fees = fillsCount * avgNotional * 0.0004;
+      const makerFee = data.makerFee || 0.0001;
+      const takerFee = data.takerFee || 0.0006;
+      const avgFeeRate = (makerFee + takerFee) / 2;
+      const fillsNotional = data.pair?.fills_notional || 0;
+      const fillsTotal = data.pair?.fills_total || fillsCount;
+      const avgNotional = fillsTotal > 0 ? fillsNotional / fillsTotal : 115;
+      const fees = fillsCount * avgNotional * avgFeeRate;
       $('wFees').textContent = '$' + fees.toFixed(2);
     }
     markUpdate();
