@@ -95,6 +95,7 @@ define('G_MAX_SPACING',   max(G_MIN_SPACING, (float)cv($cfg, ['grid', 'max_spaci
 define('G_MARGIN_SAFETY', max(0.01, (float)cv($cfg, ['risk', 'margin_safety'], 0.65)));
 define('G_MAKER_FEE',     max(0.0, (float)cv($cfg, ['fees', 'maker'], 0.0001)));
 define('G_TAKER_FEE',     max(0.0, (float)cv($cfg, ['fees', 'taker'], 0.0006)));
+define('G_FEE_SAFETY',    max(1.0, (float)cv($cfg, ['fees', 'safety'], 1.5)));
 define('G_MAX_DAILY_LOSS',max(0.0, (float)cv($cfg, ['risk', 'max_daily_loss'], 12.0)));
 define('G_HARD_STOP_PCT', max(0.0, (float)cv($cfg, ['risk', 'hard_stop_pct'], 3.0)));
 define('G_RECOVERY_THR',  max(0.0, (float)cv($cfg, ['risk', 'recovery_thr'], 1.0)));
