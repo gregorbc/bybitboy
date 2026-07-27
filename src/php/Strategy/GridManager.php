@@ -883,9 +883,10 @@ class GridManager {
         }
     }
 
-    private function calcPnl($exitSide, $entryPx, $exitPx, $qty) {
+    private function calcPnl($exitSide, $entryPx, $exitPx, $qty, $isTaker = false) {
         $gross = ($exitSide === 'SELL') ? ($exitPx - $entryPx) * $qty : ($entryPx - $exitPx) * $qty;
-        $fee = $entryPx * $qty * G_MAKER_FEE + $exitPx * $qty * G_MAKER_FEE;
+        $feeRate = $isTaker ? G_TAKER_FEE : G_MAKER_FEE;
+        $fee = $entryPx * $qty * $feeRate + $exitPx * $qty * $feeRate;
         return round($gross - $fee, 8);
     }
 

@@ -134,6 +134,63 @@ public function testHasVolatilityModelProperties(): void
                 'volWeights must load from src/php/ (via dirname(__DIR__)) — not stay null'
             );
         }
+
+    public function testCalcPnlUsesMakerFeeByDefault(): void
+    {
+        $api = new BybitFutures('test_key', 'test_secret', true);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $ref = new \ReflectionMethod(GridManager::class, 'calcPnl');
+        $ref->setAccessible(true);
+
+        // SELL exit: gross = (exitPx - entryPx) * qty
+        // entry=100, exit=101, qty=1 => gross=1
+        // fee = 100*1*G_MAKER_FEE + 101*1*G_MAKER_FEE
+        // G_MAKER_FEE=0.0001 => fee = 0.01 + 0.0101 = 0.0201
+        // net = 1 - 0.0201 = 0.9799
+        $pnl = $ref->invoke($manager, 'SELL', 100.0, 101.0, 1.0);
+        $expectedFee = 100.0 * 1.0 * G_MAKER_FEE + 101.0 * 1.0 * G_MAKER_FEE;
+        $expected = round((101.0 - 100.0) * 1.0 - $expectedFee, 8);
+        $this->assertEqualsWithDelta($expected, $pnl, 0.0001);
+    }
+
+    public function testCalcPnlUsesTakerFeeWhenIsTaker(): void
+    {
+        $api = new BybitFutures('test_key', 'test_secret', true);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $ref = new \ReflectionMethod(GridManager::class, 'calcPnl');
+        $ref->setAccessible(true);
+
+        // With isTaker=true, fee uses G_TAKER_FEE (0.0006)
+        $pnl = $ref->invoke($manager, 'SELL', 100.0, 101.0, 1.0, true);
+        $expectedFee = 100.0 * 1.0 * G_TAKER_FEE + 101.0 * 1.0 * G_TAKER_FEE;
+        $expected = round((101.0 - 100.0) * 1.0 - $expectedFee, 8);
+        $this->assertEqualsWithDelta($expected, $pnl, 0.0001);
+    }
+
+    public function testCalcPnlBuyExit(): void
+    {
+        $api = new BybitFutures('test_key', 'test_secret', true);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $ref = new \ReflectionMethod(GridManager::class, 'calcPnl');
+        $ref->setAccessible(true);
+
+        // BUY exit: gross = (entryPx - exitPx) * qty
+        // entry=101, exit=100, qty=1 => gross=1
+        // fee = 101*1*G_MAKER_FEE + 100*1*G_MAKER_FEE = 0.0101 + 0.01 = 0.0201
+        $pnl = $ref->invoke($manager, 'BUY', 101.0, 100.0, 1.0);
+        $expectedFee = 101.0 * 1.0 * G_MAKER_FEE + 100.0 * 1.0 * G_MAKER_FEE;
+        $expected = round((101.0 - 100.0) * 1.0 - $expectedFee, 8);
+        $this->assertEqualsWithDelta($expected, $pnl, 0.0001);
+    }
     }
 }
 
