@@ -253,7 +253,8 @@ class BybitFutures implements ExchangeInterface
                 $o = $r['list'][0];
                 return ['status' => isset($map[$o['orderStatus']]) ? $map[$o['orderStatus']] : 'UNKNOWN',
                         'avgPrice' => (float)(isset($o['avgPrice']) ? $o['avgPrice'] : (isset($o['price']) ? $o['price'] : 0)),
-                        'qty' => (float)(isset($o['cumExecQty']) ? $o['cumExecQty'] : (isset($o['qty']) ? $o['qty'] : 0))];
+                        'qty' => (float)(isset($o['cumExecQty']) ? $o['cumExecQty'] : (isset($o['qty']) ? $o['qty'] : 0)),
+                        'orderType' => $o['orderType'] ?? 'Limit'];
             }
         } catch (\Exception $e) {}
         try {
@@ -263,10 +264,11 @@ class BybitFutures implements ExchangeInterface
                 $o = $r['list'][0];
                 return ['status' => isset($map[$o['orderStatus']]) ? $map[$o['orderStatus']] : 'UNKNOWN',
                         'avgPrice' => (float)(isset($o['avgPrice']) ? $o['avgPrice'] : (isset($o['price']) ? $o['price'] : 0)),
-                        'qty' => (float)(isset($o['cumExecQty']) ? $o['cumExecQty'] : (isset($o['qty']) ? $o['qty'] : 0))];
+                        'qty' => (float)(isset($o['cumExecQty']) ? $o['cumExecQty'] : (isset($o['qty']) ? $o['qty'] : 0)),
+                        'orderType' => $o['orderType'] ?? 'Limit'];
             }
         } catch (\Exception $e) {}
-        return ['status' => 'UNKNOWN', 'avgPrice' => 0, 'qty' => 0];
+        return ['status' => 'UNKNOWN', 'avgPrice' => 0, 'qty' => 0, 'orderType' => 'Limit'];
     }
     public function getOpenOrders($symbol) {
         try {
@@ -277,7 +279,8 @@ class BybitFutures implements ExchangeInterface
                 $orders[$o['orderId']] = ['orderId' => $o['orderId'], 'price' => (float)(isset($o['price']) ? $o['price'] : 0),
                     'qty' => (float)(isset($o['qty']) ? $o['qty'] : 0), 'side' => isset($o['side']) ? $o['side'] : '',
                     'status' => isset($o['orderStatus']) ? $o['orderStatus'] : '', 'avgPrice' => (float)(isset($o['avgPrice']) ? $o['avgPrice'] : (isset($o['price']) ? $o['price'] : 0)),
-                    'cumExecQty' => (float)(isset($o['cumExecQty']) ? $o['cumExecQty'] : (isset($o['qty']) ? $o['qty'] : 0))];
+                    'cumExecQty' => (float)(isset($o['cumExecQty']) ? $o['cumExecQty'] : (isset($o['qty']) ? $o['qty'] : 0)),
+                    'orderType' => $o['orderType'] ?? 'Limit'];
             }
             return $orders;
         } catch (\Exception $e) {
