@@ -874,9 +874,10 @@ class GridManager {
                 return $s->fetch();
             });
             $entryPx  = $entryRow ? (float)$entryRow['price'] : (float)$order['price'];
-            $pnl      = $this->calcPnl($side, $entryPx, $fillPx, $qty);
+            $isTaker  = isset($info['orderType']) && $info['orderType'] === 'Market';
+            $pnl      = $this->calcPnl($side, $entryPx, $fillPx, $qty, $isTaker);
             dbx(function($d) use ($pnl, $order) { return $d->prepare("UPDATE grid_orders SET pnl_usd=? WHERE id=?")->execute([$pnl, $order['id']]); });
-            lI(sprintf("[FILL] EXIT %s $%.2f PnL=%.4f USDT %s", $side, $fillPx, $pnl, $pnl >= 0 ? '✅' : '⚠️'));
+            lI(sprintf("[FILL] EXIT %s $%.2f PnL=%.4f USDT %s%s", $side, $fillPx, $pnl, $pnl >= 0 ? '✅' : '⚠️', $isTaker ? ' (taker)' : ''));
             $today = $this->getPnlToday();
             if ($today > $this->peakPnl) $this->peakPnl = $today;
             $this->recycleEntry($order, $fillPx, $price, $spacing, $qty, $f, $isRec);
