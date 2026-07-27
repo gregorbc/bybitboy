@@ -277,8 +277,24 @@ class GridManager {
             $row = dbx(function($d) { return $d->query("SELECT * FROM grid_configs WHERE symbol='" . G_SYM . "' LIMIT 1")->fetch(); });
         }
         $this->cfg = $row;
+
+        $currentSpacing = (float)($row['spacing_pct'] ?? G_BASE_SPACING);
+        $feeFloor = (G_MAKER_FEE + G_MAKER_FEE) * G_FEE_SAFETY;
+        $dynamicMin = max(G_MIN_SPACING, $feeFloor);
+        if ($currentSpacing < $dynamicMin) {
+            $adjustedSpacing = min(G_MAX_SPACING, $dynamicMin);
+            lI(sprintf("[CFG] Spacing %.4f%% below fee floor %.4f%% -> ajustando a %.4f%%",
+                $currentSpacing * 100, $dynamicMin * 100, $adjustedSpacing * 100));
+            dbx(function($d) use ($adjustedSpacing) {
+                return $d->prepare("UPDATE grid_configs SET spacing_pct=? WHERE symbol=?")
+                    ->execute([$adjustedSpacing, G_SYM]);
+            });
+            $this->cfg['spacing_pct'] = $adjustedSpacing;
+            $currentSpacing = $adjustedSpacing;
+        }
+
         lI(sprintf("[CFG] niv=%d spc=%.4f%% long=%d short=%d capital=%.0f",
-            isset($row['levels']) ? $row['levels'] : G_FIXED_LEVELS, (isset($row['spacing_pct']) ? $row['spacing_pct'] : G_BASE_SPACING) * 100,
+            isset($row['levels']) ? $row['levels'] : G_FIXED_LEVELS, $currentSpacing * 100,
             isset($row['long_levels']) ? $row['long_levels'] : G_LONG_LEVELS, isset($row['short_levels']) ? $row['short_levels'] : G_SHORT_LEVELS, G_CAPITAL));
     }
 
