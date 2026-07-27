@@ -93,8 +93,11 @@ class BybitFutures implements ExchangeInterface
             $px = (float)(isset($r['list'][0]['lastPrice']) ? $r['list'][0]['lastPrice'] : 0);
             if ($px > 0) return $px;
         } catch (\Exception $e) { lW("[Bybit] price (pub): " . $e->getMessage()); }
-        $r = $this->get('/v5/market/tickers', ['category' => 'linear', 'symbol' => $symbol]);
-        return (float)(isset($r['list'][0]['lastPrice']) ? $r['list'][0]['lastPrice'] : 0);
+        try {
+            $r = $this->get('/v5/market/tickers', ['category' => 'linear', 'symbol' => $symbol]);
+            return (float)(isset($r['list'][0]['lastPrice']) ? $r['list'][0]['lastPrice'] : 0);
+        } catch (\Exception $e) { lW("[Bybit] price (auth): " . $e->getMessage()); }
+        return 0;
     }
     public function klines($symbol, $interval, $limit) {
         $bybitSymbol = strtoupper($symbol);
@@ -219,7 +222,7 @@ class BybitFutures implements ExchangeInterface
     }
     public function limitOrder($symbol, $side, $qty, $price, $reduceOnly = false, $postOnly = true) {
         $f = $this->filters($symbol);
-        $qty = max($f['step'], round($qty / $f['step']) * $f['step']);
+        $qty = max($f['mn'], $f['step'], round($qty / $f['step']) * $f['step']);
         $pr  = round($price / $f['tick']) * $f['tick'];
         $r = $this->post('/v5/order/create', [
             'category' => 'linear', 'symbol' => $symbol, 'side' => ucfirst(strtolower($side)),
@@ -232,7 +235,7 @@ class BybitFutures implements ExchangeInterface
     }
     public function marketClose($symbol, $side, $qty) {
         $f = $this->filters($symbol);
-        $qty = max($f['step'], round($qty / $f['step']) * $f['step']);
+        $qty = max($f['mn'], $f['step'], round($qty / $f['step']) * $f['step']);
         $cside = $side === 'Buy' ? 'Sell' : 'Buy';
         $r = $this->post('/v5/order/create', [
             'category' => 'linear', 'symbol' => $symbol, 'side' => $cside,

@@ -203,7 +203,7 @@ class GridManager {
                 $this->api->validate();
                 $this->api->setLeverage(G_SYM, G_LEVERAGE);
                 lI("[INIT] Conexión exitosa"); break;
-            } catch (Exception $e) {
+            } catch (\Exception $e) {
                 lW("[INIT] Intento " . ($attempt + 1) . "/10: " . $e->getMessage());
                 if ($attempt >= 9) { lE("[INIT] Sin conexión."); return; }
                 sleep(30);
@@ -262,7 +262,7 @@ class GridManager {
                 $this->breakoutCheck($price);
                 if ($this->cycleN % 5 === 0) $this->writeStatus($price);
                 if ($this->cycleN % 10 === 0) $this->logCycleSummary($price);
-            } catch (Exception $e) { lE("[MAIN] " . $e->getMessage()); }
+            } catch (\Exception $e) { lE("[MAIN] " . $e->getMessage()); }
             sleep(G_CYCLE_SEC);
         }
         lI("[MAIN] Bot detenido limpiamente.");
@@ -354,7 +354,7 @@ class GridManager {
                         ->execute([$cfgId, G_SYM, $cfg['direction'], $level, $exitSide, 'EXIT', $res['orderId'], $exitPrice, $qty, 0]);
                 });
                 lI("[SYNC] Creada EXIT {$exitSide} @ {$exitPrice} para posición existente");
-            } catch (Exception $e) {
+            } catch (\Exception $e) {
                 lW("[SYNC] Error creando EXIT: " . $e->getMessage());
             }
         }
@@ -382,7 +382,7 @@ class GridManager {
                     $this->api->marketClose(G_SYM, $side, $sz);
                     lI(sprintf("[CLOSE] %s %.4f (intento %d)", $side, $sz, $retry+1));
                     break;
-                } catch (Exception $e) {
+                } catch (\Exception $e) {
                     lW("[CLOSE] Error cerrando {$side} {$sz}: " . $e->getMessage());
                     if ($retry < 2) sleep(1);
                 }
@@ -659,7 +659,7 @@ class GridManager {
                         ->execute([$cfgId, G_SYM, $dir, $i, 'BUY', 'ENTRY', $res['orderId'], $p, $qty]);
                 });
                 $placed++; $usedMargin += $reqMargin;
-            } catch (Exception $e) { lW("[GRID] BUY L{$i}: " . $e->getMessage()); $errors++; }
+            } catch (\Exception $e) { lW("[GRID] BUY L{$i}: " . $e->getMessage()); $errors++; }
             usleep(120000);
         }
         for ($i = 1; $i <= $shortLev; $i++) {
@@ -673,7 +673,7 @@ class GridManager {
                         ->execute([$cfgId, G_SYM, $dir, -$i, 'SELL', 'ENTRY', $res['orderId'], $p, $qty]);
                 });
                 $placed++; $usedMargin += $reqMargin;
-            } catch (Exception $e) { lW("[GRID] SELL L{$i}: " . $e->getMessage()); $errors++; }
+            } catch (\Exception $e) { lW("[GRID] SELL L{$i}: " . $e->getMessage()); $errors++; }
             usleep(120000);
         }
         $this->gridBuilt = ($placed > 0);
@@ -728,7 +728,7 @@ class GridManager {
                     } elseif (in_array($info['status'], ['CANCELED', 'EXPIRED'])) {
                         dbx(function($d) use ($order) { return $d->prepare("UPDATE grid_orders SET status='CANCELED' WHERE id=?")->execute([$order['id']]); });
                     }
-                } catch (Exception $e) {}
+                } catch (\Exception $e) {}
             }
         }
     }
@@ -810,7 +810,7 @@ class GridManager {
                             ->execute([(int)$cfg['id'], G_SYM, $cfg['direction'], $order['grid_level'], $exitSide, 'EXIT', $res['orderId'], $exitPx, $qty, $order['id'], $isRec]);
                     });
                     lI(sprintf("[FILL] ENTRY %s $%.2f → EXIT %s $%.2f qty=%.4f", $side, $fillPx, $exitSide, $exitPx, $qty));
-                } catch (Exception $e) { lW("[FILL] EXIT fail: " . $e->getMessage()); }
+                } catch (\Exception $e) { lW("[FILL] EXIT fail: " . $e->getMessage()); }
             } else {
                 usleep(2000000);
                 $positionFound = $this->confirmPositionExists($side, $qty);
@@ -828,7 +828,7 @@ class GridManager {
                             });
                             lI(sprintf("[FILL] (reintento) ENTRY %s $%.2f → EXIT %s $%.2f qty=%.4f", $side, $fillPx, $exitSide, $exitPx, $qty));
                             return;
-                        } catch (Exception $e) { lW("[FILL] EXIT fail en reintento: " . $e->getMessage()); }
+                        } catch (\Exception $e) { lW("[FILL] EXIT fail en reintento: " . $e->getMessage()); }
                     }
                 }
                 if ($this->hasOpenPositionForSide($side, $qty)) {
@@ -845,7 +845,7 @@ class GridManager {
                             });
                             lI(sprintf("[FILL] (posición acumulada) ENTRY %s $%.2f → EXIT %s $%.2f qty=%.4f", $side, $fillPx, $exitSide, $exitPx, $qty));
                             return;
-                        } catch (Exception $e) { lW("[FILL] EXIT fail en posición acumulada: " . $e->getMessage()); }
+                        } catch (\Exception $e) { lW("[FILL] EXIT fail en posición acumulada: " . $e->getMessage()); }
                     }
                 }
                 lW(sprintf("[FILL] ENTRY %s $%.2f sin posición → reciclando (último recurso)", $side, $fillPx));
@@ -890,7 +890,7 @@ class GridManager {
                     ->execute([$cfgId, G_SYM, $cfg['direction'], $exitOrder['grid_level'], $newSide, 'ENTRY', $res['orderId'], $newPx, $qty, $isRec]);
             });
             lI(sprintf("[RECYCLE] ENTRY %s $%.2f", $newSide, $newPx));
-        } catch (Exception $e) { lW("[RECYCLE] " . $e->getMessage()); }
+        } catch (\Exception $e) { lW("[RECYCLE] " . $e->getMessage()); }
     }
 
     private function recycleEntryDirect($order, $fillPx, $price, $spacing, $qty, $f, $isRec) {
@@ -914,7 +914,7 @@ class GridManager {
                     ->execute([$cfgId, G_SYM, $cfg['direction'], $order['grid_level'], $newSide, 'ENTRY', $res['orderId'], $newPx, $qty, $isRec]);
             });
             lI(sprintf("[RECYCLE_D] ENTRY %s $%.2f", $newSide, $newPx));
-        } catch (Exception $e) { lW("[RECYCLE_D] " . $e->getMessage()); }
+        } catch (\Exception $e) { lW("[RECYCLE_D] " . $e->getMessage()); }
     }
 
     private function riskCheck($price) {
@@ -938,7 +938,7 @@ class GridManager {
             if ($notional > 0 && abs($upnl) / $notional * 100 >= G_HARD_STOP_PCT && $upnl < 0) {
                 lE(sprintf("[HARD_STOP] uPnL $%.4f → cierre forzoso", $upnl));
                 try { $this->api->marketClose(G_SYM, $pos['side'], abs(isset($pos['positionAmt']) ? $pos['positionAmt'] : (isset($pos['size']) ? $pos['size'] : 0))); }
-                catch (Exception $e) { lW("[HARD_STOP] " . $e->getMessage()); }
+                catch (\Exception $e) { lW("[HARD_STOP] " . $e->getMessage()); }
             }
         }
         $this->checkLiquidationRisk($price);
@@ -979,7 +979,7 @@ class GridManager {
                         ->execute([(int)$cfg['id'], G_SYM, $dir, $i, 'BUY', 'ENTRY', $res['orderId'], $p, $qty]);
                 });
                 $placed++;
-            } catch (Exception $e) { lW("[REC] BUY $i: " . $e->getMessage()); }
+            } catch (\Exception $e) { lW("[REC] BUY $i: " . $e->getMessage()); }
             usleep(120000);
         }
         for ($i = 1; $i <= $halfLev; $i++) {
@@ -992,7 +992,7 @@ class GridManager {
                         ->execute([(int)$cfg['id'], G_SYM, $dir, -$i, 'SELL', 'ENTRY', $res['orderId'], $p, $qty]);
                 });
                 $placed++;
-            } catch (Exception $e) { lW("[REC] SELL $i: " . $e->getMessage()); }
+            } catch (\Exception $e) { lW("[REC] SELL $i: " . $e->getMessage()); }
             usleep(120000);
         }
         $this->gridBuilt = ($placed > 0);
@@ -1060,7 +1060,7 @@ class GridManager {
                 return $d->query("SELECT COALESCE(SUM(pnl_usd),0) AS p FROM grid_orders WHERE symbol='" . G_SYM . "' AND grid_role='EXIT' AND status='FILLED' AND DATE(filled_at)=CURDATE()")->fetch();
             });
             return $r ? (float)$r['p'] : 0.0;
-        } catch (Exception $e) { lE("[PNL] " . $e->getMessage()); return 0.0; }
+        } catch (\Exception $e) { lE("[PNL] " . $e->getMessage()); return 0.0; }
     }
 
     private function logCycleSummary($price) {
@@ -1088,7 +1088,7 @@ class GridManager {
 
     private function writeStatus($price) {
         global $STATUS; $cfg = $this->cfg ?? []; $pnlTdy = $this->getPnlToday(); $positions = [];
-        try { $positions = $this->api->positions(G_SYM); } catch (Exception $e) {}
+        try { $positions = $this->api->positions(G_SYM); } catch (\Exception $e) {}
         $pnl1h = dbx(function($d) {
             return $d->query("SELECT COALESCE(SUM(pnl_usd),0) p, COUNT(*) c FROM grid_orders WHERE symbol='" . G_SYM . "' AND grid_role='EXIT' AND status='FILLED' AND filled_at>=DATE_SUB(NOW(),INTERVAL 1 HOUR)")->fetch();
         });
