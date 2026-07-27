@@ -150,6 +150,8 @@ class GridWebSocket implements MessageComponentInterface {
     private $wsToken;
     private $bybitKey, $bybitSecret, $bybitBase;
     private $logFile, $statusFile, $pidFile, $confHist;
+    private $makerFee;
+    private $takerFee;
     
     // OPTIMIZACIÓN: Caché de datos para reducir consultas
     private $cacheTicker = null;
@@ -170,7 +172,7 @@ class GridWebSocket implements MessageComponentInterface {
     const CACHE_ORDERS_MS = 800;      // Órdenes: 0.8s
     const CACHE_FILLS_MS = 2000;      // Fills: 2s
 
-    public function __construct($dbConfig, $wsToken, $bybitKey, $bybitSecret, $bybitBase, $logFile, $statusFile, $pidFile, $confHist) {
+    public function __construct($dbConfig, $wsToken, $bybitKey, $bybitSecret, $bybitBase, $logFile, $statusFile, $pidFile, $confHist, $makerFee = 0.0001, $takerFee = 0.0006) {
         $this->clients     = new \SplObjectStorage;
         $this->dbConfig    = $dbConfig;
         $this->wsToken     = $wsToken;
@@ -181,6 +183,8 @@ class GridWebSocket implements MessageComponentInterface {
         $this->statusFile  = $statusFile;
         $this->pidFile     = $pidFile;
         $this->confHist    = $confHist;
+        $this->makerFee    = $makerFee;
+        $this->takerFee    = $takerFee;
     }
 
     public function onOpen(ConnectionInterface $conn) {
@@ -420,13 +424,17 @@ class GridWebSocket implements MessageComponentInterface {
             'positions'          => $positions,
             'total_upnl'         => $totalUpnl,
             'real_balance'       => $realBalance,
+            'makerFee'          => $this->makerFee,
+            'takerFee'          => $this->takerFee,
             'logs'               => $this->getLogs(15),
             'confidence_history' => $this->getConfHistory(),
         ];
     }
 }
 
-$ws = new GridWebSocket($dbConfig, $wsToken, $bybitKey, $bybitSecret, $bybitBase, $logFile, $statusFile, $pidFile, $confHist);
+$makerFee = (float)($cfg['fees']['maker'] ?? 0.0001);
+$takerFee = (float)($cfg['fees']['taker'] ?? 0.0006);
+$ws = new GridWebSocket($dbConfig, $wsToken, $bybitKey, $bybitSecret, $bybitBase, $logFile, $statusFile, $pidFile, $confHist, $makerFee, $takerFee);
 $server = IoServer::factory(new HttpServer(new WsServer($ws)), 8082);
 echo "=== Grid Bot WebSocket Server v3.1 ===\nEscuchando en puerto 8082\n";
 if (!empty($wsToken)) echo "Autenticación por token activada\n";
