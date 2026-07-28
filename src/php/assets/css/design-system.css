@@ -28,6 +28,14 @@
   --space-md: 16px; --space-lg: 24px;
   --space-xl: 32px; --space-2xl: 48px;
   --radius-sm: 4px; --radius-md: 8px; --radius-lg: 12px;
+  --touch-min: 44px;
+  --nav-h: 56px;
+  --font-xs: 0.65rem;
+  --font-sm: 0.75rem;
+  --font-base: 0.85rem;
+  --font-lg: 1rem;
+  --font-xl: 1.15rem;
+  --sidebar-w: 300px;
 }
 
 html {
