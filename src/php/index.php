@@ -123,18 +123,19 @@ if (file_exists($manifestPath)) {
 
 <div id="app" style="display:none;flex-direction:column;height:100vh">
   <nav class="navbar">
-    <button id="menuToggle" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:6px;display:flex;align-items:center">☰</button>
+    <button id="menuToggle" class="navbar-hamburger">☰</button>
     <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
       <div style="width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#9b72f5);display:grid;place-items:center;font-size:14px">⚡</div>
       <div><div style="font-size:12px;font-weight:700;color:#fff">ETH/USDT GRID</div><div style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted)">BYBIT · <?= $LEVERAGE ?>× · <?= $CAPITAL ?> USDT</div></div>
     </div>
     <div style="width:1px;height:28px;background:var(--border);margin:0 4px;flex-shrink:0"></div>
-    <div style="display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap">
+    <div class="nav-chip-group" style="display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap">
       <div style="font-family:var(--font-mono);font-size:18px;font-weight:600;color:#fff" id="priceLive">$0.00</div>
-      <div><div id="priceChg" style="font-family:var(--font-mono);font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600;background:var(--accent);color:#fff">+0.00%</div><div id="priceHL" style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);line-height:1.8">H: — · L: — · Vol: —</div></div>
-      <div id="bidAskBox" style="display:flex;gap:6px;align-items:center;font-family:var(--font-mono);font-size:10px"><span style="color:var(--green)">Bid: <span id="bidPx">—</span></span><span id="spreadVal" style="color:var(--text-muted)"></span><span style="color:var(--red)">Ask: <span id="askPx">—</span></span></div>
-      <div id="upnlChip" style="display:none;align-items:center;gap:5px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-family:var(--font-mono);font-size:11px;font-weight:600"><span>uPnL</span><span id="upnlChipVal">--</span></div>
-      <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono)"><div>Funding: <span id="tbFunding">--%</span></div><div>Mark: <span id="tbMark">$--</span></div></div>
+      <div><div id="priceChg" style="font-family:var(--font-mono);font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600;background:var(--accent);color:#fff">+0.00%</div><div id="priceHL" class="nav-chip-group" style="gap:3px;font-size:9px">H: — · L: — · Vol: —</div></div>
+      <div id="bidAskBox" style="display:flex;gap:4px;align-items:center"><span class="nav-chip"><span class="chip-label">Bid</span><span class="chip-val green" id="bidPx">—</span></span><span id="spreadVal" class="nav-chip" style="display:none"><span class="chip-label">Spr</span><span class="chip-val" id="spreadNum"></span></span><span class="nav-chip"><span class="chip-label">Ask</span><span class="chip-val red" id="askPx">—</span></span></div>
+      <div id="upnlChip" class="nav-chip" style="display:none"><span class="chip-label">uPnL</span><span class="chip-val" id="upnlChipVal">--</span></div>
+      <span class="nav-chip"><span class="chip-label">Funding</span><span class="chip-val" id="tbFunding">--%</span></span>
+      <span class="nav-chip"><span class="chip-label">Mark</span><span class="chip-val" id="tbMark">$--</span></span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
       <div style="display:flex;align-items:center;gap:6px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600">
@@ -147,13 +148,13 @@ if (file_exists($manifestPath)) {
       <span id="modeBadge" style="font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.6px;background:rgba(14,165,233,0.15);color:var(--accent)">NORMAL</span>
       <span id="mlBadge" style="font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;font-family:var(--font-mono);background:rgba(14,165,233,0.15);color:var(--accent);border:1px solid rgba(45,140,255,.2)">ML --%</span>
     </div>
-    <div style="display:flex;gap:5px;flex-shrink:0">
-      <button class="btn btn-primary" onclick="toggleSpeed()" id="speedBtn" style="font-size:9px;padding:4px 9px">⚡ Rápido</button>
-      <button class="btn btn-primary" onclick="openConfig()" style="font-size:9px;padding:4px 9px">⚙️</button>
-      <button class="btn btn-primary" onclick="cmd('force_ai')" style="font-size:9px;padding:4px 9px">🧠 IA</button>
-      <button class="btn btn-primary" onclick="cmd('reset_grid')" style="font-size:9px;padding:4px 9px">↻ Grid</button>
-      <button class="btn btn-primary" onclick="exportPnl()" style="font-size:9px;padding:4px 9px">📥</button>
-      <button class="btn btn-primary" onclick="cmd('stop')" style="font-size:9px;padding:4px 9px">■ Stop</button>
+    <div class="navbar-actions">
+      <button class="btn btn-primary navbar-action-btn" onclick="toggleSpeed()" id="speedBtn">⚡</button>
+      <button class="btn btn-primary navbar-action-btn" onclick="openConfig()">⚙️</button>
+      <button class="btn btn-primary navbar-action-btn" onclick="cmd('force_ai')">🧠</button>
+      <button class="btn btn-primary navbar-action-btn" onclick="cmd('reset_grid')">↻</button>
+      <button class="btn btn-primary navbar-action-btn" onclick="exportPnl()">📥</button>
+      <button class="btn btn-primary navbar-action-btn" onclick="cmd('stop')">■</button>
     </div>
   </nav>
 
