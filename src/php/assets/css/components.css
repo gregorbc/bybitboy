@@ -1,0 +1,187 @@
+/* ─── KPI Cards ─── */
+.kpi-card-value {
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.kpi-card-value.green { color: var(--green); }
+.kpi-card-value.red { color: var(--red); }
+.kpi-card-value.accent { color: var(--accent); }
+
+.kpi-card-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ─── Tables ─── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  text-align: left;
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table td {
+  padding: var(--space-sm) var(--space-md);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table tr:hover td { background: var(--bg-tertiary); }
+.data-table td.num { text-align: right; }
+.data-table td.green { color: var(--green); }
+.data-table td.red { color: var(--red); }
+
+/* ─── Nav Tabs (panel switching) ─── */
+.panel-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-md);
+}
+
+.panel-tab {
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  user-select: none;
+}
+
+.panel-tab:hover { color: var(--text-secondary); }
+.panel-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel-content { display: none; }
+.panel-content.active { display: block; }
+
+/* ─── Buttons ─── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { opacity: 0.85; }
+
+/* ─── Badges ─── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-green { background: rgba(34,197,94,0.15); color: var(--green); }
+.badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
+.badge-accent { background: rgba(14,165,233,0.15); color: var(--accent); }
+
+/* ─── Gauge ─── */
+.gauge-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gauge-svg { width: 120px; height: 80px; }
+
+.gauge-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: var(--space-sm);
+}
+
+/* ─── Order Ladder ─── */
+.ladder-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 3px 0;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.ladder-row .side { width: 40px; font-weight: 600; }
+.ladder-row .price { width: 80px; text-align: right; }
+.ladder-row .qty { width: 80px; text-align: right; color: var(--text-secondary); }
+.ladder-row .bar { flex: 1; height: 16px; border-radius: 3px; transition: width 0.3s; }
+.ladder-row .bar.buy { background: rgba(34,197,94,0.25); }
+.ladder-row .bar.sell { background: rgba(239,68,68,0.25); }
+.ladder-row .bar.entry { background: rgba(14,165,233,0.3); }
+
+/* ─── Log Viewer ─── */
+.log-viewer {
+  max-height: 400px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.log-line { padding: 2px 0; }
+.log-line .ts { color: var(--text-muted); }
+.log-line .level-info { color: var(--accent); }
+.log-line .level-warn { color: var(--yellow); }
+.log-line .level-error { color: var(--red); }
+
+/* ─── Loading / Empty States ─── */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--space-xl);
+  color: var(--text-muted);
+}
+
+/* ─── Flash animation for price changes ─── */
+.price-flash-up { animation: flashGreen 0.6s ease-out; }
+.price-flash-down { animation: flashRed 0.6s ease-out; }
+
+@keyframes flashGreen {
+  0% { color: var(--green); }
+  100% { color: var(--text-primary); }
+}
+
+@keyframes flashRed {
+  0% { color: var(--red); }
+  100% { color: var(--text-primary); }
+}
