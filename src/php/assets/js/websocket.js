@@ -32,7 +32,7 @@ function onWsMessage(event) {
         pnl_today:    d.pair?.pnl_today || 0,
         pnl_total:    d.pair?.pnl_total || 0,
         win_rate:     d.win_rate || 0,
-        uptime_sec:   d.uptime || 0,
+        uptime:       d.uptime || '—',
         total_upnl:   d.total_upnl || 0,
         real_balance: d.real_balance || 0,
         maker_fee:    d.makerFee || 0.0001,
@@ -85,14 +85,14 @@ function connectWs() {
 
 async function pollAll() {
   try {
-    const { default: { api } } = await import('./api.js');
+    const { api } = await import('./api.js');
     const d = await api('_status');
     // Same mapping as WS onWsMessage
     if (d.ticker) dispatch('data:ticker', d.ticker);
     dispatch('data:grid', { orders: d.orders || [], mode: d.mode, open_orders: d.open_orders });
     dispatch('data:kpi', {
       pnl_today: d.pair?.pnl_today || 0, pnl_total: d.pair?.pnl_total || 0,
-      win_rate: d.win_rate || 0, uptime_sec: d.uptime || 0,
+      win_rate: d.win_rate || 0, uptime: d.uptime || '—',
     });
     dispatch('data:ai', {
       direction: d.pair?.direction || 'SIDEWAYS', confidence: d.pair?.confidence || 0,

@@ -1,5 +1,6 @@
-import { $, $$ } from '../utils/dom.js';
-import { fmtPrice, fmtPct } from '../utils/format.js';
+import { $ } from '../utils/dom.js';
+import { fmtPrice } from '../utils/format.js';
+import { api } from '../api.js';
 
 const FIELDS = [
   '#market-rsi', '#market-macd', '#market-adx',
@@ -8,16 +9,22 @@ const FIELDS = [
   '#market-oi',
 ];
 
+function updateMarket(data) {
+  if (!data) return;
+  for (const sel of FIELDS) {
+    const el = $(sel);
+    if (!el) continue;
+    const key = sel.replace('#market-', '').replace(/-/g, '_');
+    const val = data[key];
+    if (val === undefined) continue;
+    el.textContent = typeof val === 'number' ? fmtPrice(val, 2) : val;
+  }
+}
+
 export function initMarket() {
-  window.addEventListener('data:market', (e) => {
-    const data = e.detail;
-    for (const sel of FIELDS) {
-      const el = $(sel);
-      if (!el) continue;
-      const key = sel.replace('#market-', '').replace(/-/g, '_');
-      const val = data[key];
-      if (val === undefined) continue;
-      el.textContent = typeof val === 'number' ? fmtPrice(val, 2) : val;
-    }
-  });
+  // Fetch market data via API (not available in WS)
+  api('_market').then(updateMarket).catch(() => {});
+
+  // Also listen for WS-delivered market data (if available)
+  window.addEventListener('data:market', (e) => updateMarket(e.detail));
 }

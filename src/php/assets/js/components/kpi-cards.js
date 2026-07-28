@@ -1,11 +1,11 @@
 import { $ } from '../utils/dom.js';
-import { fmtCurrency, fmtPct, fmtDuration } from '../utils/format.js';
+import { fmtCurrency, fmtPct } from '../utils/format.js';
 
 const FIELDS = {
   '#kpi-pnl-today': { key: 'pnl_today', fmt: fmtCurrency, cls: true },
   '#kpi-pnl-total': { key: 'pnl_total', fmt: fmtCurrency, cls: true },
   '#kpi-win-rate': { key: 'win_rate', fmt: (v) => `${parseFloat(v).toFixed(1)}%`, cls: false },
-  '#kpi-uptime': { key: 'uptime_sec', fmt: fmtDuration, cls: false },
+  '#kpi-uptime': { key: 'uptime', fmt: (v) => v, cls: false },
 };
 
 export function initKpiCards() {
