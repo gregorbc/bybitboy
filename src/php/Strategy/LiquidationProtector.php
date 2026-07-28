@@ -11,17 +11,20 @@ class LiquidationProtector
 {
     public const VALID_TRIGGERS = [
         'dist_liq_pct_lt',
-        'margin_ratio_gt',
-        'unrealized_pnl_pct_lt',
+        'free_margin_pct_lt',
+        'uPnL_pct_lt',
     ];
 
     public const VALID_ACTIONS = [
         'log_alert',
-        'reduce_position_pct',
-        'hedge_open',
-        'close_position',
-        'cancel_orders',
-        'alert_discord',
+        'tighten_grid_spacing',
+        'reduce_leverage',
+        'hedge_partial',
+        'add_margin',
+        'close_worst_positions',
+        'close_all_positions',
+        'cancel_all_orders',
+        'pause_bot_sec',
     ];
 
     public const DEFAULT_CIRCUIT_BREAKER_THRESHOLD = 5;
@@ -38,6 +41,7 @@ class LiquidationProtector
     ];
     private int $evalIntervalSec;
     private int $circuitBreakerThreshold;
+    private array $tiers = [];
 
     public function __construct(BybitFutures $api, array $config)
     {
@@ -60,6 +64,7 @@ class LiquidationProtector
         $this->circuitBreakerThreshold = (int)(
             $this->config['circuit_breaker']['max_consecutive_errors'] ?? self::DEFAULT_CIRCUIT_BREAKER_THRESHOLD
         );
+        $this->tiers = $this->loadAndValidateTiers($this->config['tiers'] ?? []);
     }
 
     private function loadState(): void
@@ -78,6 +83,105 @@ class LiquidationProtector
     private function saveState(): void
     {
         @file_put_contents($this->stateFile, json_encode($this->state, JSON_PRETTY_PRINT), LOCK_EX);
+    }
+
+    private function loadAndValidateTiers(array $rawTiers): array
+    {
+        if (empty($rawTiers)) {
+            return $this->getDefaultTiers();
+        }
+
+        $valid = [];
+        foreach ($rawTiers as $level => $tier) {
+            $level = (int)$level;
+
+            if (!isset($tier['triggers']) || !is_array($tier['triggers']) || empty($tier['triggers'])) {
+                throw new \InvalidArgumentException("Tier $level: triggers requerido (array no vacío)");
+            }
+            if (!isset($tier['actions']) || !is_array($tier['actions']) || empty($tier['actions'])) {
+                throw new \InvalidArgumentException("Tier $level: actions requerido (array no vacío)");
+            }
+
+foreach ($tier['triggers'] as $j => $tr) {
+            if (!isset($tr['type']) || !in_array($tr['type'], self::VALID_TRIGGERS, true)) {
+                throw new \InvalidArgumentException("Tier $level trigger $j: trigger type inválido (válidos: " . implode(', ', self::VALID_TRIGGERS) . ")");
+            }
+                if (!isset($tr['threshold']) || !is_numeric($tr['threshold'])) {
+                    throw new \InvalidArgumentException("Tier $level trigger $j: threshold numérico requerido");
+                }
+            }
+
+foreach ($tier['actions'] as $j => $ac) {
+            if (!isset($ac['type']) || !in_array($ac['type'], self::VALID_ACTIONS, true)) {
+                throw new \InvalidArgumentException("Tier $level action $j: action type inválido (válidos: " . implode(', ', self::VALID_ACTIONS) . ")");
+            }
+            }
+
+            $tier['cooldown_sec'] = (int)($tier['cooldown_sec'] ?? 120);
+            $tier['enabled'] = (bool)($tier['enabled'] ?? true);
+
+            $valid[$level] = $tier;
+        }
+
+        ksort($valid);
+        return $valid;
+    }
+
+    private function getDefaultTiers(): array
+    {
+        return [
+            1 => [
+                'enabled' => true,
+                'triggers' => [['type' => 'dist_liq_pct_lt', 'threshold' => 25]],
+                'actions' => [
+                    ['type' => 'tighten_grid_spacing', 'factor' => 0.9],
+                    ['type' => 'log_alert', 'message' => 'L1: Dist liq {{dist_liq_pct}}%'],
+                ],
+                'cooldown_sec' => 60,
+            ],
+            2 => [
+                'enabled' => true,
+                'triggers' => [
+                    ['type' => 'dist_liq_pct_lt', 'threshold' => 20],
+                    ['type' => 'free_margin_pct_lt', 'threshold' => 25],
+                    ['type' => 'uPnL_pct_lt', 'threshold' => -3],
+                ],
+                'actions' => [
+                    ['type' => 'reduce_leverage', 'target' => 50],
+                    ['type' => 'hedge_partial', 'pct' => 0.25],
+                    ['type' => 'log_alert', 'message' => 'L2: Leverage 100→50 + hedge 25%'],
+                ],
+                'cooldown_sec' => 120,
+            ],
+            3 => [
+                'enabled' => true,
+                'triggers' => [
+                    ['type' => 'dist_liq_pct_lt', 'threshold' => 15],
+                    ['type' => 'free_margin_pct_lt', 'threshold' => 15],
+                    ['type' => 'uPnL_pct_lt', 'threshold' => -5],
+                ],
+                'actions' => [
+                    ['type' => 'add_margin', 'max_pct_free_balance' => 0.5],
+                    ['type' => 'close_worst_positions', 'uPnL_pct_lt' => -3, 'max_count' => 2],
+                    ['type' => 'log_alert', 'message' => 'L3: Margin top-up + close worst'],
+                ],
+                'cooldown_sec' => 180,
+            ],
+            4 => [
+                'enabled' => true,
+                'triggers' => [
+                    ['type' => 'dist_liq_pct_lt', 'threshold' => 8],
+                    ['type' => 'free_margin_pct_lt', 'threshold' => 5],
+                ],
+                'actions' => [
+                    ['type' => 'close_all_positions'],
+                    ['type' => 'cancel_all_orders'],
+                    ['type' => 'pause_bot_sec', 'duration' => 1800],
+                    ['type' => 'log_alert', 'message' => 'L4: EMERGENCY CLOSE ALL + PAUSE 30min'],
+                ],
+                'cooldown_sec' => 3600,
+            ],
+        ];
     }
 
     public function getEvalIntervalSec(): int
@@ -103,6 +207,11 @@ class LiquidationProtector
     public function getLastTriggered(int $tier): ?int
     {
         return $this->state['last_triggered'][$tier] ?? null;
+    }
+
+    public function getTiers(): array
+    {
+        return $this->tiers;
     }
 
     protected function recordError(): void

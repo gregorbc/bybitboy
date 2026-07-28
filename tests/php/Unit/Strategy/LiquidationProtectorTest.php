@@ -42,4 +42,77 @@ class LiquidationProtectorTest extends TestCase
     {
         $this->assertInstanceOf(LiquidationProtector::class, $this->protector);
     }
+
+    public function testThrowsOnMissingTriggers(): void
+    {
+        $config = [
+            'enabled' => true,
+            'tiers' => [
+                1 => [
+                    'enabled' => true,
+                    'actions' => [['type' => 'log_alert']],
+                ],
+            ],
+        ];
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('triggers requerido');
+        new LiquidationProtector($this->api, $config);
+    }
+
+    public function testThrowsOnMissingActions(): void
+    {
+        $config = [
+            'enabled' => true,
+            'tiers' => [
+                1 => [
+                    'enabled' => true,
+                    'triggers' => [['type' => 'dist_liq_pct_lt', 'threshold' => 25]],
+                ],
+            ],
+        ];
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('actions requerido');
+        new LiquidationProtector($this->api, $config);
+    }
+
+    public function testThrowsOnUnknownTriggerType(): void
+    {
+        $config = [
+            'enabled' => true,
+            'tiers' => [
+                1 => [
+                    'enabled' => true,
+                    'triggers' => [['type' => 'unknown_type', 'threshold' => 25]],
+                    'actions' => [['type' => 'log_alert']],
+                ],
+            ],
+        ];
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('trigger type inválido');
+        new LiquidationProtector($this->api, $config);
+    }
+
+    public function testThrowsOnUnknownActionType(): void
+    {
+        $config = [
+            'enabled' => true,
+            'tiers' => [
+                1 => [
+                    'enabled' => true,
+                    'triggers' => [['type' => 'dist_liq_pct_lt', 'threshold' => 25]],
+                    'actions' => [['type' => 'unknown_action']],
+                ],
+            ],
+        ];
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('action type inválido');
+        new LiquidationProtector($this->api, $config);
+    }
+
+    public function testLoadsDefaultTiersWhenConfigEmpty(): void
+    {
+        $config = ['enabled' => true, 'tiers' => []];
+        $prot = new LiquidationProtector($this->api, $config);
+        $this->assertCount(4, $prot->getTiers()); // L1-L4 defaults
+    }
 }
