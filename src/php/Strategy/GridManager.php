@@ -22,6 +22,7 @@ class GridManager {
     private $api;
     private $ai;
     private $ml;
+    private ?LiquidationProtector $liquidationProtector = null;
     private $running = true;
     private $cfg = null;
     private $lastAI = 0;
@@ -49,10 +50,11 @@ class GridManager {
     private $lastDirection = null;
     private $directionChangeCount = 0;
 
-    public function __construct($api, $ai, $ml) {
+    public function __construct($api, $ai, $ml, ?LiquidationProtector $liquidationProtector = null) {
         $this->api = $api;
         $this->ai = $ai;
         $this->ml = $ml;
+        $this->liquidationProtector = $liquidationProtector;
         $this->volFile = dirname(__DIR__) . '/volatility_weights_ridge.json';
         $this->loadVolatilityModel();
     }
@@ -313,7 +315,7 @@ class GridManager {
         
         foreach ($positions as $pos) {
             $side = $pos['side']; // 'Buy' o 'Sell'
-            $qty = abs($pos['positionAmt'] ?? ($pos['size'] ?? 0));
+            $qty = abs((float)($pos['positionAmt'] ?? ($pos['size'] ?? 0)));
             $entryPrice = (float)$pos['entryPrice'];
             if ($qty < 0.001) continue;
             
@@ -341,11 +343,13 @@ class GridManager {
             }
             
             $orderId = 'SYNC_' . uniqid();
-            dbx(function($d) use ($cfgId, $side, $level, $orderId, $entryPrice, $qty) {
+            $entryId = dbx(function($d) use ($cfgId, $side, $level, $orderId, $entryPrice, $qty) {
                 return $d->prepare("INSERT INTO grid_orders (config_id,symbol,direction,grid_level,side,grid_role,order_id,price,qty,status,filled_at) 
                     VALUES(?,?,?,?,?,?,?,?,?,'FILLED',NOW())")
                     ->execute([$cfgId, G_SYM, $cfg['direction'], $level, strtoupper($side), 'ENTRY', $orderId, $entryPrice, $qty]);
             });
+            // Note: execute() returns bool, need to get lastInsertId differently
+            $entryId = dbx(function($d) { return $d->lastInsertId(); });
             lI("[SYNC] Registrada ENTRY {$side} nivel {$level} qty={$qty} price={$entryPrice}");
             
             $exitSide = ($side === 'Buy') ? 'SELL' : 'BUY';
@@ -364,12 +368,12 @@ class GridManager {
             
             try {
                 $res = $this->api->limitOrder(G_SYM, $exitSide, $qty, $exitPrice, true, true);
-                dbx(function($d) use ($cfgId, $level, $exitSide, $res, $exitPrice, $qty) {
+                dbx(function($d) use ($cfgId, $level, $exitSide, $res, $exitPrice, $qty, $entryId) {
                     return $d->prepare("INSERT INTO grid_orders (config_id,symbol,direction,grid_level,side,grid_role,order_id,price,qty,status,linked_order) 
                         VALUES(?,?,?,?,?,?,?,?,?,'OPEN',?)")
-                        ->execute([$cfgId, G_SYM, $cfg['direction'], $level, $exitSide, 'EXIT', $res['orderId'], $exitPrice, $qty, 0]);
+                        ->execute([$cfgId, G_SYM, $cfg['direction'], $level, $exitSide, 'EXIT', $res['orderId'], $exitPrice, $qty, $entryId]);
                 });
-                lI("[SYNC] Creada EXIT {$exitSide} @ {$exitPrice} para posición existente");
+                lI("[SYNC] Creada EXIT {$exitSide} @ {$exitPrice} para posición existente (linked_entry={$entryId})");
             } catch (\Exception $e) {
                 lW("[SYNC] Error creando EXIT: " . $e->getMessage());
             }
@@ -390,7 +394,7 @@ class GridManager {
     private function closeAllPositions() {
         $positions = $this->api->positions(G_SYM);
         foreach ($positions as $p) {
-            $sz = abs($p['positionAmt'] ?? ($p['size'] ?? 0));
+            $sz = abs((float)($p['positionAmt'] ?? ($p['size'] ?? 0)));
             if ($sz < 0.001) continue;
             $side = $p['side'];
             for ($retry = 0; $retry < 3; $retry++) {
@@ -579,6 +583,8 @@ class GridManager {
         
         if ($direction !== $prevDir && $this->directionChangeCount == 0) {
             lI("[AI] Dirección $prevDir → $direction → Reconstruyendo grid");
+            // Wait for any in-flight fills on ENTRY orders before canceling
+            $this->waitForPendingEntryFills(10);
             $this->api->cancelAll(G_SYM);
             usleep(800000);
             
@@ -590,7 +596,7 @@ class GridManager {
             });
             foreach ($positions as $pos) {
                 $side = $pos['side'];
-                $qtyPos = abs($pos['positionAmt'] ?? ($pos['size'] ?? 0));
+                $qtyPos = abs((float)($pos['positionAmt'] ?? ($pos['size'] ?? 0)));
                 $hasExitForSide = false;
                 foreach ($exitsByLevel as $level => $exitSide) {
                     if (($exitSide === 'SELL' && $side === 'Buy') || ($exitSide === 'BUY' && $side === 'Sell')) {
@@ -609,7 +615,6 @@ class GridManager {
         }
     }
 
-    private $lastLoggedQty = 0.0;
     private function calcQty($price, $levels, $f, $knownBalance = null) {
         $balance = $knownBalance ?? $this->api->balance();
         if ($balance <= 0) $balance = G_CAPITAL;
@@ -619,11 +624,11 @@ class GridManager {
         $maxQty = ($effectiveCap * 0.12 * G_LEVERAGE) / $price;
         if ($qty > $maxQty) $qty = $maxQty;
         
-        $qty = max($f['step'], round($qty / $f['step']) * $f['step']);
+        $qty = max($f['mn'], $f['step'], round($qty / $f['step']) * $f['step']);
         $notional = $qty * $price;
         if ($notional < G_MIN_NOTIONAL) {
             $qty = G_MIN_NOTIONAL / $price;
-            $qty = max($f['step'], round($qty / $f['step']) * $f['step']);
+            $qty = max($f['mn'], $f['step'], round($qty / $f['step']) * $f['step']);
             lI(sprintf("[CALC] Ajuste por notional mínimo: qty %.4f ETH (notional %.2f USDT)", $qty, $qty * $price));
         }
         if (abs($qty - $this->lastLoggedQty) > 0.0001) {
@@ -661,6 +666,12 @@ class GridManager {
         if ($qty <= 0) {
             $qty = $this->calcQty($price, $levels, $f, $balance);
             dbx(function($d) use ($qty, $cfgId) { return $d->prepare("UPDATE grid_configs SET qty_per_level=? WHERE id=?")->execute([$qty, $cfgId]); });
+        }
+        // Ensure qty meets exchange minimum
+        if ($qty < $f['mn']) {
+            $qty = $f['mn'];
+            dbx(function($d) use ($qty, $cfgId) { return $d->prepare("UPDATE grid_configs SET qty_per_level=? WHERE id=?")->execute([$qty, $cfgId]); });
+            lI(sprintf("[GRID] Ajustando qty a mínimo exchange: %.4f ETH", $qty));
         }
         lI(sprintf("[GRID] Construyendo $%.2f | %s: L=%d S=%d spc=%.4f%% qty=%.4f", $price, $dir, $longLev, $shortLev, $spacing * 100, $qty));
         $placed = 0; $errors = 0; $usedMargin = 0.0;
@@ -886,9 +897,10 @@ class GridManager {
 
     private function calcPnl($exitSide, $entryPx, $exitPx, $qty, $isTaker = false) {
         $gross = ($exitSide === 'SELL') ? ($exitPx - $entryPx) * $qty : ($entryPx - $exitPx) * $qty;
-        $feeRate = $isTaker ? G_TAKER_FEE : G_MAKER_FEE;
-        $fee = $entryPx * $qty * $feeRate + $exitPx * $qty * $feeRate;
-        return round($gross - $fee, 8);
+        // Entry order was PostOnly limit (maker fee). Exit: taker if market, maker if limit PostOnly.
+        $entryFee = $entryPx * $qty * G_MAKER_FEE;
+        $exitFee  = $exitPx * $qty * ($isTaker ? G_TAKER_FEE : G_MAKER_FEE);
+        return round($gross - $entryFee - $exitFee, 8);
     }
 
     private function recycleEntry($exitOrder, $fillPx, $currentPrice, $spacing, $qty, $f, $isRec) {
@@ -952,12 +964,19 @@ class GridManager {
         $positions = $this->api->positions(G_SYM);
         foreach ($positions as $pos) {
             $upnl = (float)(isset($pos['unRealizedProfit']) ? $pos['unRealizedProfit'] : 0);
-            $notional = abs(isset($pos['positionAmt']) ? $pos['positionAmt'] : (isset($pos['size']) ? $pos['size'] : 0)) * abs(isset($pos['entryPrice']) ? $pos['entryPrice'] : 0);
+            $posAmt = (float)(isset($pos['positionAmt']) ? $pos['positionAmt'] : (isset($pos['size']) ? $pos['size'] : 0));
+            $entryPx = (float)(isset($pos['entryPrice']) ? $pos['entryPrice'] : 0);
+            $notional = abs($posAmt) * abs($entryPx);
             if ($notional > 0 && abs($upnl) / $notional * 100 >= G_HARD_STOP_PCT && $upnl < 0) {
                 lE(sprintf("[HARD_STOP] uPnL $%.4f → cierre forzoso", $upnl));
-                try { $this->api->marketClose(G_SYM, $pos['side'], abs(isset($pos['positionAmt']) ? $pos['positionAmt'] : (isset($pos['size']) ? $pos['size'] : 0))); }
+                try { $this->api->marketClose(G_SYM, $pos['side'], abs($posAmt)); }
                 catch (\Exception $e) { lW("[HARD_STOP] " . $e->getMessage()); }
             }
+        }
+        if ($this->liquidationProtector !== null) {
+            $lpPositions = $this->api->positions(G_SYM);
+            $balance = $this->api->balance();
+            $this->liquidationProtector->evaluate($price, $lpPositions, $balance);
         }
         $this->checkLiquidationRisk($price);
     }
@@ -969,21 +988,54 @@ class GridManager {
             if ($liq <= 0) continue;
             $distancePct = abs($liq - $price) / $price * 100;
             if ($distancePct < 15) {
+                $posAmt = (float)(isset($pos['positionAmt']) ? $pos['positionAmt'] : (isset($pos['size']) ? $pos['size'] : 0));
                 lE(sprintf("[LIQ_RISK] Posición %s a solo %.1f%% de liquidación (liq=%.2f). Cerrando.", $pos['side'], $distancePct, $liq));
-                $this->api->marketClose(G_SYM, $pos['side'], abs(isset($pos['positionAmt']) ? $pos['positionAmt'] : (isset($pos['size']) ? $pos['size'] : 0)));
+                $this->api->marketClose(G_SYM, $pos['side'], abs($posAmt));
             }
         }
+    }
+
+    /**
+     * Espera a que se llenen las ENTRYs pendientes antes de cancelar/reconstruir grid.
+     * Evita race condition: fill ocurre justo después de cancelAll → posición huérfana.
+     */
+    private function waitForPendingEntryFills(int $maxWaitSec = 10): void {
+        $deadline = time() + $maxWaitSec;
+        while (time() < $deadline) {
+            $pendingEntries = dbx(function($d) {
+                return $d->query("SELECT order_id FROM grid_orders WHERE symbol='" . G_SYM . "' AND grid_role='ENTRY' AND status='OPEN'")->fetchAll();
+            }) ?? [];
+            if (empty($pendingEntries)) return;
+            $openOrders = $this->api->getOpenOrders(G_SYM);
+            $allFilled = true;
+            foreach ($pendingEntries as $ord) {
+                $oid = $ord['order_id'];
+                if (isset($openOrders[$oid])) {
+                    $allFilled = false;
+                    break;
+                }
+                // Check if filled via individual query
+                try {
+                    $info = $this->api->getOrder(G_SYM, $oid);
+                    if ($info['status'] !== 'FILLED') { $allFilled = false; break; }
+                } catch (\Exception $e) { $allFilled = false; break; }
+            }
+            if ($allFilled) return;
+            sleep(1);
+        }
+        lW("[WAIT] Timeout esperando fills de ENTRYs pendientes ({$maxWaitSec}s)");
     }
 
     private function enterRecovery($price, $pnlTdy) {
         $cfg = $this->cfg; $f = $this->api->filters(G_SYM);
         $spacing = min(G_MAX_SPACING, (float)(isset($cfg['spacing_pct']) ? $cfg['spacing_pct'] : G_BASE_SPACING) * 1.8);
-        $qty     = $this->calcQty($price, G_MIN_LEVELS * 2, $f);
+        $levels  = G_MIN_LEVELS * 2;
+        $qty     = $this->calcQty($price, $levels, $f);
         $dir     = isset($cfg['direction']) ? $cfg['direction'] : 'SIDEWAYS';
         $this->api->cancelAll(G_SYM);
         dbx(function($d) { return $d->prepare("UPDATE grid_orders SET status='CANCELED' WHERE symbol=? AND status='OPEN'")->execute([G_SYM]); });
-        dbx(function($d) use ($spacing) { return $d->prepare("UPDATE grid_configs SET recovery_active=1,spacing_pct=? WHERE symbol=?")->execute([$spacing, G_SYM]); });
-        $this->cfg['recovery_active'] = 1; $this->cfg['spacing_pct'] = $spacing;
+        dbx(function($d) use ($spacing, $qty) { return $d->prepare("UPDATE grid_configs SET recovery_active=1,spacing_pct=?,qty_per_level=? WHERE symbol=?")->execute([$spacing, $qty, G_SYM]); });
+        $this->cfg['recovery_active'] = 1; $this->cfg['spacing_pct'] = $spacing; $this->cfg['qty_per_level'] = $qty;
         $this->gridBuilt = false; $this->lastGridBuild = 0;
         $balance = $this->api->balance(); if ($balance <= 0) $balance = G_CAPITAL;
         $halfLev = (int)(G_MIN_LEVELS); $placed = 0;
@@ -1019,7 +1071,9 @@ class GridManager {
     }
 
     private function profitOptimize($price) {
-        $pnlTdy = $this->getPnlToday(); $pct = $pnlTdy / G_CAPITAL * 100;
+        $pnlTdy = $this->getPnlToday();
+        $balance = $this->api->balance(); if ($balance <= 0) $balance = G_CAPITAL;
+        $pct = $pnlTdy / $balance * 100;
         if ($pnlTdy > $this->peakPnl) {
             $this->peakPnl = $pnlTdy;
             dbx(function($d) { return $d->prepare("UPDATE grid_configs SET peak_pnl_today=? WHERE symbol=?")->execute([$this->peakPnl, G_SYM]); });
@@ -1030,14 +1084,14 @@ class GridManager {
             $oldQty  = (float)(isset($this->cfg['qty_per_level']) ? $this->cfg['qty_per_level'] : 0);
             if ($oldQty <= 0) $oldQty = $this->calcQty($price, $levels, $f);
             $maxAllowed = ($oldQty * 3.0);
-            $hardCap    = (G_CAPITAL * 0.12 * G_LEVERAGE) / $price;
+            $hardCap    = ($balance * 0.12 * G_LEVERAGE) / $price;
             $newQty  = min($oldQty * G_COMPOUND_MULT, $maxAllowed, $hardCap);
             $newQty  = max($f['step'], round($newQty / $f['step']) * $f['step']);
             if (abs($newQty - $oldQty) > $f['step'] * 0.3) {
                 dbx(function($d) use ($newQty) { return $d->prepare("UPDATE grid_configs SET qty_per_level=? WHERE symbol=?")->execute([$newQty, G_SYM]); });
                 $this->cfg['qty_per_level'] = $newQty;
                 $this->lastCompound = time();
-                lI(sprintf("[COMPOUND] PnL +%.2f%% → qty %.4f→%.4f ETH", $pct, $oldQty, $newQty));
+                lI(sprintf("[COMPOUND] PnL +%.2f%% (bal=%.2f) → qty %.4f→%.4f ETH", $pct, $balance, $oldQty, $newQty));
             }
         }
         if ((isset($this->cfg['recovery_active']) && $this->cfg['recovery_active']) && $pnlTdy >= 0) {

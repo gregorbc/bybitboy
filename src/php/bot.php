@@ -57,11 +57,13 @@ function cv($c, $k, $d = null) {
 $BK     = trim((string)cv($cfg, ['bybit', 'api_key'], ''));
 $BS     = trim((string)cv($cfg, ['bybit', 'api_secret'], ''));
 $TN     = (bool)cv($cfg, ['bybit', 'testnet'], false);
+$ENV    = (string)cv($cfg, ['bybit', 'environment'], ''); // 'mainnet' | 'testnet' | 'demo'
 $DB_H   = trim((string)cv($cfg, ['mysql', 'host'], 'localhost'));
 $DB_N   = trim((string)cv($cfg, ['mysql', 'dbname'], ''));
 $DB_U   = trim((string)cv($cfg, ['mysql', 'user'], ''));
 $DB_P   = trim((string)cv($cfg, ['mysql', 'password'], ''));
 $ML_W   = trim((string)cv($cfg, ['ml', 'weights_file'], 'ml_weights_v2.json'));
+$LP_CFG = cv($cfg, ['liquidation_protection'], []);
 
 $NV_ENABLED   = (bool)cv($cfg, ['nvidia', 'enabled'], false);
 $NV_API_KEY   = trim((string)cv($cfg, ['nvidia', 'api_key'], ''));
@@ -263,7 +265,8 @@ function dbInit() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_sym (symbol), INDEX idx_status (status), INDEX idx_oid (order_id),
         INDEX idx_cfg (config_id), INDEX idx_linked (linked_order),
-        INDEX idx_filled (filled_at)
+        INDEX idx_filled (filled_at),
+        INDEX idx_pnl_query (symbol, grid_role, status, filled_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     try { $d->exec("ALTER TABLE grid_configs ADD COLUMN ml_accuracy DECIMAL(6,4) DEFAULT 0"); } catch (Exception $e) {}
     lI("[DB] Tablas v15.4 OK");
@@ -400,10 +403,11 @@ function multiTFMomentum($cl) {
 // 13. BOOTSTRAP
 // ════════════════════════════════════════════════════════
 dbInit();
-$api = new BybitFutures($BK, $BS, $TN);
+$api = new BybitFutures($BK, $BS, $TN, $ENV ?: null);
 $ai  = new GridAI();
 $ml  = new GridML($ML_W);
-$bot = new \BinanceBot\Strategy\GridManager($api, $ai, $ml);
+$lp  = new \BinanceBot\Strategy\LiquidationProtector($api, $LP_CFG);
+$bot = new \BinanceBot\Strategy\GridManager($api, $ai, $ml, $lp);
 if (function_exists('pcntl_signal')) {
     pcntl_async_signals(true);
     pcntl_signal(SIGTERM, function() use ($bot) { $bot->stop(); });
