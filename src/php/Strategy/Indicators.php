@@ -5,6 +5,17 @@ namespace BinanceBot\Strategy;
 
 class Indicators
 {
+    private static function col(array $candles, string $key, string $fallback): array
+    {
+        $vals = array_column($candles, $key);
+        return $vals ?: array_column($candles, $fallback);
+    }
+
+    private static function lastCandle(array $candle, string $key, string $fallback): float
+    {
+        return (float)($candle[$key] ?? $candle[$fallback] ?? 0);
+    }
+
     public static function ema(array $values, int $period): float
     {
         if (empty($values)) return 0.0;
@@ -23,9 +34,10 @@ class Indicators
     {
         if (count($candles) < $period + 1) return 50.0;
 
+        $closes = self::col($candles, 'c', 'close');
         $gains = $losses = 0.0;
-        for ($i = count($candles) - $period; $i < count($candles); $i++) {
-            $diff = (float)$candles[$i]['close'] - (float)($candles[$i - 1]['close'] ?? $candles[$i]['close']);
+        for ($i = count($closes) - $period; $i < count($closes); $i++) {
+            $diff = $closes[$i] - ($closes[$i - 1] ?? $closes[$i]);
             if ($diff > 0) $gains += $diff; else $losses -= $diff;
         }
 
@@ -38,7 +50,8 @@ class Indicators
     {
         if (count($candles) < 35) return 0.0;
 
-        $closes = array_column($candles, 'close');
+        $closes = self::col($candles, 'c', 'close');
+        if (empty($closes)) return 0.0;
         $ema12 = self::ema($closes, 12);
         $ema26 = self::ema($closes, 26);
         $macdLine = $ema12 - $ema26;
@@ -59,17 +72,17 @@ class Indicators
     {
         if (count($candles) < $period + 1) return 0.0;
 
-        $trs = [];
+$trs = [];
         for ($i = 1; $i < count($candles); $i++) {
-            $h = (float)$candles[$i]['high'];
-            $l = (float)$candles[$i]['low'];
-            $pc = (float)($candles[$i - 1]['close'] ?? $candles[$i]['close']);
+            $h = (float)($candles[$i]['h'] ?? $candles[$i]['high'] ?? 0);
+            $l = (float)($candles[$i]['l'] ?? $candles[$i]['low'] ?? 0);
+            $pc = self::lastCandle($candles[$i - 1], 'c', 'close');
             $trs[] = max($h - $l, abs($h - $pc), abs($l - $pc));
         }
 
         $atr = array_slice($trs, -$period);
         $avg = array_sum($atr) / count($atr);
-        $lastClose = (float)end($candles)['close'];
+        $lastClose = self::lastCandle(end($candles), 'c', 'close');
 
         return $lastClose > 0 ? ($avg / $lastClose) * 100 : 0.0;
     }
@@ -78,7 +91,7 @@ class Indicators
     {
         if (count($candles) < $period + 1) return 1.0;
 
-        $vols = array_column($candles, 'volume');
+        $vols = self::col($candles, 'v', 'volume');
         $recent = (float)end($vols);
         $avg = array_sum(array_slice($vols, -$period)) / $period;
 
@@ -89,7 +102,8 @@ class Indicators
     {
         if (count($candles) < $period) return 0.0;
 
-        $closes = array_slice(array_column($candles, 'close'), -$period);
+        $closes = array_slice(self::col($candles, 'c', 'close'), -$period);
+        if (empty($closes)) return 0.0;
         $mean = array_sum($closes) / $period;
         $variance = 0.0;
         foreach ($closes as $c) {
@@ -105,9 +119,9 @@ class Indicators
         if (count($candles) < $period) return 50.0;
 
         $slice = array_slice($candles, -$period);
-        $high = max(array_column($slice, 'high'));
-        $low = min(array_column($slice, 'low'));
-        $close = (float)end($candles)['close'];
+        $high = max(self::col($slice, 'h', 'high'));
+        $low = min(self::col($slice, 'l', 'low'));
+        $close = self::lastCandle(end($candles), 'c', 'close');
 
         $range = $high - $low;
         return $range > 0 ? (($close - $low) / $range) * 100 : 50.0;

@@ -1,10 +1,9 @@
 /*
   WebSocket connection manager.
-  Connects to ws://HOST:8082, dispatches CustomEvents on window.
+  Connects via nginx proxy at /ws/?token=...
   Falls back to HTTP polling if connection fails.
 */
 
-const WS_PORT = 8082;
 const POLL_INTERVAL = 2000;
 const RECONNECT_DELAY = 3000;
 
@@ -13,8 +12,9 @@ let pollTimer = null;
 let isPolling = false;
 
 function getWsUrl() {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  return `${proto}://${location.hostname}:${WS_PORT}`;
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const token = window.__INIT__?.ws_token || '';
+  return `${proto}//${location.host}/ws/?token=${token}`;
 }
 
 function dispatch(type, data) {
@@ -25,7 +25,6 @@ function onWsMessage(event) {
   try {
     const d = JSON.parse(event.data);
     if (d.type === 'full') {
-      // Map flat WS payload to typed events
       if (d.ticker) dispatch('data:ticker', d.ticker);
       dispatch('data:grid', { orders: d.orders || [], mode: d.mode, open_orders: d.open_orders });
       dispatch('data:kpi', {
@@ -37,6 +36,8 @@ function onWsMessage(event) {
         real_balance: d.real_balance || 0,
         maker_fee:    d.makerFee || 0.0001,
         taker_fee:    d.takerFee || 0.0006,
+        open_orders:  d.open_orders || 0,
+        mode:         d.mode || 'NORMAL',
       });
       dispatch('data:ai', {
         direction:   d.pair?.direction || 'SIDEWAYS',
@@ -45,16 +46,11 @@ function onWsMessage(event) {
         next_eval:   d.pair?.last_ai_check || null,
       });
       if (d.ticker) dispatch('data:market', {
-        rsi:       d.pair?.rsi || null,
-        macd:      d.pair?.macd || null,
-        adx:       d.pair?.adx || null,
-        atr:       d.ticker?.atr_pct || null,
-        bollinger: d.pair?.bollinger_pct || null,
-        ema9:      d.ticker?.ema9 || null,
-        ema21:     d.ticker?.ema21 || null,
-        ema50:     d.ticker?.ema50 || null,
-        funding:   d.ticker?.fundRate || 0,
-        oi:        d.ticker?.oi || 0,
+        fundRate:  d.ticker.fundRate || 0,
+        oi:        d.ticker.oi || 0,
+        high24h:   d.ticker.high24h || 0,
+        low24h:    d.ticker.low24h || 0,
+        volume24h: d.ticker.volume24h || 0,
       });
       if (d.positions) dispatch('data:positions', d.positions);
       if (d.recent_fills) dispatch('data:fills', d.recent_fills);
@@ -87,12 +83,12 @@ async function pollAll() {
   try {
     const { api } = await import('./api.js');
     const d = await api('_status');
-    // Same mapping as WS onWsMessage
     if (d.ticker) dispatch('data:ticker', d.ticker);
     dispatch('data:grid', { orders: d.orders || [], mode: d.mode, open_orders: d.open_orders });
     dispatch('data:kpi', {
       pnl_today: d.pair?.pnl_today || 0, pnl_total: d.pair?.pnl_total || 0,
       win_rate: d.win_rate || 0, uptime: d.uptime || '—',
+      open_orders: d.open_orders || 0, mode: d.mode || 'NORMAL',
     });
     dispatch('data:ai', {
       direction: d.pair?.direction || 'SIDEWAYS', confidence: d.pair?.confidence || 0,

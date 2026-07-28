@@ -1,7 +1,7 @@
 const AJAX_URL = 'grid_ajax.php';
 
 export async function api(endpoint, params = {}) {
-  params._action = endpoint;
+  params[endpoint] = '1';
   const qs = new URLSearchParams(params).toString();
   const resp = await fetch(`${AJAX_URL}?${qs}`, {
     headers: { 'X-Requested-With': 'XMLHttpRequest' },

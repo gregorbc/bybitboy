@@ -256,6 +256,10 @@ foreach ($tier['actions'] as $j => $ac) {
 
     public function evaluate(float $price, array $positions, float $balance): void
     {
+        if (!($this->config['enabled'] ?? false)) {
+            return;
+        }
+
         if ($this->state['disabled'] ?? false) {
             return;
         }

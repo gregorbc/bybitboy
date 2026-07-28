@@ -34,7 +34,13 @@ $wsToken    = $cfg['ws_token'] ?? '';
 $bybitKey    = $cfg['bybit']['api_key']    ?? '';
 $bybitSecret = $cfg['bybit']['api_secret'] ?? '';
 $bybitTest   = (bool)($cfg['bybit']['testnet'] ?? false);
-$bybitBase   = $bybitTest ? 'https://api-demo.bybit.com' : 'https://api.bybit.com';
+$bybitEnv    = (string)($cfg['bybit']['environment'] ?? ($bybitTest ? 'demo' : 'mainnet'));
+$bybitBase   = match ($bybitEnv) {
+    'mainnet' => 'https://api.bybit.com',
+    'testnet' => 'https://api-testnet.bybit.com',
+    'demo'    => 'https://api-demo.bybit.com',
+    default   => 'https://api.bybit.com',
+};
 
 function bybitPub($path, $params = []) {
     global $bybitBase;

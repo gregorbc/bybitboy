@@ -61,8 +61,8 @@
   "volatility": {
     "reload_cycles": 120
   },
-  "liquidation_protection": {
-    "enabled": true,
+    "liquidation_protection": {
+        "enabled": true,
     "tiers": [
       {
         "level": 1,

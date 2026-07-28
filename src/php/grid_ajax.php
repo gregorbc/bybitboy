@@ -45,8 +45,14 @@ $mlWeightsFile = $cfg['ml']['weights_file'] ?? (__DIR__ . '/ml_weights_v2.json')
 $bybitKey    = $cfg['bybit']['api_key']    ?? getenv('BYBIT_API_KEY') ?: '';
 $bybitSecret = $cfg['bybit']['api_secret'] ?? getenv('BYBIT_API_SECRET') ?: '';
 $bybitTest   = (bool)($cfg['bybit']['testnet'] ?? filter_var(getenv('BYBIT_TESTNET'), FILTER_VALIDATE_BOOLEAN));
-$bybitBase   = $bybitTest ? 'https://api-demo.bybit.com' : 'https://api.bybit.com';
-$pubBase     = 'https://api.bybit.com';
+$bybitEnv    = (string)($cfg['bybit']['environment'] ?? ($bybitTest ? 'demo' : 'mainnet'));
+$bybitBase   = match ($bybitEnv) {
+    'mainnet' => 'https://api.bybit.com',
+    'testnet' => 'https://api-testnet.bybit.com',
+    'demo'    => 'https://api-demo.bybit.com',
+    default   => 'https://api.bybit.com',
+};
+$pubBase     = $bybitBase;
 $requiredToken = $cfg['security_token'] ?? getenv('SECURITY_TOKEN') ?: '';
 
 // ─── Autoload (loads Helpers.php via composer files directive) ───

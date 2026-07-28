@@ -1,1 +1,2 @@
-src/php/dist/
+node_modules/
+!dist/

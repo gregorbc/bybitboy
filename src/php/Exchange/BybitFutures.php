@@ -7,12 +7,20 @@ class BybitFutures implements ExchangeInterface
 {
     private $key, $secret, $base, $pub;
     private $fc = [], $levMem = [];
-    public function __construct($key, $secret, $testnet) {
+    public function __construct($key, $secret, $testnet, $environment = null) {
         $this->key    = $key;
         $this->secret = $secret;
-        $this->base = $testnet ? 'https://api-demo.bybit.com' : 'https://api.bybit.com';
-        $this->pub  = 'https://api.bybit.com';
-        lI("[Bybit] " . ($testnet ? 'DEMO/TESTNET' : 'MAINNET') . " priv=" . $this->base . " pub=" . $this->pub);
+        // Resolve environment: explicit > inferred from testnet boolean
+        $env = $environment ?? ($testnet ? 'demo' : 'mainnet');
+        $endpoints = [
+            'mainnet' => ['base' => 'https://api.bybit.com',       'pub'  => 'https://api.bybit.com'],
+            'testnet' => ['base' => 'https://api-testnet.bybit.com', 'pub'  => 'https://api-testnet.bybit.com'],
+            'demo'    => ['base' => 'https://api-demo.bybit.com',  'pub'  => 'https://api-demo.bybit.com'],
+        ];
+        $ep = $endpoints[$env] ?? $endpoints['mainnet'];
+        $this->base = $ep['base'];
+        $this->pub  = $ep['pub'];
+        lI("[Bybit] env=$env priv=" . $this->base . " pub=" . $this->pub);
     }
     private function ts() { return (string)(intval(microtime(true) * 1000)); }
     private function signGet($params) {
@@ -42,9 +50,15 @@ class BybitFutures implements ExchangeInterface
                 CURLOPT_SSL_VERIFYPEER => true, CURLOPT_USERAGENT => 'EthGridBot/15.4',
                 CURLOPT_HTTPHEADER => $headersArr,
             ]);
-            $resp = curl_exec($ch); $err = curl_error($ch); curl_close($ch);
+            $resp = curl_exec($ch); $err = curl_error($ch); $info = curl_getinfo($ch); curl_close($ch);
             if ($resp === false) { if ($a < $retry) { usleep(600000); continue; } throw new \RuntimeException("GET $path: $err"); }
-            $d = json_decode((string)$resp, true); $rc = isset($d['retCode']) ? $d['retCode'] : -1;
+            $d = json_decode((string)$resp, true);
+            if ($d === null) {
+                $msg = "HTTP {$info['http_code']} empty/invalid JSON";
+                if ($a < $retry && $info['http_code'] >= 500) { sleep(1); continue; }
+                throw new \RuntimeException("Bybit GET [{$info['http_code']}]: $msg");
+            }
+            $rc = isset($d['retCode']) ? $d['retCode'] : -1;
             if ($rc === 0) return isset($d['result']) ? $d['result'] : [];
             if (in_array($rc, [10002, 10006]) && $a < $retry) { sleep(1); continue; }
             throw new \RuntimeException("Bybit GET [{$rc}]: " . (isset($d['retMsg']) ? $d['retMsg'] : $resp));
@@ -66,8 +80,17 @@ class BybitFutures implements ExchangeInterface
         throw new \RuntimeException("POST $path: agotados reintentos");
     }
     public function validate() {
-        $r = $this->get('/v5/account/wallet-balance', ['accountType' => 'UNIFIED']);
-        lI("[Bybit] API OK – cuenta UNIFIED"); return $r;
+        try {
+            $r = $this->get('/v5/account/wallet-balance', ['accountType' => 'UNIFIED']);
+            lI("[Bybit] API OK – cuenta UNIFIED"); return $r;
+        } catch (\RuntimeException $e) {
+            $msg = $e->getMessage();
+            if (str_contains($msg, 'HTTP 401')) {
+                lW("[Bybit] validate: credenciales inválidas (401) - continuando sin validar cuenta");
+                return [];
+            }
+            throw $e;
+        }
     }
     private function getPub($path, $params = [], $retry = 2) {
         ksort($params);
@@ -78,9 +101,15 @@ class BybitFutures implements ExchangeInterface
                 CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 10,
                 CURLOPT_SSL_VERIFYPEER => true, CURLOPT_USERAGENT => 'EthGridBot/15.4',
             ]);
-            $resp = curl_exec($ch); $err = curl_error($ch); curl_close($ch);
+            $resp = curl_exec($ch); $err = curl_error($ch); $info = curl_getinfo($ch); curl_close($ch);
             if ($resp === false) { if ($a < $retry) { usleep(500000); continue; } throw new \RuntimeException("getPub $path: $err"); }
-            $d = json_decode((string)$resp, true); $rc = isset($d['retCode']) ? $d['retCode'] : -1;
+            $d = json_decode((string)$resp, true);
+            if ($d === null) {
+                $msg = "HTTP {$info['http_code']} empty/invalid JSON";
+                if ($a < $retry && $info['http_code'] >= 500) { usleep(400000); continue; }
+                throw new \RuntimeException("Bybit PUB [{$info['http_code']}]: $msg");
+            }
+            $rc = isset($d['retCode']) ? $d['retCode'] : -1;
             if ($rc === 0) return isset($d['result']) ? $d['result'] : [];
             if ($a < $retry) { usleep(400000); continue; }
             throw new \RuntimeException("Bybit PUB [{$rc}]: " . (isset($d['retMsg']) ? $d['retMsg'] : ''));
@@ -223,6 +252,9 @@ class BybitFutures implements ExchangeInterface
     public function limitOrder($symbol, $side, $qty, $price, $reduceOnly = false, $postOnly = true) {
         $f = $this->filters($symbol);
         $qty = max($f['mn'], $f['step'], round($qty / $f['step']) * $f['step']);
+        if ($qty < $f['mn']) {
+            throw new \RuntimeException("Order qty {$qty} below minimum {$f['mn']} for {$symbol}");
+        }
         $pr  = round($price / $f['tick']) * $f['tick'];
         $r = $this->post('/v5/order/create', [
             'category' => 'linear', 'symbol' => $symbol, 'side' => ucfirst(strtolower($side)),
@@ -236,6 +268,9 @@ class BybitFutures implements ExchangeInterface
     public function marketClose($symbol, $side, $qty) {
         $f = $this->filters($symbol);
         $qty = max($f['mn'], $f['step'], round($qty / $f['step']) * $f['step']);
+        if ($qty < $f['mn']) {
+            throw new \RuntimeException("Close qty {$qty} below minimum {$f['mn']} for {$symbol}");
+        }
         $cside = $side === 'Buy' ? 'Sell' : 'Buy';
         $r = $this->post('/v5/order/create', [
             'category' => 'linear', 'symbol' => $symbol, 'side' => $cside,

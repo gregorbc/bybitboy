@@ -166,9 +166,9 @@ public function testHasVolatilityModelProperties(): void
         $ref = new \ReflectionMethod(GridManager::class, 'calcPnl');
         $ref->setAccessible(true);
 
-        // With isTaker=true, fee uses G_TAKER_FEE (0.0006)
+        // With isTaker=true: entry was maker (PostOnly), exit is taker (market)
         $pnl = $ref->invoke($manager, 'SELL', 100.0, 101.0, 1.0, true);
-        $expectedFee = 100.0 * 1.0 * G_TAKER_FEE + 101.0 * 1.0 * G_TAKER_FEE;
+        $expectedFee = 100.0 * 1.0 * G_MAKER_FEE + 101.0 * 1.0 * G_TAKER_FEE;
         $expected = round((101.0 - 100.0) * 1.0 - $expectedFee, 8);
         $this->assertEqualsWithDelta($expected, $pnl, 0.0001);
     }
