@@ -7,7 +7,7 @@
   },
   "bot": {
     "symbol": "ETHUSDT",
-    "capital_usd": 30,
+    "capital_usd": 100,
     "leverage": 100,
     "timeframe": "5",
     "candles_feed": 150,
@@ -27,7 +27,7 @@
     "min_build_interval_sec": 90
   },
   "risk": {
-    "margin_safety": 0.65,
+    "margin_safety": 0.30,
     "max_daily_loss": 12.0,
     "hard_stop_pct": 3.0,
     "recovery_thr": 1.0,
@@ -61,6 +61,79 @@
   "volatility": {
     "reload_cycles": 120
   },
+  "liquidation_protection": {
+    "enabled": true,
+    "tiers": [
+      {
+        "level": 1,
+        "name": "Alert",
+        "enabled": true,
+        "triggers": [
+          {"type": "dist_liq_pct_lt", "threshold": 25},
+          {"type": "free_margin_pct_lt", "threshold": 40},
+          {"type": "uPnL_pct_lt", "threshold": -1.5}
+        ],
+        "actions": [
+          {"type": "tighten_grid_spacing", "factor": 0.9},
+          {"type": "log_alert", "message": "L1: Dist liq {{dist_liq_pct}}%"}
+        ],
+        "cooldown_sec": 60
+      },
+      {
+        "level": 2,
+        "name": "Defense",
+        "enabled": true,
+        "triggers": [
+          {"type": "dist_liq_pct_lt", "threshold": 20},
+          {"type": "free_margin_pct_lt", "threshold": 25},
+          {"type": "uPnL_pct_lt", "threshold": -3}
+        ],
+        "actions": [
+          {"type": "reduce_leverage", "target": 50},
+          {"type": "hedge_partial", "pct": 0.25}
+        ],
+        "cooldown_sec": 120
+      },
+      {
+        "level": 3,
+        "name": "Critical",
+        "enabled": true,
+        "triggers": [
+          {"type": "dist_liq_pct_lt", "threshold": 15},
+          {"type": "free_margin_pct_lt", "threshold": 15},
+          {"type": "uPnL_pct_lt", "threshold": -5}
+        ],
+        "actions": [
+          {"type": "add_margin", "max_pct_free_balance": 0.5},
+          {"type": "close_worst_positions", "uPnL_pct_lt": -3, "max_count": 2}
+        ],
+        "cooldown_sec": 180
+      },
+      {
+        "level": 4,
+        "name": "Emergency",
+        "enabled": true,
+        "triggers": [
+          {"type": "dist_liq_pct_lt", "threshold": 8},
+          {"type": "free_margin_pct_lt", "threshold": 5}
+        ],
+        "actions": [
+          {"type": "close_all_positions"},
+          {"type": "cancel_all_orders"},
+          {"type": "pause_bot_sec", "duration": 1800}
+        ],
+        "cooldown_sec": 3600
+      }
+    ],
+    "global": {
+      "eval_interval_sec": 8,
+      "min_dist_liq_pct": 3,
+      "circuit_breaker": {
+        "max_consecutive_errors": 5,
+        "disable_on_breaker": true
+      }
+    }
+  },
   "mysql": {
     "host": "localhost",
     "dbname": "erika_bot",
@@ -76,6 +149,6 @@
     "conf_hist":  "/home/erika/web/binance.gregorbritez.cat/private/grid_confidence.json",
     "ctrl":       "/home/erika/web/binance.gregorbritez.cat/private/grid_control.json"
   },
-  "security_token": "",
-  "ws_token": ""
+  "security_token": "g273f123",
+  "ws_token": "g273f123"
 }
