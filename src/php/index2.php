@@ -104,9 +104,6 @@ header('X-Content-Type-Options: nosniff');
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=yes">
 <title>ETH/USDT · Grid Bot v15.0 · Tiempo Real</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/design-system.css">
-<link rel="stylesheet" href="assets/css/layout.css">
-<link rel="stylesheet" href="assets/css/components.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
 <style>
@@ -123,8 +120,10 @@ header('X-Content-Type-Options: nosniff');
   --r:10px;--r2:6px;--sh:0 4px 24px rgba(0,0,0,.4);
   --drawer-width:280px;
 }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px}
+::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 #ldr{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;transition:opacity .6s}
 #ldr.hidden{opacity:0;pointer-events:none}
 .ldr-logo{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--purple));display:grid;place-items:center;font-size:24px;box-shadow:0 0 30px rgba(45,140,255,.4);animation:ldr-pulse 1.5s ease-in-out infinite}
@@ -193,6 +192,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .uptime{font-family:var(--mono);font-size:9px;color:var(--muted)}
 .last-upd{font-family:var(--mono);font-size:9px;color:var(--muted);background:var(--bg3);padding:2px 7px;border-radius:10px;border:1px solid var(--border)}
 .btns{display:flex;gap:5px;flex-shrink:0}
+.btn{border:1px solid var(--border2);background:transparent;color:var(--dim);font-family:var(--sans);font-size:11px;font-weight:600;padding:4px 9px;border-radius:6px;cursor:pointer;transition:.15s;display:flex;align-items:center;gap:4px;white-space:nowrap}
+.btn:hover{background:var(--bg3)}
 .btn-b{color:var(--accent);border-color:rgba(45,140,255,.3)}.btn-b:hover{background:var(--acc-g);border-color:var(--accent)}
 .btn-r{color:var(--red);border-color:rgba(240,60,82,.3)}.btn-r:hover{background:var(--rd-g);border-color:var(--red)}
 .btn-g{color:var(--green);border-color:rgba(0,201,122,.3)}.btn-g:hover{background:var(--gn-g);border-color:var(--green)}
@@ -292,6 +293,7 @@ table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:9px}
 th{position:sticky;top:0;z-index:2;background:rgba(11,15,24,.97);color:var(--muted);font-family:var(--sans);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:5px 8px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
 td{padding:4px 8px;border-bottom:1px solid rgba(26,37,53,.4);white-space:nowrap;color:var(--text)}
 tr:hover td{background:rgba(45,140,255,.03)}.tr{text-align:right}
+.badge{padding:1px 5px;border-radius:3px;font-size:8px;font-weight:700;font-family:var(--sans);text-transform:uppercase}
 .b-buy{background:var(--gn-g);color:var(--green)}.b-sell{background:var(--rd-g);color:var(--red)}
 .b-neu{background:var(--acc-g);color:var(--accent)}.b-yl{background:var(--yl-g);color:var(--yellow)}
 .b-rec{background:var(--yl-g);color:var(--yellow);font-size:7px}
@@ -342,14 +344,9 @@ tr:hover td{background:rgba(45,140,255,.03)}.tr{text-align:right}
 .modal-ft{padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
 .cfg-field{display:flex;flex-direction:column;gap:3px}
 .cfg-field label{font-size:9px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.cfg-input{background:var(--bg);border:1px solid var(--border2);border-radius:var(--r2);padding:7px 10px;font-family:var(--mono);font-size:12px;color:var(--text);outline:none;width:100%}
+.cfg-input:focus{border-color:var(--accent)}
 .cfg-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-/* Touch targets */
-.fills-pg button, .sidebar-right-tab-btn, .navbar-action-btn {
-  min-height:44px;
-}
-body.stale #app {opacity:.6;transition:opacity .8s;}
-.skel{background:linear-gradient(90deg,var(--bg3) 25%,var(--bg2) 50%,var(--bg3) 75%);background-size:200% 100%;animation:skShimmer 1.5s infinite;border-radius:6px;}
-@keyframes skShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 </style>
 </head>
 <body>
@@ -639,10 +636,8 @@ let fillsOffset=0, fillsTotal=0, fillsLimit=40;
 // WebSocket globals
 let ws = null;
 let wsReconnectTimer = null;
-let wsReconnectDelay = 1000;
+let wsInitialDataReceived = false;
 let lastDirection = null;
-let staleTimer = null;
-function markStale() { document.body.classList.add('stale'); }
 let lastRecentFillsCache = []; // caché de los últimos fills recibidos por WS
 
 const $ = id => document.getElementById(id);
@@ -660,11 +655,6 @@ function renderIfVisible(chartId, renderFn) {
   if (rect.top < window.innerHeight && rect.bottom > 0) renderFn();
 }
 function hideLdr(){$('ldr').classList.add('hidden');loaded=true;}
-// Skeleton loading for KPIs
-['kPnlH','kPnlT','kWin','kUpt','wBalance','stFills'].forEach(id => {
-  const el = $(id);
-  if (el && el.textContent === '--') el.innerHTML = '<span class="skel" style="display:inline-block;width:60px;height:14px">&nbsp;</span>';
-});
 function markUpdate(){lastStatUpdate=Date.now();$('lastUpdate').textContent='ahora';$('liveIndicator').classList.remove('stale');}
 setInterval(()=>{
   const s=Math.floor((Date.now()-lastStatUpdate)/1000);
@@ -674,29 +664,22 @@ setInterval(()=>{
 
 // ==================== WEBSOCKET CLIENT ====================
 function connectWebSocket() {
-    window.dispatchEvent(new CustomEvent('ws:connecting'));
     const token = '<?= EXPORT_TOKEN ?>';
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${proto}//${location.host}/ws/?token=${token}`;
     ws = new WebSocket(wsUrl);
     ws.onopen = () => {
         console.log('[WS] Conectado');
-        window.dispatchEvent(new CustomEvent('ws:connected'));
-        wsReconnectDelay = 1000;
         if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
         const ind = $('wsIndicator');
         if (ind) ind.style.background = 'var(--green)';
-        if (staleTimer) clearTimeout(staleTimer);
-        staleTimer = setTimeout(markStale, 10000);
     };
     ws.onmessage = (e) => {
         try {
             const data = JSON.parse(e.data);
-            // Heartbeat
-            if (data.type === 'heartbeat') {
-                if (staleTimer) clearTimeout(staleTimer);
-                staleTimer = setTimeout(markStale, 12000);
-                return;
+            if (!wsInitialDataReceived) {
+                wsInitialDataReceived = true;
+                console.log('[WS] Datos iniciales recibidos');
             }
             updateUIFromWebSocket(data);
         } catch (err) { console.warn('[WS] parse error', err); }
@@ -707,20 +690,14 @@ function connectWebSocket() {
         if (ind) ind.style.background = 'var(--red)';
     };
     ws.onclose = () => {
-        console.log('[WS] Desconectado');
-        window.dispatchEvent(new CustomEvent('ws:disconnected'));
+        console.log('[WS] Desconectado, reconectando en 3s...');
         const ind = $('wsIndicator');
         if (ind) ind.style.background = 'var(--muted)';
-        const delay = wsReconnectDelay;
-        wsReconnectDelay = Math.min(wsReconnectDelay * 2, 15000);
-        wsReconnectTimer = setTimeout(connectWebSocket, delay);
+        wsReconnectTimer = setTimeout(connectWebSocket, 3000);
     };
 }
 
 function updateUIFromWebSocket(data) {
-    if (staleTimer) clearTimeout(staleTimer);
-    staleTimer = setTimeout(markStale, 10000);
-    document.body.classList.remove('stale');
     if (data.ticker) updateTickerUI(data.ticker);
     if (data.bot_running !== undefined) setBotStatus(data.bot_running);
     if (data.uptime) {
@@ -877,19 +854,20 @@ function updatePositionsUI(positions, totalUpnl, realBalance) {
 
 function renderCumulativeFromWS(cumulative) {
     if (!cumulative || !cumulative.length) return;
-    const labels = cumulative.map(r => r.d.slice(5));
-    const vals = cumulative.map(r => parseFloat(r.p));
-    let acc=0; const cumVals=vals.map(v=>{acc+=v;return parseFloat(acc.toFixed(6));});
-    $('cumTot').innerHTML = `<span class="${acc>=0?'c-pos':'c-neg'}">${acc>=0?'+':''}${acc.toFixed(4)} USDT</span>`;
-    const cumBd = acc >= 0 ? '#00c97a' : '#f03c52';
+    const sorted = [...cumulative].reverse();
+    const labels = sorted.map(r => r.d.slice(5));
+    const vals = sorted.map(r => parseFloat(r.p));
+    const total = vals.reduce((a,b)=>a+b,0);
+    $('cumTot').innerHTML = `<span class="${total>=0?'c-pos':'c-neg'}">${total>=0?'+':''}${total.toFixed(4)} USDT</span>`;
+    const cumBd = total >= 0 ? '#00c97a' : '#f03c52';
     if (charts['cum']) {
         charts['cum'].data.labels = labels;
-        charts['cum'].data.datasets[0].data = cumVals;
+        charts['cum'].data.datasets[0].data = vals;
         charts['cum'].data.datasets[0].borderColor = cumBd;
-        charts['cum'].data.datasets[0].backgroundColor = acc>=0?'rgba(0,201,122,.06)':'rgba(240,60,82,.06)';
+        charts['cum'].data.datasets[0].backgroundColor = total>=0?'rgba(0,201,122,.06)':'rgba(240,60,82,.06)';
         charts['cum'].update('none');
     } else {
-        charts['cum'] = chartDef('cumChart','line',labels,cumVals,{borderColor:cumBd,borderWidth:2,pointRadius:2,fill:true,backgroundColor:acc>=0?'rgba(0,201,122,.06)':'rgba(240,60,82,.06)',tension:.3,pointBackgroundColor:cumBd});
+        charts['cum'] = chartDef('cumChart','line',labels,vals,{borderColor:cumBd,borderWidth:2,pointRadius:2,fill:true,backgroundColor:total>=0?'rgba(0,201,122,.06)':'rgba(240,60,82,.06)',tension:.3,pointBackgroundColor:cumBd});
     }
 }
 
@@ -986,39 +964,6 @@ function initLwChart() {
             upColor: '#00c97a', downColor: '#f03c52',
             borderVisible: false,
             wickUpColor: '#00c97a', wickDownColor: '#f03c52'
-        });
-        // Candle tooltip overlay
-        const candleTooltip = document.createElement('div');
-        candleTooltip.id = 'candleTooltip';
-        candleTooltip.style.cssText = 'position:absolute;display:none;background:rgba(6,8,14,.92);border:1px solid #1a2535;border-radius:6px;padding:8px 10px;font-family:var(--mono);font-size:10px;z-index:10;pointer-events:none;white-space:nowrap';
-        el.style.position = 'relative';
-        el.appendChild(candleTooltip);
-
-        lwChart.subscribeCrosshairMove(param => {
-          if (!param.time || !param.point) { candleTooltip.style.display = 'none'; return; }
-          const data = param.seriesData.get(lwSeries);
-          if (!data) { candleTooltip.style.display = 'none'; return; }
-          const o = data.open.toFixed(2);
-          const h = data.high.toFixed(2);
-          const l = data.low.toFixed(2);
-          const c = data.close.toFixed(2);
-          const color = data.close >= data.open ? '#00c97a' : '#f03c52';
-          candleTooltip.style.display = 'block';
-          candleTooltip.innerHTML = `<span style="color:${color}">O ${o}</span>` +
-            ` <span style="color:var(--muted)">·</span> ` +
-            `<span style="color:${color}">H ${h}</span>` +
-            ` <span style="color:var(--muted)">·</span> ` +
-            `<span style="color:${color}">L ${l}</span>` +
-            ` <span style="color:var(--muted)">·</span> ` +
-            `<span style="color:${color}">C ${c}</span>`;
-          const rect = el.getBoundingClientRect();
-          let left = param.point.x + 12;
-          let top = param.point.y - 20;
-          if (left + candleTooltip.offsetWidth > rect.width - 5) left = param.point.x - candleTooltip.offsetWidth - 12;
-          if (left < 0) left = 5;
-          if (top < 5) top = 5;
-          candleTooltip.style.left = left + 'px';
-          candleTooltip.style.top = top + 'px';
         });
         const resizeObserver = new ResizeObserver(() => {
             if (el.clientWidth > 0 && lwChart) {
@@ -1178,23 +1123,7 @@ function chartDef(id,type,labels,data,opts){
   const ctx=$(id)?.getContext('2d'); if(!ctx) return null;
   return new Chart(ctx,{type,data:{labels,datasets:[{...opts,data}]},options:{
     responsive:true,maintainAspectRatio:false,animation:{duration:400},
-    plugins:{
-      legend:{display:false},
-      tooltip:{
-        enabled:true,
-        backgroundColor:'rgba(6,8,14,.92)',
-        titleColor:'#c8daf0',
-        bodyColor:'#7a99bb',
-        borderColor:'#1a2535',
-        borderWidth:1,
-        padding:8,
-        cornerRadius:6,
-        displayColors:false,
-        callbacks:{
-          label:ctx=>ctx.parsed.y>=0?'+'+ctx.parsed.y.toFixed(4)+' USDT':ctx.parsed.y.toFixed(4)+' USDT'
-        }
-      }
-    },
+    plugins:{legend:{display:false}},
     scales:{x:{ticks:{color:'#3a5270',font:{size:7}},grid:{color:'rgba(26,37,53,.4)'}},
             y:{ticks:{color:'#3a5270',font:{size:7}},grid:{color:'rgba(26,37,53,.4)'}}}
   }});
@@ -1384,14 +1313,15 @@ function renderConf(hist){
 }
 function renderHourly(data){
   const labels=[],vals=[];let total=0;
-  for(const row of data){
-    labels.push(row.d.slice(5)+' '+String(row.h).padStart(2,'0')+'h');
-    const p=parseFloat(row.p);vals.push(p);total+=p;
+  for(let i=0;i<24;i++){
+    labels.push(String(i).padStart(2,'0')+'h');
+    const f=data.find(x=>parseInt(x.h)===i); const p=f?parseFloat(f.p):0;
+    vals.push(p);total+=p;
   }
   $('hTot').innerHTML=`<span class="${total>=0?'c-pos':'c-neg'}">${total>=0?'+':''}${total.toFixed(4)} USDT</span>`;
   const bg=vals.map(v=>v>=0?'rgba(0,201,122,.5)':'rgba(240,60,82,.5)');
   const bd=vals.map(v=>v>=0?'#00c97a':'#f03c52');
-  if(charts['h']){charts['h'].data.labels=labels;charts['h'].data.datasets[0].data=vals;charts['h'].data.datasets[0].backgroundColor=bg;charts['h'].data.datasets[0].borderColor=bd;charts['h'].update('none');}
+  if(charts['h']){charts['h'].data.datasets[0].data=vals;charts['h'].data.datasets[0].backgroundColor=bg;charts['h'].data.datasets[0].borderColor=bd;charts['h'].update('none');}
   else{charts['h']=chartDef('hChart','bar',labels,vals,{backgroundColor:bg,borderColor:bd,borderWidth:1,borderRadius:3});}
 }
 function renderDaily(data){

@@ -14,6 +14,7 @@ let isPolling = false;
 function getWsUrl() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const token = window.__INIT__?.ws_token || '';
+  // Conexión vía proxy Apache/nginx en /ws/ (maneja SSL automáticamente)
   return `${proto}//${location.host}/ws/?token=${token}`;
 }
 

@@ -108,8 +108,8 @@ if (isset($_GET['_status'])) {
             $cfgRow = $db->query("SELECT * FROM grid_configs WHERE symbol='ETHUSDT' ORDER BY id DESC LIMIT 1")->fetch() ?: [];
             $pj     = ($st && isset($st['pairs']['ETHUSDT'])) ? $st['pairs']['ETHUSDT'] : [];
 
-            $r1 = $db->query("SELECT COUNT(*) c, COALESCE(SUM(pnl_usd),0) p FROM grid_orders WHERE grid_role='EXIT' AND status='FILLED' AND DATE(filled_at)=CURDATE()")->fetch();
-            $r2 = $db->query("SELECT COUNT(*) c, COALESCE(SUM(pnl_usd),0) p FROM grid_orders WHERE grid_role='EXIT' AND status='FILLED'")->fetch();
+            $r1 = $db->query("SELECT COUNT(*) c, COALESCE(SUM(pnl_usd),0) p FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED' AND DATE(filled_at)=CURDATE()")->fetch();
+            $r2 = $db->query("SELECT COUNT(*) c, COALESCE(SUM(pnl_usd),0) p FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED'")->fetch();
             $oe = (int)$db->query("SELECT COUNT(*) FROM grid_orders WHERE symbol='ETHUSDT' AND status='OPEN' AND grid_role='ENTRY'")->fetchColumn();
             $ox = (int)$db->query("SELECT COUNT(*) FROM grid_orders WHERE symbol='ETHUSDT' AND status='OPEN' AND grid_role='EXIT'")->fetchColumn();
             $cp = (float)($pj['price'] ?? 0);
@@ -120,12 +120,12 @@ if (isset($_GET['_status'])) {
 
             $orders = $db->query("SELECT id,side,grid_role,price,qty,grid_level,is_recovery,created_at FROM grid_orders WHERE symbol='ETHUSDT' AND status='OPEN' ORDER BY price DESC LIMIT 60")->fetchAll();
 
-            $data['pnl_daily']  = $db->query("SELECT DATE(filled_at) d, ROUND(SUM(pnl_usd),6) p FROM grid_orders WHERE grid_role='EXIT' AND status='FILLED' AND filled_at>=DATE_SUB(NOW(),INTERVAL 14 DAY) GROUP BY DATE(filled_at) ORDER BY d ASC")->fetchAll();
-            $data['pnl_hourly'] = $db->query("SELECT DATE(filled_at) d,HOUR(filled_at) h,ROUND(SUM(pnl_usd),6) p FROM grid_orders WHERE grid_role='EXIT' AND status='FILLED' AND filled_at>=DATE_SUB(NOW(),INTERVAL 48 HOUR) GROUP BY DATE(filled_at),HOUR(filled_at) ORDER BY d,h")->fetchAll();
+            $data['pnl_daily']  = $db->query("SELECT DATE(filled_at) d, ROUND(SUM(pnl_usd),6) p FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED' AND filled_at>=DATE_SUB(NOW(),INTERVAL 14 DAY) GROUP BY DATE(filled_at) ORDER BY d ASC")->fetchAll();
+            $data['pnl_hourly'] = $db->query("SELECT DATE(filled_at) d,HOUR(filled_at) h,ROUND(SUM(pnl_usd),6) p FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED' AND filled_at>=DATE_SUB(NOW(),INTERVAL 48 HOUR) GROUP BY DATE(filled_at),HOUR(filled_at) ORDER BY d,h")->fetchAll();
 
             // Win rate (evitar división por cero)
             $totalFills = (int)($r2['c'] ?? 0);
-            $wins = (int)$db->query("SELECT COUNT(*) FROM grid_orders WHERE grid_role='EXIT' AND status='FILLED' AND pnl_usd>0")->fetchColumn();
+            $wins = (int)$db->query("SELECT COUNT(*) FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED' AND pnl_usd>0")->fetchColumn();
             $winRate = ($totalFills > 0) ? round(($wins / $totalFills) * 100, 1) : 0;
 
             $data['pairs'] = ['ETHUSDT' => [
