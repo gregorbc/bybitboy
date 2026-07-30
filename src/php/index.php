@@ -472,6 +472,7 @@ body.stale #app {opacity:.6;transition:opacity .8s;}
           <span class="cfg-k">ROI total</span><span class="cfg-v" id="wRoiT">--</span>
           <span class="cfg-k">Proy. 30d</span><span class="cfg-v c-pos" id="wProj">--</span>
           <span class="cfg-k">Fees estim.</span><span class="cfg-v c-dim" id="wFees">--</span>
+          <span class="cfg-k">Uptime</span><span class="cfg-v" id="wUpt">--</span>
         </div>
       </div>
       <div class="card">
@@ -726,6 +727,7 @@ function updateUIFromWebSocket(data) {
     if (data.uptime) {
         $('kUpt').textContent = data.uptime;
         $('uptTxt').textContent = data.uptime;
+        $('wUpt').textContent = data.uptime;
     }
     if (data.mode) {
         $('modeBadge').textContent = data.mode;
@@ -929,8 +931,9 @@ async function fetchStatus(){
   markUpdate();
   const running = d.running ?? d.bot_running ?? false;
   setBotStatus(running);
-  $('kUpt').textContent=d.uptime||'--';
-  $('uptTxt').textContent=d.uptime||'--';
+$('kUpt').textContent=d.uptime||'--';
+    $('uptTxt').textContent=d.uptime||'--';
+    $('wUpt').textContent=d.uptime||'--';
   const mode=d.mode||'NORMAL';
   $('modeBadge').textContent=mode;
   $('modeBadge').className=`mode-badge m-${mode}`;
