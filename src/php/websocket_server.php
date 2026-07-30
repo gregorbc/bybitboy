@@ -171,6 +171,7 @@ class GridWebSocket implements MessageComponentInterface {
     private $lastDataHash = '';
     private $pdo = null;
     private $pdoTime = 0;
+    private $heartbeatTick = 0;
     
     // Tiempos de caché (ms)
     const CACHE_TICKER_MS = 500;      // Ticker: 0.5s
@@ -222,6 +223,7 @@ class GridWebSocket implements MessageComponentInterface {
     public function setLoop($loop) {
         $this->loop = $loop;
         $loop->addPeriodicTimer(1, function () {
+            $this->heartbeatTick++;
             $data = $this->collectData();
             $json = json_encode($data);
             foreach ($this->clients as $client) {
@@ -231,6 +233,15 @@ class GridWebSocket implements MessageComponentInterface {
                     echo "Error sending to client: " . $e->getMessage() . "\n";
                     $this->clients->detach($client);
                     $client->close();
+                }
+            }
+            // Heartbeat every 5 seconds
+            if ($this->heartbeatTick % 5 === 0) {
+                $hb = json_encode(['type' => 'heartbeat', 'ts' => (int)(microtime(true) * 1000)]);
+                foreach ($this->clients as $client) {
+                    try {
+                        $client->send($hb);
+                    } catch (Exception $e) {}
                 }
             }
         });
@@ -343,7 +354,7 @@ class GridWebSocket implements MessageComponentInterface {
         $db = $this->getDB();
         if (!$db) return [];
         try {
-            $stmt = $db->prepare("SELECT symbol, side, grid_role, price, qty, pnl_usd, filled_at, is_recovery FROM grid_orders WHERE status='FILLED' ORDER BY filled_at DESC LIMIT $limit");
+            $stmt = $db->prepare("SELECT symbol, side, grid_role, price, qty, pnl_usd, filled_at, is_recovery FROM grid_orders WHERE symbol='ETHUSDT' AND status='FILLED' ORDER BY filled_at DESC LIMIT $limit");
             $stmt->execute();
             $this->cacheFills = $stmt->fetchAll();
             $this->cacheFillsTime = $now;
@@ -373,7 +384,7 @@ class GridWebSocket implements MessageComponentInterface {
         $db = getDB($this->dbConfig);
         if (!$db) return [];
         try {
-            return $db->query("SELECT DATE(filled_at) d, HOUR(filled_at) h, ROUND(SUM(pnl_usd),6) p FROM grid_orders WHERE grid_role='EXIT' AND status='FILLED' AND filled_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR) GROUP BY DATE(filled_at), HOUR(filled_at) ORDER BY d, h")->fetchAll();
+            return $db->query("SELECT DATE(filled_at) d, HOUR(filled_at) h, ROUND(SUM(pnl_usd),6) p FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED' AND filled_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR) GROUP BY DATE(filled_at), HOUR(filled_at) ORDER BY d, h")->fetchAll();
         } catch (Exception $e) { return []; }
     }
 
@@ -381,7 +392,7 @@ class GridWebSocket implements MessageComponentInterface {
         $db = getDB($this->dbConfig);
         if (!$db) return [];
         try {
-            return $db->query("SELECT DATE(filled_at) d, ROUND(SUM(pnl_usd),6) p FROM grid_orders WHERE grid_role='EXIT' AND status='FILLED' GROUP BY DATE(filled_at) ORDER BY d DESC LIMIT 14")->fetchAll();
+            return $db->query("SELECT DATE(filled_at) d, ROUND(SUM(pnl_usd),6) p FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED' GROUP BY DATE(filled_at) ORDER BY d ASC LIMIT 14")->fetchAll();
         } catch (Exception $e) { return []; }
     }
 
@@ -443,8 +454,8 @@ class GridWebSocket implements MessageComponentInterface {
 $makerFee = (float)($cfg['fees']['maker'] ?? 0.0001);
 $takerFee = (float)($cfg['fees']['taker'] ?? 0.0006);
 $ws = new GridWebSocket($dbConfig, $wsToken, $bybitKey, $bybitSecret, $bybitBase, $logFile, $statusFile, $pidFile, $confHist, $makerFee, $takerFee);
-$server = IoServer::factory(new HttpServer(new WsServer($ws)), 8082);
-echo "=== Grid Bot WebSocket Server v3.1 ===\nEscuchando en puerto 8082\n";
+$server = IoServer::factory(new HttpServer(new WsServer($ws)), 8094);
+echo "=== Grid Bot WebSocket Server v3.1 ===\nEscuchando en puerto 8094\n";
 if (!empty($wsToken)) echo "Autenticación por token activada\n";
 else echo "ADVERTENCIA: Sin token de seguridad (configurar 'ws_token' en config.json)\n";
 $ws->setLoop($server->loop);
