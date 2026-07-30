@@ -343,6 +343,13 @@ tr:hover td{background:rgba(45,140,255,.03)}.tr{text-align:right}
 .cfg-field{display:flex;flex-direction:column;gap:3px}
 .cfg-field label{font-size:9px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
 .cfg-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* Touch targets */
+.fills-pg button, .sidebar-right-tab-btn, .navbar-action-btn {
+  min-height:44px;
+}
+body.stale #app {opacity:.6;transition:opacity .8s;}
+.skel{background:linear-gradient(90deg,var(--bg3) 25%,var(--bg2) 50%,var(--bg3) 75%);background-size:200% 100%;animation:skShimmer 1.5s infinite;border-radius:6px;}
+@keyframes skShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 </style>
 </head>
 <body>
@@ -632,8 +639,11 @@ let fillsOffset=0, fillsTotal=0, fillsLimit=40;
 // WebSocket globals
 let ws = null;
 let wsReconnectTimer = null;
+let wsReconnectDelay = 1000;
 let wsInitialDataReceived = false;
 let lastDirection = null;
+let staleTimer = null;
+function markStale() { document.body.classList.add('stale'); }
 let lastRecentFillsCache = []; // caché de los últimos fills recibidos por WS
 
 const $ = id => document.getElementById(id);
@@ -651,6 +661,11 @@ function renderIfVisible(chartId, renderFn) {
   if (rect.top < window.innerHeight && rect.bottom > 0) renderFn();
 }
 function hideLdr(){$('ldr').classList.add('hidden');loaded=true;}
+// Skeleton loading for KPIs
+['kPnlH','kPnlT','kWin','kUpt','wBalance','stFills'].forEach(id => {
+  const el = $(id);
+  if (el && el.textContent === '--') el.innerHTML = '<span class="skel" style="display:inline-block;width:60px;height:14px">&nbsp;</span>';
+});
 function markUpdate(){lastStatUpdate=Date.now();$('lastUpdate').textContent='ahora';$('liveIndicator').classList.remove('stale');}
 setInterval(()=>{
   const s=Math.floor((Date.now()-lastStatUpdate)/1000);
@@ -666,13 +681,22 @@ function connectWebSocket() {
     ws = new WebSocket(wsUrl);
     ws.onopen = () => {
         console.log('[WS] Conectado');
+        wsReconnectDelay = 1000;
         if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
         const ind = $('wsIndicator');
         if (ind) ind.style.background = 'var(--green)';
+        if (staleTimer) clearTimeout(staleTimer);
+        staleTimer = setTimeout(markStale, 10000);
     };
     ws.onmessage = (e) => {
         try {
             const data = JSON.parse(e.data);
+            // Heartbeat
+            if (data.type === 'heartbeat') {
+                if (staleTimer) clearTimeout(staleTimer);
+                staleTimer = setTimeout(markStale, 12000);
+                return;
+            }
             if (!wsInitialDataReceived) {
                 wsInitialDataReceived = true;
                 console.log('[WS] Datos iniciales recibidos');
@@ -686,14 +710,20 @@ function connectWebSocket() {
         if (ind) ind.style.background = 'var(--red)';
     };
     ws.onclose = () => {
-        console.log('[WS] Desconectado, reconectando en 3s...');
+        console.log('[WS] Desconectado, reconectando en ' + (wsReconnectDelay/1000) + 's...');
         const ind = $('wsIndicator');
         if (ind) ind.style.background = 'var(--muted)';
-        wsReconnectTimer = setTimeout(connectWebSocket, 3000);
+        wsReconnectTimer = setTimeout(() => {
+            connectWebSocket();
+            wsReconnectDelay = Math.min(wsReconnectDelay * 2, 15000);
+        }, wsReconnectDelay);
     };
 }
 
 function updateUIFromWebSocket(data) {
+    if (staleTimer) clearTimeout(staleTimer);
+    staleTimer = setTimeout(markStale, 10000);
+    document.body.classList.remove('stale');
     if (data.ticker) updateTickerUI(data.ticker);
     if (data.bot_running !== undefined) setBotStatus(data.bot_running);
     if (data.uptime) {
