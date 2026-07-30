@@ -960,6 +960,37 @@ function initLwChart() {
             borderVisible: false,
             wickUpColor: '#00c97a', wickDownColor: '#f03c52'
         });
+        // Candle tooltip overlay
+        const candleTooltip = document.createElement('div');
+        candleTooltip.style.cssText = 'position:absolute;display:none;background:rgba(6,8,14,.92);border:1px solid #1a2535;border-radius:6px;padding:8px 10px;font-family:var(--mono);font-size:10px;z-index:10;pointer-events:none;white-space:nowrap';
+        el.style.position = 'relative';
+        el.appendChild(candleTooltip);
+
+        lwChart.subscribeCrosshairMove(param => {
+          if (!param.time || !param.point) { candleTooltip.style.display = 'none'; return; }
+          const data = param.seriesData.get(lwSeries);
+          if (!data) { candleTooltip.style.display = 'none'; return; }
+          const o = data.open.toFixed(2);
+          const h = data.high.toFixed(2);
+          const l = data.low.toFixed(2);
+          const c = data.close.toFixed(2);
+          const color = data.close >= data.open ? '#00c97a' : '#f03c52';
+          candleTooltip.style.display = 'block';
+          candleTooltip.innerHTML = `<span style="color:${color}">O ${o}</span>` +
+            ` <span style="color:var(--muted)">·</span> ` +
+            `<span style="color:${color}">H ${h}</span>` +
+            ` <span style="color:var(--muted)">·</span> ` +
+            `<span style="color:${color}">L ${l}</span>` +
+            ` <span style="color:var(--muted)">·</span> ` +
+            `<span style="color:${color}">C ${c}</span>`;
+          const rect = el.getBoundingClientRect();
+          let left = param.point.x + 12;
+          let top = param.point.y - 20;
+          if (left + candleTooltip.offsetWidth > rect.width - 5) left = param.point.x - candleTooltip.offsetWidth - 12;
+          if (top < 5) top = 5;
+          candleTooltip.style.left = left + 'px';
+          candleTooltip.style.top = top + 'px';
+        });
         const resizeObserver = new ResizeObserver(() => {
             if (el.clientWidth > 0 && lwChart) {
                 lwChart.applyOptions({ width: el.clientWidth });
@@ -1118,7 +1149,23 @@ function chartDef(id,type,labels,data,opts){
   const ctx=$(id)?.getContext('2d'); if(!ctx) return null;
   return new Chart(ctx,{type,data:{labels,datasets:[{...opts,data}]},options:{
     responsive:true,maintainAspectRatio:false,animation:{duration:400},
-    plugins:{legend:{display:false}},
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        enabled:true,
+        backgroundColor:'rgba(6,8,14,.92)',
+        titleColor:'#c8daf0',
+        bodyColor:'#7a99bb',
+        borderColor:'#1a2535',
+        borderWidth:1,
+        padding:8,
+        cornerRadius:6,
+        displayColors:false,
+        callbacks:{
+          label:ctx=>ctx.parsed.y>=0?'+'+ctx.parsed.y.toFixed(4)+' USDT':ctx.parsed.y.toFixed(4)+' USDT'
+        }
+      }
+    },
     scales:{x:{ticks:{color:'#3a5270',font:{size:7}},grid:{color:'rgba(26,37,53,.4)'}},
             y:{ticks:{color:'#3a5270',font:{size:7}},grid:{color:'rgba(26,37,53,.4)'}}}
   }});
