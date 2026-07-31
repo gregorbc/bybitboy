@@ -19,6 +19,11 @@ class LiquidationProtectorTest extends TestCase
         $stateFile = sys_get_temp_dir() . '/' . LiquidationProtector::DEFAULT_STATE_FILE;
         @unlink($stateFile);
 
+        // G_SYM is referenced by LiquidationProtector when a position has no 'symbol' key.
+        if (!defined('G_SYM')) {
+            define('G_SYM', 'ETHUSDT');
+        }
+
         $this->api = Mockery::mock(BybitFutures::class);
         $this->config = [
             'enabled' => true,
@@ -185,12 +190,12 @@ class LiquidationProtectorTest extends TestCase
         $price = 9000.0;
 
         // Mock API calls that actions might make
-        $this->api->allows()->setLeverage()->andReturn(['retCode' => 0]);
-        $this->api->allows()->placeOrder()->andReturn(['retCode' => 0, 'result' => ['orderId' => '123']]);
-        $this->api->allows()->setMargin()->andReturn(['retCode' => 0]);
-        $this->api->allows()->cancelAllOrders()->andReturn(['retCode' => 0]);
-        $this->api->allows()->getPositions()->andReturn([]);
-        $this->api->allows()->getWalletBalance()->andReturn(['result' => ['list' => [['coin' => 'USDT', 'walletBalance' => '1000']]]]);
+        $this->api->shouldReceive('setLeverage')->andReturn(['retCode' => 0]);
+        $this->api->shouldReceive('marketClose')->andReturn('mock-order-id');
+        $this->api->shouldReceive('addMargin')->andReturn(true);
+        $this->api->shouldReceive('cancelAll')->andReturn(null);
+        $this->api->shouldReceive('getPositions')->andReturn([]);
+        $this->api->shouldReceive('getWalletBalance')->andReturn(['result' => ['list' => [['coin' => 'USDT', 'walletBalance' => '1000']]]]);
 
         // First eval cycle (evalIntervalSec=1, so evaluate every time)
         $ref = new \ReflectionClass($prot);
@@ -236,12 +241,12 @@ class LiquidationProtectorTest extends TestCase
         $balance = 1000.0;
         $price = 9000.0;
 
-        $this->api->allows()->setLeverage()->andReturn(['retCode' => 0]);
-        $this->api->allows()->placeOrder()->andReturn(['retCode' => 0, 'result' => ['orderId' => '123']]);
-        $this->api->allows()->setMargin()->andReturn(['retCode' => 0]);
-        $this->api->allows()->cancelAllOrders()->andReturn(['retCode' => 0]);
-        $this->api->allows()->getPositions()->andReturn([]);
-        $this->api->allows()->getWalletBalance()->andReturn(['result' => ['list' => [['coin' => 'USDT', 'walletBalance' => '1000']]]]);
+        $this->api->shouldReceive('setLeverage')->andReturn(['retCode' => 0]);
+        $this->api->shouldReceive('marketClose')->andReturn('mock-order-id');
+        $this->api->shouldReceive('addMargin')->andReturn(true);
+        $this->api->shouldReceive('cancelAll')->andReturn(null);
+        $this->api->shouldReceive('getPositions')->andReturn([]);
+        $this->api->shouldReceive('getWalletBalance')->andReturn(['result' => ['list' => [['coin' => 'USDT', 'walletBalance' => '1000']]]]);
 
         $ref = new \ReflectionClass($prot);
         $method = $ref->getMethod('evaluate');
@@ -283,12 +288,12 @@ class LiquidationProtectorTest extends TestCase
         $balance = 1000.0;
         $price = 9500.0;
 
-        $this->api->allows()->setLeverage()->andReturn(['retCode' => 0]);
-        $this->api->allows()->placeOrder()->andReturn(['retCode' => 0, 'result' => ['orderId' => '123']]);
-        $this->api->allows()->setMargin()->andReturn(['retCode' => 0]);
-        $this->api->allows()->cancelAllOrders()->andReturn(['retCode' => 0]);
-        $this->api->allows()->getPositions()->andReturn([]);
-        $this->api->allows()->getWalletBalance()->andReturn(['result' => ['list' => [['coin' => 'USDT', 'walletBalance' => '1000']]]]);
+        $this->api->shouldReceive('setLeverage')->andReturn(['retCode' => 0]);
+        $this->api->shouldReceive('marketClose')->andReturn('mock-order-id');
+        $this->api->shouldReceive('addMargin')->andReturn(true);
+        $this->api->shouldReceive('cancelAll')->andReturn(null);
+        $this->api->shouldReceive('getPositions')->andReturn([]);
+        $this->api->shouldReceive('getWalletBalance')->andReturn(['result' => ['list' => [['coin' => 'USDT', 'walletBalance' => '1000']]]]);
 
         $ref = new \ReflectionClass($prot);
         $method = $ref->getMethod('evaluate');
@@ -332,12 +337,12 @@ class LiquidationProtectorTest extends TestCase
         $balance = 1000.0;
         $price = 9600.0;
 
-        $this->api->allows()->setLeverage()->andReturn(['retCode' => 0]);
-        $this->api->allows()->placeOrder()->andReturn(['retCode' => 0, 'result' => ['orderId' => '123']]);
-        $this->api->allows()->setMargin()->andReturn(['retCode' => 0]);
-        $this->api->allows()->cancelAllOrders()->andReturn(['retCode' => 0]);
-        $this->api->allows()->getPositions()->andReturn([]);
-        $this->api->allows()->getWalletBalance()->andReturn(['result' => ['list' => [['coin' => 'USDT', 'walletBalance' => '1000']]]]);
+        $this->api->shouldReceive('setLeverage')->andReturn(['retCode' => 0]);
+        $this->api->shouldReceive('marketClose')->andReturn('mock-order-id');
+        $this->api->shouldReceive('addMargin')->andReturn(true);
+        $this->api->shouldReceive('cancelAll')->andReturn(null);
+        $this->api->shouldReceive('getPositions')->andReturn([]);
+        $this->api->shouldReceive('getWalletBalance')->andReturn(['result' => ['list' => [['coin' => 'USDT', 'walletBalance' => '1000']]]]);
 
         $ref = new \ReflectionClass($prot);
         $method = $ref->getMethod('evaluate');
@@ -430,10 +435,10 @@ class LiquidationProtectorTest extends TestCase
         $balance = 1000.0;
         $price = 9000.0;
 
-        $this->api->allows()->setLeverage()->andReturn(['retCode' => 0]);
-        $this->api->allows()->placeOrder()->andReturn(['retCode' => 0, 'result' => ['orderId' => '123']]);
-        $this->api->allows()->setMargin()->andReturn(['retCode' => 0]);
-        $this->api->allows()->cancelAllOrders()->andReturn(['retCode' => 0]);
+        $this->api->shouldReceive('setLeverage')->andReturn(['retCode' => 0]);
+        $this->api->shouldReceive('marketClose')->andReturn('mock-order-id');
+        $this->api->shouldReceive('addMargin')->andReturn(true);
+        $this->api->shouldReceive('cancelAll')->andReturn(null);
 
         $ref = new \ReflectionClass($prot);
         $method = $ref->getMethod('evaluate');
@@ -583,5 +588,242 @@ class LiquidationProtectorTest extends TestCase
             $prot2->getLastTriggered(1),
             'Trigger timestamp should be identical across restart'
         );
+    }
+
+    /**
+     * Fix #2: Bybit demo returns liquidationPrice=0 for low-risk positions.
+     * Metrics (free_margin_pct, uPnL_pct) must still be computed so triggers fire.
+     */
+    public function testFreeMarginTriggersWhenLiquidationPriceIsZero(): void
+    {
+        $config = [
+            'enabled' => true,
+            'tiers' => [
+                1 => [
+                    'enabled' => true,
+                    'triggers' => [['type' => 'dist_liq_pct_lt', 'threshold' => 1]],
+                    'actions' => [['type' => 'log_alert']],
+                    'cooldown_sec' => 1,
+                ],
+                2 => [
+                    'enabled' => true,
+                    'triggers' => [['type' => 'free_margin_pct_lt', 'threshold' => 25]],
+                    'actions' => [['type' => 'log_alert']],
+                    'cooldown_sec' => 1,
+                ],
+            ],
+            'global' => ['eval_interval_sec' => 1],
+            'circuit_breaker' => ['max_consecutive_errors' => 5],
+        ];
+        $prot = new LiquidationProtector($this->api, $config);
+
+        // BybitFutures::positions() returns 'liquidationPrice' => 0 (demo).
+        // entry=10000, price=9000, qty=0.5 -> posValue=4500, uPnL=-500
+        // free_margin = 1000-500 = 500 -> free_margin_pct = 500/4500*100 = 11.11% < 25%
+        $positions = [[
+            'side' => 'Buy',
+            'positionAmt' => '0.5',
+            'size' => '0.5',
+            'entryPrice' => '10000',
+            'liquidationPrice' => '0',
+            'unRealizedProfit' => '-500',
+            'leverage' => '100',
+        ]];
+        $balance = 1000.0;
+        $price = 9000.0;
+
+        $ref = new \ReflectionClass($prot);
+        $method = $ref->getMethod('evaluate');
+        $method->setAccessible(true);
+        $method->invoke($prot, $price, $positions, $balance);
+
+        $this->assertEquals(2, $this->getLastTriggeredLevel($prot),
+            'free_margin_pct must be computed even when liquidationPrice is 0');
+    }
+
+    /**
+     * Fix #1: close_all_positions must use the real marketClose() method.
+     */
+    public function testCloseAllPositionsUsesMarketClose(): void
+    {
+        $config = $this->configForSingleTier(
+            [['type' => 'close_all_positions']],
+            [['type' => 'dist_liq_pct_lt', 'threshold' => 25]]
+        );
+        $prot = new LiquidationProtector($this->api, $config);
+
+        $this->api->shouldReceive('marketClose')
+            ->once()->with('ETHUSDT', 'Buy', 0.5)->andReturn('order-id');
+
+        $positions = [$this->makePosition(8000, 10000, 'Buy', -100)];
+        $ref = new \ReflectionClass($prot);
+        $method = $ref->getMethod('evaluate');
+        $method->setAccessible(true);
+        $method->invoke($prot, 9000.0, $positions, 1000.0);
+
+        $this->assertEquals(1, $this->getLastTriggeredLevel($prot),
+            'L1 must trigger and use marketClose()');
+    }
+
+    /**
+     * Fix #1: cancel_all_orders must use the real cancelAll() method.
+     */
+    public function testCancelAllOrdersUsesCancelAll(): void
+    {
+        $config = $this->configForSingleTier(
+            [['type' => 'cancel_all_orders']],
+            [['type' => 'dist_liq_pct_lt', 'threshold' => 25]]
+        );
+        $prot = new LiquidationProtector($this->api, $config);
+
+        $this->api->shouldReceive('cancelAll')
+            ->once()->with('ETHUSDT')->andReturn(null);
+
+        $positions = [$this->makePosition(8000, 10000, 'Buy', -100)];
+        $ref = new \ReflectionClass($prot);
+        $method = $ref->getMethod('evaluate');
+        $method->setAccessible(true);
+        $method->invoke($prot, 9000.0, $positions, 1000.0);
+
+        $this->assertEquals(1, $this->getLastTriggeredLevel($prot),
+            'L1 must trigger and use cancelAll()');
+    }
+
+    /**
+     * Fix #1: tighten_grid_spacing is not an exchange method — it must be a
+     * safe no-op (log) instead of crashing the whole protector.
+     */
+    public function testTightenGridSpacingIsSafeNoop(): void
+    {
+        $config = $this->configForSingleTier(
+            [['type' => 'tighten_grid_spacing', 'factor' => 0.9]],
+            [['type' => 'dist_liq_pct_lt', 'threshold' => 25]]
+        );
+        $prot = new LiquidationProtector($this->api, $config);
+
+        $positions = [$this->makePosition(8000, 10000, 'Buy', -100)];
+        $ref = new \ReflectionClass($prot);
+        $method = $ref->getMethod('evaluate');
+        $method->setAccessible(true);
+        $method->invoke($prot, 9000.0, $positions, 1000.0);
+
+        $this->assertEquals(1, $this->getLastTriggeredLevel($prot),
+            'tighten_grid_spacing must not crash the protector');
+        $this->assertFalse($prot->isDisabled(), 'protector must not trip the circuit breaker');
+    }
+
+    /**
+     * Fix #1: hedge_partial must use the real marketClose() method.
+     */
+    public function testHedgePartialUsesMarketClose(): void
+    {
+        $config = $this->configForSingleTier(
+            [['type' => 'hedge_partial', 'pct' => 0.25]],
+            [['type' => 'dist_liq_pct_lt', 'threshold' => 25]]
+        );
+        $prot = new LiquidationProtector($this->api, $config);
+
+        // qty 0.5 * pct 0.25 = 0.125 hedge, position side Buy
+        $this->api->shouldReceive('marketClose')
+            ->once()->with('ETHUSDT', 'Buy', 0.125)->andReturn('order-id');
+
+        $positions = [$this->makePosition(8000, 10000, 'Buy', -100)];
+        $ref = new \ReflectionClass($prot);
+        $method = $ref->getMethod('evaluate');
+        $method->setAccessible(true);
+        $method->invoke($prot, 9000.0, $positions, 1000.0);
+
+        $this->assertEquals(1, $this->getLastTriggeredLevel($prot),
+            'L1 must trigger and hedge via marketClose()');
+    }
+
+    /**
+     * Fix #1: add_margin must use the real addMargin() method.
+     */
+    public function testAddMarginUsesAddMargin(): void
+    {
+        $config = $this->configForSingleTier(
+            [['type' => 'add_margin', 'max_pct_free_balance' => 0.5]],
+            [['type' => 'dist_liq_pct_lt', 'threshold' => 25]]
+        );
+        $prot = new LiquidationProtector($this->api, $config);
+
+        // available = balance 1000 * 0.5 = 500
+        $this->api->shouldReceive('addMargin')
+            ->once()->with('ETHUSDT', 500.0)->andReturn(true);
+
+        $positions = [$this->makePosition(8000, 10000, 'Buy', -100)];
+        $ref = new \ReflectionClass($prot);
+        $method = $ref->getMethod('evaluate');
+        $method->setAccessible(true);
+        $method->invoke($prot, 9000.0, $positions, 1000.0);
+
+        $this->assertEquals(1, $this->getLastTriggeredLevel($prot),
+            'L1 must trigger and top up margin via addMargin()');
+    }
+
+    /**
+     * Fix #1: reduce_leverage must work even when positions() does not carry a
+     * 'symbol' key (defaults to G_SYM).
+     */
+    public function testReduceLeverageDefaultsSymbolToGSym(): void
+    {
+        $config = $this->configForSingleTier(
+            [['type' => 'reduce_leverage', 'target' => 50]],
+            [['type' => 'dist_liq_pct_lt', 'threshold' => 25]]
+        );
+        $prot = new LiquidationProtector($this->api, $config);
+
+        $this->api->shouldReceive('setLeverage')
+            ->once()->with('ETHUSDT', 50)->andReturn(['retCode' => 0]);
+
+        $positions = [$this->makePosition(8000, 10000, 'Buy', -100)];
+        $ref = new \ReflectionClass($prot);
+        $method = $ref->getMethod('evaluate');
+        $method->setAccessible(true);
+        $method->invoke($prot, 9000.0, $positions, 1000.0);
+
+        $this->assertEquals(1, $this->getLastTriggeredLevel($prot),
+            'reduce_leverage must default the symbol to G_SYM');
+    }
+
+    /**
+     * Fix: config.json uses list-style tiers with a 'level' field; those keys
+     * must be honored so cooldowns/last_triggered match tier 1..4.
+     */
+    public function testTiersHonorLevelField(): void
+    {
+        $config = [
+            'enabled' => true,
+            'tiers' => [
+                ['level' => 1, 'enabled' => true, 'triggers' => [['type' => 'dist_liq_pct_lt', 'threshold' => 25]], 'actions' => [['type' => 'log_alert']]],
+                ['level' => 4, 'enabled' => true, 'triggers' => [['type' => 'dist_liq_pct_lt', 'threshold' => 8]], 'actions' => [['type' => 'log_alert']]],
+            ],
+            'global' => ['eval_interval_sec' => 1],
+            'circuit_breaker' => ['max_consecutive_errors' => 5],
+        ];
+        $prot = new LiquidationProtector($this->api, $config);
+
+        $tiers = $prot->getTiers();
+        $this->assertArrayHasKey(1, $tiers, 'tier with level=1 must be keyed as 1');
+        $this->assertArrayHasKey(4, $tiers, 'tier with level=4 must be keyed as 4');
+        $this->assertArrayNotHasKey(0, $tiers, 'list indexes must not be used as level keys');
+    }
+
+    private function configForSingleTier(array $actions, array $triggers): array
+    {
+        return [
+            'enabled' => true,
+            'tiers' => [
+                1 => [
+                    'enabled' => true,
+                    'triggers' => $triggers,
+                    'actions' => $actions,
+                    'cooldown_sec' => 1,
+                ],
+            ],
+            'global' => ['eval_interval_sec' => 1],
+            'circuit_breaker' => ['max_consecutive_errors' => 5],
+        ];
     }
 }

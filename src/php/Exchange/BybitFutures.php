@@ -228,14 +228,28 @@ class BybitFutures implements ExchangeInterface
         $r = $this->get('/v5/position/list', ['category' => 'linear', 'symbol' => $symbol]);
         $out = [];
         foreach (isset($r['list']) ? $r['list'] : [] as $p) {
-            $sz = (float)(isset($p['size']) ? $p['size'] : 0); if ($sz < 0.001) continue;
-            $out[] = ['positionAmt' => (isset($p['side']) && $p['side'] === 'Buy') ? $sz : -$sz,
-                      'entryPrice' => (float)(isset($p['avgPrice']) ? $p['avgPrice'] : 0),
-                      'unRealizedProfit' => (float)(isset($p['unrealisedPnl']) ? $p['unrealisedPnl'] : 0),
-                      'liquidationPrice' => (float)(isset($p['liqPrice']) ? $p['liqPrice'] : 0),
-                      'side' => isset($p['side']) ? $p['side'] : '', 'size' => $sz];
+            $normalized = self::normalizePosition($p, $symbol);
+            if ($normalized !== null) {
+                $out[] = $normalized;
+            }
         }
         return $out;
+    }
+    private static function normalizePosition(array $p, string $symbol): ?array {
+        $sz = (float)(isset($p['size']) ? $p['size'] : 0);
+        if ($sz < 0.001) return null;
+        $liq = (float)(isset($p['liqPrice']) ? $p['liqPrice'] : 0);
+        return [
+            'positionAmt' => (isset($p['side']) && $p['side'] === 'Buy') ? $sz : -$sz,
+            'entryPrice' => (float)(isset($p['avgPrice']) ? $p['avgPrice'] : 0),
+            'unRealizedProfit' => (float)(isset($p['unrealisedPnl']) ? $p['unrealisedPnl'] : 0),
+            'liquidationPrice' => $liq,
+            'liqPrice' => $liq,
+            'side' => isset($p['side']) ? $p['side'] : '',
+            'size' => $sz,
+            'symbol' => $symbol,
+            'leverage' => (float)(isset($p['leverage']) ? $p['leverage'] : 1),
+        ];
     }
     public function setLeverage($symbol, $lev) {
         if (isset($this->levMem[$symbol]) && $this->levMem[$symbol] === $lev) return;
@@ -247,6 +261,17 @@ class BybitFutures implements ExchangeInterface
         } catch (\Exception $e) {
             if (strpos($e->getMessage(), 'leverage not modified') !== false) $this->levMem[$symbol] = $lev;
             else lW("[Bybit] setLeverage: " . $e->getMessage());
+        }
+    }
+    public function addMargin($symbol, $amount) {
+        try {
+            $this->post('/v5/position/add-margin', ['category' => 'linear', 'symbol' => $symbol,
+                'margin' => number_format($amount, 6, '.', '')]);
+            lI(sprintf("[Bybit] Margen añadido %.4f USDT a %s", (float)$amount, $symbol));
+            return true;
+        } catch (\Exception $e) {
+            lW("[Bybit] addMargin: " . $e->getMessage());
+            return false;
         }
     }
     public function limitOrder($symbol, $side, $qty, $price, $reduceOnly = false, $postOnly = true) {

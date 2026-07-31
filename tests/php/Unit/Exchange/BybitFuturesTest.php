@@ -50,6 +50,52 @@ namespace Tests\Unit\Exchange
             $orders = $api->getOpenOrders('ETHUSDT');
             $this->assertIsArray($orders);
         }
+
+        public function testNormalizePositionIncludesSymbolLeverageAndLiqPrice(): void
+        {
+            $ref = new \ReflectionMethod(BybitFutures::class, 'normalizePosition');
+            $ref->setAccessible(true);
+
+            $raw = [
+                'size' => '0.5',
+                'side' => 'Buy',
+                'avgPrice' => '10000',
+                'unrealisedPnl' => '-100',
+                'liqPrice' => '0',
+                'leverage' => '100',
+            ];
+            $out = $ref->invoke(null, $raw, 'ETHUSDT');
+
+            $this->assertSame('ETHUSDT', $out['symbol']);
+            $this->assertSame(0.5, $out['positionAmt']);
+            $this->assertSame(0.5, $out['size']);
+            $this->assertSame(10000.0, $out['entryPrice']);
+            $this->assertSame('Buy', $out['side']);
+            $this->assertSame(0.0, $out['liquidationPrice']);
+            $this->assertSame(0.0, $out['liqPrice']);
+            $this->assertSame(100.0, $out['leverage']);
+        }
+
+        public function testNormalizePositionMarksShortWithNegativeAmount(): void
+        {
+            $ref = new \ReflectionMethod(BybitFutures::class, 'normalizePosition');
+            $ref->setAccessible(true);
+
+            $raw = [
+                'size' => '0.4',
+                'side' => 'Sell',
+                'avgPrice' => '3000',
+                'liqPrice' => '3100',
+                'leverage' => '10',
+            ];
+            $out = $ref->invoke(null, $raw, 'BTCUSDT');
+
+            $this->assertSame('BTCUSDT', $out['symbol']);
+            $this->assertSame(-0.4, $out['positionAmt']);
+            $this->assertSame(3100.0, $out['liquidationPrice']);
+            $this->assertSame(3100.0, $out['liqPrice']);
+            $this->assertSame(10.0, $out['leverage']);
+        }
     }
 }
 

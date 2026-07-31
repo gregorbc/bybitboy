@@ -34,9 +34,11 @@ class GridManager {
     private $lastGridBuild = 0;
     private $mlReloadCycle = 0;
     private $volReloadCycle = 0;
+    private $lastPauseLog = 0;
     
     private $last_atr_predicho = null;
     private $last_vl_result = null;
+    private $lastLoggedQty = 0.0;
     
     private $volWeights = null;
     private $volScalerMean = null;
@@ -226,6 +228,7 @@ class GridManager {
         while ($this->running) {
             if (function_exists('pcntl_signal_dispatch')) pcntl_signal_dispatch();
             $this->checkControl();
+            if ($this->handlePause()) continue;
             $this->cycleN++;
 
             $this->mlReloadCycle++;
@@ -1148,14 +1151,60 @@ class GridManager {
         global $CTRL; if (!file_exists($CTRL)) return;
         $cmd = json_decode(file_get_contents($CTRL), true); @unlink($CTRL);
         if (!is_array($cmd)) return;
+        if (isset($cmd['config_update']) && is_array($cmd['config_update'])) {
+            $this->applyConfigUpdate($cmd['config_update']);
+        }
         switch (isset($cmd['action']) ? $cmd['action'] : '') {
             case 'stop': $this->running = false; lI("[CTL] Stop"); break;
             case 'force_ai': $this->lastAI = 0; lI("[CTL] Forzando IA"); break;
             case 'reset_grid':
+            case 'reset_pair':
                 $this->api->cancelAll(G_SYM);
                 dbx(function($d) { return $d->prepare("UPDATE grid_orders SET status='CANCELED' WHERE symbol=? AND status='OPEN'")->execute([G_SYM]); });
                 $this->gridBuilt = false; $this->lastGridBuild = 0; lI("[CTL] Grid reset"); break;
         }
+    }
+
+    private function applyConfigUpdate(array $updates) {
+        $allowed = ['capital_usd', 'leverage', 'levels', 'long_levels', 'short_levels', 'spacing_pct'];
+        $fields = [];
+        foreach ($allowed as $k) {
+            if (array_key_exists($k, $updates) && is_numeric($updates[$k])) {
+                $fields[$k] = (float)$updates[$k];
+            }
+        }
+        if (empty($fields)) { lW("[CTL] config_update sin campos válidos"); return; }
+        $set = []; $params = [];
+        foreach ($fields as $k => $v) { $set[] = $k . '=?'; $params[] = $v; }
+        $params[] = G_SYM;
+        dbx(function($d) use ($set, $params) {
+            return $d->prepare("UPDATE grid_configs SET " . implode(',', $set) . " WHERE symbol=?")->execute($params);
+        });
+        lI("[CTL] Config actualizada: " . json_encode($fields, JSON_UNESCAPED_UNICODE));
+        $this->api->cancelAll(G_SYM);
+        dbx(function($d) { return $d->prepare("UPDATE grid_orders SET status='CANCELED' WHERE symbol=? AND status='OPEN'")->execute([G_SYM]); });
+        if (is_array($this->cfg)) {
+            foreach ($fields as $k => $v) { $this->cfg[$k] = $v; }
+        }
+        $this->gridBuilt = false; $this->lastGridBuild = 0;
+    }
+
+    /**
+     * Respeta el archivo de pausa escrito por LiquidationProtector::pause_bot_sec.
+     * Devuelve true mientras el bot deba quedarse dormido (ya se hizo el sleep).
+     */
+    private function handlePause() {
+        $pauseFile = sys_get_temp_dir() . '/bot_pause_' . getmypid() . '.tmp';
+        if (!file_exists($pauseFile)) return false;
+        $end = (int)file_get_contents($pauseFile);
+        $remaining = $end - time();
+        if ($remaining <= 0) { @unlink($pauseFile); return false; }
+        if (time() - $this->lastPauseLog >= 60) {
+            lW("[PAUSE] Bot en pausa por protección (restantes {$remaining}s)");
+            $this->lastPauseLog = time();
+        }
+        sleep(min(G_CYCLE_SEC, $remaining));
+        return true;
     }
 
     private function writeStatus($price) {

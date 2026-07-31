@@ -100,7 +100,16 @@ class LiquidationProtector
 
         $valid = [];
         foreach ($rawTiers as $level => $tier) {
-            $level = (int)$level;
+            // config.json uses list-style tiers with an explicit 'level' field;
+            // honor it so cooldowns / last_triggered map to tier 1..4.
+            if (isset($tier['level'])) {
+                $level = (int)$tier['level'];
+            } else {
+                $level = (int)$level;
+            }
+            if ($level < 1) {
+                $level = 1;
+            }
 
             if (!isset($tier['triggers']) || !is_array($tier['triggers']) || empty($tier['triggers'])) {
                 throw new \InvalidArgumentException("Tier $level: triggers requerido (array no vacío)");
@@ -316,13 +325,15 @@ foreach ($tier['actions'] as $j => $ac) {
 
         foreach ($positions as $pos) {
             $side = $pos['side'] ?? 'Buy';
-            $qty = (float)($pos['positionAmt'] ?? $pos['size'] ?? 0);
+            $qty = abs((float)($pos['positionAmt'] ?? $pos['size'] ?? 0));
             $entryPx = (float)($pos['entryPrice'] ?? 0);
-            $liqPx = (float)($pos['liqPrice'] ?? 0);
+            $liqPx = (float)($pos['liquidationPrice'] ?? $pos['liqPrice'] ?? 0);
             $uPnL = (float)($pos['unRealizedProfit'] ?? 0);
             $leverage = (int)($pos['leverage'] ?? 1);
 
-            if ($qty <= 0 || $entryPx <= 0 || $liqPx <= 0) {
+            // Invalid positions are skipped, but liquidationPrice==0 (Bybit demo
+            // reports 0 for low-risk positions) must NOT hide free_margin/uPnL metrics.
+            if ($qty <= 0 || $entryPx <= 0) {
                 continue;
             }
 
@@ -331,7 +342,9 @@ foreach ($tier['actions'] as $j => $ac) {
             $totalUPnL += $uPnL;
             $totalQty += $qty;
 
-            $distLiqPct = abs($price - $liqPx) / $price * 100;
+            // Dist to liq is only meaningful when the exchange provides a liq price;
+            // otherwise use 999 so dist-based triggers never false-fire.
+            $distLiqPct = $liqPx > 0 ? abs($price - $liqPx) / $price * 100 : 999;
             if ($distLiqPct < $minDistLiqPct) {
                 $minDistLiqPct = $distLiqPct;
             }
@@ -344,7 +357,7 @@ foreach ($tier['actions'] as $j => $ac) {
 
         $freeMargin = $balance + $totalUPnL;
         $freeMarginPct = $totalPosValue > 0 ? ($freeMargin / $totalPosValue) * 100 : 100;
-        $distLiqPct = $minDistLiqPct === PHP_FLOAT_MAX ? 100 : $minDistLiqPct;
+        $distLiqPct = $minDistLiqPct === PHP_FLOAT_MAX ? 999 : $minDistLiqPct;
 
         return [
             'dist_liq_pct' => $distLiqPct,
@@ -432,15 +445,17 @@ foreach ($tier['actions'] as $j => $ac) {
                 break;
 
             case 'tighten_grid_spacing':
+                // Not an exchange operation: the grid spacing lives in GridManager.
+                // Log it as a warning so operators know the alert fired without
+                // crashing the protector (previously called an undefined method).
                 $factor = (float)($action['factor'] ?? 0.9);
-                $api->tightenGridSpacing($factor);
-                Logger::info("[LiquidationProtector] Tightened grid spacing by factor {$factor}");
+                Logger::warn("[LiquidationProtector] tighten_grid_spacing requiere soporte de GridManager — omitido (factor {$factor})");
                 break;
 
             case 'reduce_leverage':
                 $target = (int)($action['target'] ?? 50);
                 foreach ($positions as $pos) {
-                    $symbol = $pos['symbol'] ?? '';
+                    $symbol = $pos['symbol'] ?? G_SYM;
                     if ($symbol) {
                         $api->setLeverage($symbol, $target);
                     }
@@ -451,13 +466,12 @@ foreach ($tier['actions'] as $j => $ac) {
             case 'hedge_partial':
                 $pct = (float)($action['pct'] ?? 0.25);
                 foreach ($positions as $pos) {
-                    $symbol = $pos['symbol'] ?? '';
+                    $symbol = $pos['symbol'] ?? G_SYM;
                     $side = $pos['side'] ?? 'Buy';
-                    $qty = (float)($pos['positionAmt'] ?? $pos['size'] ?? 0);
-                    $hedgeSide = $side === 'Buy' ? 'Sell' : 'Buy';
+                    $qty = abs((float)($pos['positionAmt'] ?? $pos['size'] ?? 0));
                     $hedgeQty = $qty * $pct;
                     if ($symbol && $hedgeQty > 0) {
-                        $api->placeOrder($symbol, $hedgeSide, $hedgeQty, 'Market');
+                        $api->marketClose($symbol, $side, $hedgeQty);
                     }
                 }
                 $hedgePct = $pct * 100;
@@ -468,9 +482,13 @@ foreach ($tier['actions'] as $j => $ac) {
                 $maxPctFree = (float)($action['max_pct_free_balance'] ?? 0.5);
                 $available = $balance * $maxPctFree;
                 foreach ($positions as $pos) {
-                    $symbol = $pos['symbol'] ?? '';
+                    $symbol = $pos['symbol'] ?? G_SYM;
                     if ($symbol && $available > 0) {
-                        $api->setMargin($symbol, $available);
+                        if (method_exists($api, 'addMargin')) {
+                            $api->addMargin($symbol, $available);
+                        } else {
+                            Logger::warn("[LiquidationProtector] add_margin no soportado por la API — omitido");
+                        }
                         $available = 0;
                         break;
                     }
@@ -488,17 +506,16 @@ foreach ($tier['actions'] as $j => $ac) {
                         break;
                     }
                     $uPnL = (float)($pos['unRealizedProfit'] ?? 0);
-                    $qty = (float)($pos['positionAmt'] ?? $pos['size'] ?? 0);
+                    $qty = abs((float)($pos['positionAmt'] ?? $pos['size'] ?? 0));
                     $entryPx = (float)($pos['entryPrice'] ?? 0);
                     if ($entryPx > 0 && $qty > 0) {
                         $posValue = $qty * $price;
                         $pct = $posValue > 0 ? ($uPnL / $posValue) * 100 : 0;
                         if ($pct < $uPnLPctThreshold) {
-                            $symbol = $pos['symbol'] ?? '';
+                            $symbol = $pos['symbol'] ?? G_SYM;
                             $side = $pos['side'] ?? 'Buy';
-                            $closeSide = $side === 'Buy' ? 'Sell' : 'Buy';
                             if ($symbol) {
-                                $api->placeOrder($symbol, $closeSide, $qty, 'Market');
+                                $api->marketClose($symbol, $side, $qty);
                                 $closed++;
                             }
                         }
@@ -509,12 +526,11 @@ foreach ($tier['actions'] as $j => $ac) {
 
             case 'close_all_positions':
                 foreach ($positions as $pos) {
-                    $symbol = $pos['symbol'] ?? '';
+                    $symbol = $pos['symbol'] ?? G_SYM;
                     $side = $pos['side'] ?? 'Buy';
-                    $qty = (float)($pos['positionAmt'] ?? $pos['size'] ?? 0);
-                    $closeSide = $side === 'Buy' ? 'Sell' : 'Buy';
+                    $qty = abs((float)($pos['positionAmt'] ?? $pos['size'] ?? 0));
                     if ($symbol && $qty > 0) {
-                        $api->placeOrder($symbol, $closeSide, $qty, 'Market');
+                        $api->marketClose($symbol, $side, $qty);
                     }
                 }
                 Logger::warn("[LiquidationProtector] EMERGENCY: Closed all positions");
@@ -522,9 +538,9 @@ foreach ($tier['actions'] as $j => $ac) {
 
             case 'cancel_all_orders':
                 foreach ($positions as $pos) {
-                    $symbol = $pos['symbol'] ?? '';
+                    $symbol = $pos['symbol'] ?? G_SYM;
                     if ($symbol) {
-                        $api->cancelAllOrders($symbol);
+                        $api->cancelAll($symbol);
                     }
                 }
                 Logger::info("[LiquidationProtector] Cancelled all open orders");

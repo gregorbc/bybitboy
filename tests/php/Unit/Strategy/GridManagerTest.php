@@ -11,6 +11,40 @@ namespace Tests\Unit\Strategy
 
     class GridManagerTest extends TestCase
     {
+        public static array $dbxCalls = [];
+        public static mixed $dbxFetchResult = false;
+
+        protected function setUp(): void
+        {
+            self::$dbxCalls = [];
+            self::$dbxFetchResult = false;
+        }
+
+        protected function tearDown(): void
+        {
+            \Mockery::close();
+        }
+
+        public static function dbxHandle(callable $fn): mixed
+        {
+            $stmt = \Mockery::mock(\PDOStatement::class);
+            $stmt->shouldReceive('execute')->andReturn(true);
+            $stmt->shouldReceive('fetch')->andReturn(self::$dbxFetchResult);
+            $stmt->shouldReceive('fetchAll')->andReturn([]);
+            $stmt->shouldReceive('fetchColumn')->andReturn(0);
+            $stmt->shouldReceive('fetchObject')->andReturn(false);
+            $pdo = \Mockery::mock(\PDO::class);
+            $pdo->shouldReceive('prepare')->andReturnUsing(
+                function (string $sql) use ($stmt): mixed {
+                    self::$dbxCalls[] = $sql;
+                    return $stmt;
+                }
+            );
+            $pdo->shouldReceive('query')->andReturn($stmt);
+            $pdo->shouldReceive('lastInsertId')->andReturn(1);
+            return $fn($pdo);
+        }
+
         public function testCanBeConstructedWithDependencies(): void
         {
             $api = new BybitFutures('test_key', 'test_secret', true);
@@ -251,6 +285,124 @@ public function testCalcPnlBuyExit(): void
         // Taker fee (0.0006) should result in lower PnL than maker fee (0.0001)
         $this->assertLessThan($pnlMaker, $pnlTaker);
     }
+
+    /**
+     * Fix #3: checkControl() must process a pending config_update (the
+     * "Aplicar y Reconstruir" button) and rebuild the grid with new values.
+     */
+    public function testCheckControlAppliesConfigUpdate(): void
+    {
+        $api = \Mockery::mock(BybitFutures::class);
+        $api->shouldReceive('cancelAll')->once()->with('ETHUSDT');
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $gridBuilt = new \ReflectionProperty(GridManager::class, 'gridBuilt');
+        $gridBuilt->setAccessible(true);
+        $gridBuilt->setValue($manager, true);
+        $lastBuild = new \ReflectionProperty(GridManager::class, 'lastGridBuild');
+        $lastBuild->setAccessible(true);
+        $lastBuild->setValue($manager, 999999);
+
+        $ctrl = tempnam(sys_get_temp_dir(), 'ctrl_');
+        $GLOBALS['CTRL'] = $ctrl;
+        file_put_contents($ctrl, json_encode([
+            'config_update' => ['spacing_pct' => 0.0005, 'levels' => 20, 'evil' => 1],
+            'ts' => date('Y-m-d H:i:s'),
+        ]));
+
+        $ref = new \ReflectionMethod(GridManager::class, 'checkControl');
+        $ref->setAccessible(true);
+        $ref->invoke($manager);
+
+        $this->assertFileDoesNotExist($ctrl, 'control file must be consumed');
+
+        $hasGridConfigUpdate = false;
+        foreach (self::$dbxCalls as $sql) {
+            if (str_contains($sql, 'UPDATE grid_configs SET')
+                && str_contains($sql, 'spacing_pct')
+                && str_contains($sql, 'levels')
+                && !str_contains($sql, 'evil')) {
+                $hasGridConfigUpdate = true;
+            }
+        }
+        $this->assertTrue($hasGridConfigUpdate, 'grid_configs must be updated with whitelisted fields only');
+        $this->assertFalse($gridBuilt->getValue($manager), 'grid must be marked for rebuild');
+        $this->assertSame(0, $lastBuild->getValue($manager), 'grid must be rebuilt immediately');
+    }
+
+    /**
+     * Fix #3: checkControl() must handle the reset_pair action sent by the dashboard.
+     */
+    public function testCheckControlHandlesResetPair(): void
+    {
+        $api = \Mockery::mock(BybitFutures::class);
+        $api->shouldReceive('cancelAll')->once()->with('ETHUSDT');
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $gridBuilt = new \ReflectionProperty(GridManager::class, 'gridBuilt');
+        $gridBuilt->setAccessible(true);
+        $gridBuilt->setValue($manager, true);
+
+        $ctrl = tempnam(sys_get_temp_dir(), 'ctrl_');
+        $GLOBALS['CTRL'] = $ctrl;
+        file_put_contents($ctrl, json_encode(['action' => 'reset_pair', 'sym' => 'ETHUSDT', 'ts' => date('Y-m-d H:i:s')]));
+
+        $ref = new \ReflectionMethod(GridManager::class, 'checkControl');
+        $ref->setAccessible(true);
+        $ref->invoke($manager);
+
+        $this->assertFalse($gridBuilt->getValue($manager), 'reset_pair must force a grid rebuild');
+    }
+
+    /**
+     * Fix #4: the pause file written by LiquidationProtector::pause_bot_sec
+     * must actually pause the bot loop.
+     */
+    public function testHandlePauseReturnsTrueWhilePauseActive(): void
+    {
+        $api = new BybitFutures('test_key', 'test_secret', true);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $pauseFile = sys_get_temp_dir() . '/bot_pause_' . getmypid() . '.tmp';
+        @unlink($pauseFile);
+        file_put_contents($pauseFile, (string)(time() + 2));
+
+        $ref = new \ReflectionMethod(GridManager::class, 'handlePause');
+        $ref->setAccessible(true);
+        $result = $ref->invoke($manager);
+
+        $this->assertTrue($result, 'handlePause must return true while the pause file is active');
+        $this->assertFileExists($pauseFile, 'pause file must remain while the pause is active');
+        @unlink($pauseFile);
+    }
+
+    /**
+     * Fix #4: an expired pause file must be cleaned up and not pause the bot.
+     */
+    public function testHandlePauseCleansExpiredPauseFile(): void
+    {
+        $api = new BybitFutures('test_key', 'test_secret', true);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $pauseFile = sys_get_temp_dir() . '/bot_pause_' . getmypid() . '.tmp';
+        @unlink($pauseFile);
+        file_put_contents($pauseFile, (string)(time() - 5));
+
+        $ref = new \ReflectionMethod(GridManager::class, 'handlePause');
+        $ref->setAccessible(true);
+        $result = $ref->invoke($manager);
+
+        $this->assertFalse($result, 'expired pause must not pause the bot');
+        $this->assertFileDoesNotExist($pauseFile, 'expired pause file must be cleaned up');
+    }
 }
 }
 
@@ -290,5 +442,15 @@ namespace
     }
     if (!defined('G_SYM')) {
         define('G_SYM', 'ETHUSDT');
+    }
+    if (!defined('G_CYCLE_SEC')) {
+        define('G_CYCLE_SEC', 1);
+    }
+
+    // Test-only dbx() stub: passes a PDO mock into the closure and records SQL.
+    if (!function_exists('dbx')) {
+        function dbx($fn) {
+            return \Tests\Unit\Strategy\GridManagerTest::dbxHandle($fn);
+        }
     }
 }
