@@ -91,6 +91,14 @@ if (!empty($mc['host'])) {
             'long_levels'=>(int)($row['long_levels']??4), 'short_levels'=>(int)($row['short_levels']??4),
             'spacing_pct'=>(float)($row['spacing_pct']??0.0008), 'recovery_active'=>(bool)($row['recovery_active']??false),
             'capital'=>$CAPITAL, 'ml_accuracy' => $mlAcc];
+            $stPath  = $cfg['paths']['status'] ?? null;
+            $stRaw   = ($stPath && file_exists($stPath)) ? json_decode(file_get_contents($stPath), true) : null;
+            $stPair  = (isset($stRaw['pairs']['ETHUSDT'])) ? $stRaw['pairs']['ETHUSDT'] : [];
+            $init['ai_engine']     = $stRaw['ai_engine']     ?? 'Grid v15.4';
+            $init['mode']          = $stRaw['mode']          ?? 'NORMAL';
+            $init['grid_built']    = (bool)($stPair['grid_built'] ?? true);
+            $init['last_ai_check'] = $stPair['last_ai_check'] ?? null;
+            $init['cycle_n']       = (int)($stPair['cycle_n'] ?? 0);
     } catch (Exception $e) {}
 }
 header('Content-Type: text/html; charset=utf-8');
@@ -248,6 +256,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .cfg-grid{display:grid;grid-template-columns:auto 1fr;gap:1px 0;padding:0 12px 10px}
 .cfg-k{font-family:var(--mono);font-size:9px;color:var(--muted);padding:3px 0;border-bottom:1px solid rgba(26,37,53,.5)}
 .cfg-v{font-family:var(--mono);font-size:9px;color:var(--text);font-weight:600;text-align:right;padding:3px 0;border-bottom:1px solid rgba(26,37,53,.5)}
+.strategy-reason{margin:0 12px 10px;font-family:var(--mono);font-size:8px;color:var(--dim);line-height:1.5;border-top:1px solid var(--border);padding-top:8px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .chart-sect{padding:0;position:relative}
 .chart-hd{padding:8px 13px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.9px}
 .chart-hd b{color:var(--text);font-size:10px}
@@ -460,6 +469,20 @@ body.stale #app {opacity:.6;transition:opacity .8s;}
           <div class="gauge-ticks"><span>DOWN</span><span>SIDE</span><span>UP</span></div>
         </div>
         <div class="gauge-reason" id="gRsn">Evaluando…</div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><b>🎯 Estrategia &amp; Estatus</b><span id="strategyMode" class="mode-badge m-NORMAL">NORMAL</span></div>
+        <div class="cfg-grid">
+          <span class="cfg-k">Estrategia</span><span class="cfg-v" id="strategyName">--</span>
+          <span class="cfg-k">Dirección</span><span class="cfg-v" id="strategyDir">--</span>
+          <span class="cfg-k">Confianza</span><span class="cfg-v" id="strategyConf">--</span>
+          <span class="cfg-k">ML precisión</span><span class="cfg-v c-neu" id="strategyMl">--</span>
+          <span class="cfg-k">Estado bot</span><span class="cfg-v" id="strategyBot">--</span>
+          <span class="cfg-k">Grid</span><span class="cfg-v" id="strategyGrid">--</span>
+          <span class="cfg-k">Ciclo</span><span class="cfg-v" id="strategyCycle">--</span>
+          <span class="cfg-k">Última IA</span><span class="cfg-v" id="strategyAiTs">--</span>
+        </div>
+        <div class="strategy-reason" id="strategyReason" title="">--</div>
       </div>
       <div class="card">
         <div class="card-hd"><b>💰 Wallet</b></div>
@@ -734,6 +757,7 @@ function updateUIFromWebSocket(data) {
         $('modeBadge').className = `mode-badge m-${data.mode}`;
     }
     if (data.pair) {
+        updateStrategyPanel(data.pair, data.mode, data.bot_running);
         updatePairUI(data.pair);
         updatePairNumbers(data.pair);
         if (data.pair.open_entries !== undefined && data.pair.open_exits !== undefined) {
@@ -939,6 +963,7 @@ $('kUpt').textContent=d.uptime||'--';
   $('modeBadge').className=`mode-badge m-${mode}`;
   const pair=d.pairs?.ETHUSDT;
   if(pair){
+    updateStrategyPanel(pair, mode, running);
     updatePairUI(pair);
     updatePairNumbers(pair);
     if(pair.orders) updateLadder(pair.orders);
@@ -1264,6 +1289,31 @@ function updatePairUI(pair){
   if($('stRecov2')) $('stRecov2').textContent=pair.recovery_active?'Sí 🔄':'No';
   if($('aiEngBadge')) $('aiEngBadge').textContent=`${pair.direction||'?'} ${pair.confidence||0}%`;
 }
+function updateStrategyPanel(pair, mode, botRunning){
+  if(!pair) return;
+  if($('strategyName')) $('strategyName').textContent=pair.ai_engine||'Grid v15.4';
+  const sm=$('strategyMode');
+  if(sm&&mode){sm.textContent=mode;sm.className='mode-badge m-'+mode;}
+  if($('strategyDir')) $('strategyDir').textContent=pair.direction||'--';
+  if($('strategyConf')) $('strategyConf').textContent=(pair.confidence||0)+'%';
+  const ml=pair.ml_accuracy||0;
+  if($('strategyMl')) $('strategyMl').textContent=ml>0?(ml*100).toFixed(1)+'%':'--';
+  if($('strategyBot')){
+    const on=!!botRunning;
+    $('strategyBot').textContent=on?'● Corriendo':'● Detenido';
+    $('strategyBot').style.color=on?'var(--green)':'var(--red)';
+  }
+  if($('strategyGrid')){
+    const built=pair.grid_built!==false;
+    $('strategyGrid').textContent=built?('✓ '+(pair.open_entries||0)+'E '+(pair.open_exits||0)+'S'):'✗ No construido';
+  }
+  if($('strategyCycle')) $('strategyCycle').textContent=pair.cycle_n||'--';
+  if($('strategyAiTs')) $('strategyAiTs').textContent=pair.last_ai_check?String(pair.last_ai_check).slice(0,16):'--';
+  if($('strategyReason')){
+    $('strategyReason').textContent=pair.ai_reason||'--';
+    $('strategyReason').title=pair.ai_reason||'';
+  }
+}
 function updatePairNumbers(pair){
   if(pair.pnl_today!==undefined){
     $('kPnlH').innerHTML=fM(pair.pnl_today);
@@ -1503,6 +1553,16 @@ if(window.innerWidth<=900){
   $('stRecov2').textContent=i.recovery_active?'Sí 🔄':'No';
   setGauge(i.confidence,i.direction);
   $('gRsn').textContent=i.ai_reason;
+  if(i.ai_engine) $('strategyName').textContent=i.ai_engine;
+  if(i.mode){const sm=$('strategyMode');sm.textContent=i.mode;sm.className='mode-badge m-'+i.mode;}
+  if(i.direction) $('strategyDir').textContent=i.direction;
+  if(i.confidence) $('strategyConf').textContent=i.confidence+'%';
+  const iMl=i.ml_accuracy||0;
+  if(iMl>0) $('strategyMl').textContent=(iMl*100).toFixed(1)+'%';
+  $('strategyGrid').textContent=(i.grid_built===false)?'✗ No construido':'✓ '+(i.open_orders||0)+' órd.';
+  if(i.cycle_n) $('strategyCycle').textContent=i.cycle_n;
+  if(i.last_ai_check) $('strategyAiTs').textContent=String(i.last_ai_check).slice(0,16);
+  if(i.ai_reason){$('strategyReason').textContent=i.ai_reason;$('strategyReason').title=i.ai_reason;}
   const mlAcc=i.ml_accuracy||0;
   if(mlAcc>0){$('mlBadge').textContent='ML '+(mlAcc*100).toFixed(0)+'%';$('cMlAcc').textContent=(mlAcc*100).toFixed(1)+'%';}
 })();
