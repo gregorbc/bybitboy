@@ -294,6 +294,7 @@ class GridWebSocket implements MessageComponentInterface {
                 $pj = $st['pairs']['ETHUSDT'] ?? [];
                 $result['mode'] = $st['mode'] ?? 'NORMAL';
                 $result['pair'] = [
+                    'ai_engine'       => $st['ai_engine'] ?? 'Grid v15.4',
                     'confidence'      => (int)($pj['confidence'] ?? 50),
                     'direction'       => $pj['direction'] ?? 'SIDEWAYS',
                     'ai_reason'       => $pj['ai_reason'] ?? '',

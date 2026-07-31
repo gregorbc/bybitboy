@@ -100,6 +100,7 @@ if (isset($_GET['_status'])) {
     $st      = file_exists($statusFile) ? json_decode(file_get_contents($statusFile), true) : null;
     $db      = getDB($mc);
     $data    = ['ok' => true, 'running' => $running, 'uptime' => $uptime,
+                'mode' => (isset($st['mode'])) ? $st['mode'] : 'NORMAL',
                 'ts' => date('Y-m-d H:i:s'), 'pairs' => (object)[]];
 
     if ($db) {
@@ -129,6 +130,7 @@ if (isset($_GET['_status'])) {
             $winRate = ($totalFills > 0) ? round(($wins / $totalFills) * 100, 1) : 0;
 
             $data['pairs'] = ['ETHUSDT' => [
+                'ai_engine'      => $st['ai_engine'] ?? 'Grid v15.4',
                 'direction'      => $pj['direction']     ?? $cfgRow['direction']   ?? 'SIDEWAYS',
                 'confidence'     => (int)($pj['confidence'] ?? $cfgRow['confidence'] ?? 50),
                 'ai_reason'      => $pj['ai_reason']     ?? $cfgRow['ai_reason']   ?? '',
