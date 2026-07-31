@@ -790,6 +790,7 @@ function updateUIFromWebSocket(data) {
     if (data.win_rate !== undefined) { $('kWin').textContent = data.win_rate + '%'; $('stWr').textContent = data.win_rate + '%'; }
     if (data.open_orders !== undefined) $('stOpen').textContent = data.open_orders;
     if (data.orders) updateLadder(data.orders);
+    if (data.orders) updateOrderLines(data.orders);
     if (data.recent_fills) updateRecentFillsFromWS(data.recent_fills);
     if (data.pnl_hourly) renderHourly(data.pnl_hourly);
     if (data.pnl_cumulative) renderCumulativeFromWS(data.pnl_cumulative);
@@ -982,6 +983,7 @@ $('kUpt').textContent=d.uptime||'--';
     updatePairUI(pair);
     updatePairNumbers(pair);
     if(pair.orders) updateLadder(pair.orders);
+    if(pair.orders) updateOrderLines(pair.orders);
     const gridOn = pair.grid_built !== false;
     const gd = $('gridDot'); const gt = $('gridStatusTxt');
     if(gd){ gd.className='gs-dot '+(gridOn?'on':'off'); }
@@ -1301,6 +1303,14 @@ function updateTickerUI(d){
   $('stFund').innerHTML=`<span class="${frCls}">${frStr}</span>`;
   if(d.markPrice){$('tbMark').textContent='$'+parseFloat(d.markPrice).toFixed(2);$('stMark').textContent='$'+parseFloat(d.markPrice).toFixed(2);}
   if(d.oi){const oiK=(d.oi/1000).toFixed(1)+'K ETH';$('mOi').textContent=oiK;$('stOi').textContent=oiK;}
+  if(lwSeries&&d.price){
+    if(!markPriceLine){
+      const LS=window.LightweightCharts&&LightweightCharts.LineStyle;
+      markPriceLine=lwSeries.createPriceLine({price:d.price,color:'#2d8cff',lineWidth:1,lineStyle:LS?LS.Dashed:2,axisLabelVisible:true,title:'MARK'});
+    } else {
+      try{markPriceLine.applyOptions({price:d.price});}catch(e){}
+    }
+  }
   if(lwSeries && d.price && lastCandleTime > 0){
     try{
       const t5 = Math.floor(Date.now()/1000/300)*300;
@@ -1433,6 +1443,42 @@ function updateLadder(orders){
   }
   if(!priceInserted&&curPx>0) rows+=`<div class="ladder-row current-price-row"><span class="lr-price cur" style="text-align:right">${fP(curPx)}</span><div class="lr-bar-wrap"><div style="text-align:center;font-size:8px;color:var(--accent);line-height:10px">── PRECIO ──</div></div><span class="lr-qty"></span></div>`;
   wrap.innerHTML=rows;
+}
+function updateOrderLines(orders){
+  if(!lwSeries) return;
+  if(orderPriceLines.length){
+    orderPriceLines.forEach(l=>{try{lwSeries.removePriceLine(l);}catch(e){}});
+    orderPriceLines=[];
+  }
+  const legend=$('chartLegend');
+  if(!orders||!orders.length){
+    if(legend) legend.innerHTML='<span style="color:var(--muted)">Sin órdenes pendientes</span>';
+    return;
+  }
+  const LS=window.LightweightCharts&&LightweightCharts.LineStyle;
+  for(const o of orders){
+    const px=parseFloat(o.price);
+    if(!px||px<=0) continue;
+    const rec=!!o.is_recovery, exit=o.grid_role==='EXIT';
+    const color=rec?'#9b72f5':(exit?'#f5a623':'#00c97a');
+    const label=(rec?'R':(exit?'X':'E'))+(o.level!==undefined?o.level:'');
+    orderPriceLines.push(lwSeries.createPriceLine({
+      price:px,color,lineWidth:1,
+      lineStyle:LS?(exit?LS.Dotted:LS.Solid):(exit?1:0),
+      axisLabelVisible:true,title:label
+    }));
+  }
+  if(legend){
+    const parts=[...orders]
+      .sort((a,b)=>parseFloat(b.price)-parseFloat(a.price))
+      .map(o=>{
+        const rec=!!o.is_recovery, exit=o.grid_role==='EXIT';
+        const col=rec?'#9b72f5':(exit?'#f5a623':'#00c97a');
+        const lbl=(rec?'R':(exit?'X':'E'))+(o.level!==undefined?o.level:'');
+        return '<span style="color:'+col+'">'+lbl+' '+parseFloat(o.price).toFixed(2)+'</span>';
+      });
+    legend.innerHTML=parts.join(' <span style="color:var(--muted)">·</span> ');
+  }
 }
 function appendLogs(lines){allLogLines=lines;renderLog();}
 function renderLog(){
