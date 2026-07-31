@@ -1471,6 +1471,7 @@ function updateOrderLines(orders){
   if(legend){
     const parts=[...orders]
       .sort((a,b)=>parseFloat(b.price)-parseFloat(a.price))
+      .filter(o=>{const p=parseFloat(o.price);return !!(p&&p>0);})
       .map(o=>{
         const rec=!!o.is_recovery, exit=o.grid_role==='EXIT';
         const col=rec?'#9b72f5':(exit?'#f5a623':'#00c97a');

@@ -119,7 +119,7 @@ if (isset($_GET['_status'])) {
             $realPositions = getBybitPositions($bybitKey, $bybitSecret, $bybitBase, 'ETHUSDT');
             $totalUpnl = array_sum(array_map(fn($p) => (float)($p['unRealizedProfit'] ?? 0), $realPositions));
 
-            $orders = $db->query("SELECT id,side,grid_role,price,qty,grid_level,is_recovery,created_at FROM grid_orders WHERE symbol='ETHUSDT' AND status='OPEN' ORDER BY price DESC LIMIT 60")->fetchAll();
+            $orders = $db->query("SELECT id,side,grid_role,price,qty,grid_level AS level,is_recovery,created_at FROM grid_orders WHERE symbol='ETHUSDT' AND status='OPEN' ORDER BY price DESC LIMIT 60")->fetchAll();
 
             $data['pnl_daily']  = $db->query("SELECT DATE(filled_at) d, ROUND(SUM(pnl_usd),6) p FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED' AND filled_at>=DATE_SUB(NOW(),INTERVAL 14 DAY) GROUP BY DATE(filled_at) ORDER BY d ASC")->fetchAll();
             $data['pnl_hourly'] = $db->query("SELECT DATE(filled_at) d,HOUR(filled_at) h,ROUND(SUM(pnl_usd),6) p FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED' AND filled_at>=DATE_SUB(NOW(),INTERVAL 48 HOUR) GROUP BY DATE(filled_at),HOUR(filled_at) ORDER BY d,h")->fetchAll();

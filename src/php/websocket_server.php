@@ -321,6 +321,8 @@ class GridWebSocket implements MessageComponentInterface {
                 $total = $db->query("SELECT COALESCE(SUM(pnl_usd),0) p, COUNT(*) c FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED'")->fetch();
                 $wr    = $db->query("SELECT COUNT(*) t, SUM(CASE WHEN pnl_usd>0 THEN 1 ELSE 0 END) w FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED'")->fetch();
                 $openCnt = (int)$db->query("SELECT COUNT(*) FROM grid_orders WHERE symbol='ETHUSDT' AND status='OPEN'")->fetchColumn();
+                $openEnt = (int)$db->query("SELECT COUNT(*) FROM grid_orders WHERE symbol='ETHUSDT' AND status='OPEN' AND grid_role='ENTRY'")->fetchColumn();
+                $openExt = (int)$db->query("SELECT COUNT(*) FROM grid_orders WHERE symbol='ETHUSDT' AND status='OPEN' AND grid_role='EXIT'")->fetchColumn();
                 if (!isset($result['pair'])) $result['pair'] = [];
                 $result['pair']['fills_today'] = (int)($today['c'] ?? 0);
                 $result['pair']['pnl_today']   = round((float)($today['p'] ?? 0), 6);
@@ -328,6 +330,8 @@ class GridWebSocket implements MessageComponentInterface {
                 $result['pair']['pnl_total']   = round((float)($total['p'] ?? 0), 6);
                 $notionalRow = $db->query("SELECT COALESCE(SUM(price * qty),0) n FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED'")->fetch();
                 $result['pair']['fills_notional'] = round((float)($notionalRow['n'] ?? 0), 2);
+                $result['pair']['open_entries']   = $openEnt;
+                $result['pair']['open_exits']     = $openExt;
                 $result['win_rate']            = ($wr && (int)$wr['t'] > 0) ? round($wr['w'] / $wr['t'] * 100, 1) : 0;
                 $result['open_orders']         = $openCnt;
             } catch (Exception $e) {}
@@ -345,7 +349,7 @@ class GridWebSocket implements MessageComponentInterface {
         $db = $this->getDB();
         if (!$db) return [];
         try {
-            $stmt = $db->prepare("SELECT id, grid_level AS level, side, grid_role AS role, price, qty, status, pnl_usd AS pnl, filled_at, is_recovery FROM grid_orders WHERE symbol='ETHUSDT' AND status='OPEN' ORDER BY ABS(grid_level) ASC, price DESC LIMIT 80");
+            $stmt = $db->prepare("SELECT id, grid_level AS level, side, grid_role, price, qty, status, pnl_usd AS pnl, filled_at, is_recovery FROM grid_orders WHERE symbol='ETHUSDT' AND status='OPEN' ORDER BY ABS(grid_level) ASC, price DESC LIMIT 80");
             $stmt->execute();
             $this->cacheOrders = $stmt->fetchAll();
             $this->cacheOrdersTime = $now;
