@@ -17,12 +17,20 @@ function checkToken(string $requiredToken): bool {
 function getUptime(string $pf): string {
     if (!file_exists($pf)) return '--';
     $pid = trim(file_get_contents($pf));
-    if (!$pid || !ctype_digit($pid) || !file_exists("/proc/$pid/stat")) return '--';
-    $up   = (float)explode(' ', (string)@file_get_contents('/proc/uptime'))[0];
-    $stat = (string)@file_get_contents("/proc/$pid/stat");
-    $rp   = strrpos($stat, ')'); if ($rp === false) return '--';
-    $flds = explode(' ', trim(substr($stat, $rp + 2)));
-    $age  = max(0, (int)($up - (float)($flds[19] ?? 0) / 100));
+    $age = 0;
+    if ($pid && ctype_digit($pid) && file_exists("/proc/$pid/stat")) {
+        $up   = (float)explode(' ', (string)@file_get_contents('/proc/uptime'))[0];
+        $stat = (string)@file_get_contents("/proc/$pid/stat");
+        $rp   = strrpos($stat, ')');
+        if ($rp !== false) {
+            $flds = explode(' ', trim(substr($stat, $rp + 2)));
+            $age  = max(0, (int)($up - (float)($flds[19] ?? 0) / 100));
+        }
+    }
+    if ($age <= 0 && file_exists($pf)) {
+        $age = max(0, time() - filemtime($pf));
+    }
+    if ($age <= 0) return '1m';
     if ($age >= 3600) return intdiv($age, 3600) . 'h ' . intdiv($age % 3600, 60) . 'm';
     if ($age >= 60)   return intdiv($age, 60) . 'm ' . ($age % 60) . 's';
     return $age . 's';
