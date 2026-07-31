@@ -260,6 +260,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .chart-sect{padding:0;position:relative}
 .chart-hd{padding:8px 13px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.9px}
 .chart-hd b{color:var(--text);font-size:10px}
+.chart-tabs{display:flex;gap:2px;padding:6px 13px 0;border-bottom:1px solid var(--border);background:var(--bg3)}
+.chart-tab{padding:5px 12px;font-size:9px;font-weight:600;color:var(--muted);background:transparent;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;cursor:pointer;font-family:var(--sans);letter-spacing:.3px}
+.chart-tab.active{color:var(--accent);border-color:var(--border);background:var(--bg2)}
+.tv-wrap{display:none;height:420px}
+.tv-wrap iframe{width:100%;height:100%;border:0;display:block}
+.chart-legend{display:flex;flex-wrap:wrap;gap:4px 12px;padding:6px 13px;background:var(--bg3);border-top:1px solid var(--border);font-family:var(--mono);font-size:8px;color:var(--dim);min-height:26px;align-items:center}
 #candleChart{width:100%;height:200px}
 .conf-chart-wrap{height:80px;padding:4px 12px 8px}
 .pnl-charts{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border)}
@@ -532,7 +538,15 @@ body.stale #app {opacity:.6;transition:opacity .8s;}
           <b>ETH/USDT · 5m · Bybit</b>
           <span id="mktRange" style="color:var(--dim);font-size:9px"></span>
         </div>
-        <div id="candleChart"></div>
+        <div class="chart-tabs">
+          <button class="chart-tab active" id="chartTabPro" onclick="switchChartTab('pro')">TradingView</button>
+          <button class="chart-tab" id="chartTabFast" onclick="switchChartTab('fast')">Rápido</button>
+        </div>
+        <div id="tvChartWrap" class="tv-wrap" style="display:block">
+          <iframe id="tvFrame" title="TradingView ETHUSDT" loading="lazy" src="https://s.tradingview.com/widgetembed/?frameElementId=tv_ethusdt&amp;symbol=BYBIT:ETHUSDT&amp;interval=5&amp;hidesidetoolbar=0&amp;hideideas=1&amp;theme=dark&amp;style=1&amp;timezone=Etc%2FUTC&amp;studies=%5B%5D&amp;show_popup_button=1&amp;popup_width=1000&amp;popup_height=650"></iframe>
+        </div>
+        <div id="candleChart" style="display:none;height:360px"></div>
+        <div id="chartLegend" class="chart-legend" style="display:none">Sin órdenes pendientes</div>
       </div>
       <div class="card">
         <div class="chart-hd" style="padding:6px 13px">
@@ -657,7 +671,8 @@ let CAPITAL = CAPITAL_CFG;
 let startTs = Date.now();
 let tickerTimer, statusTimer, logTimer, mktTimer, upnlTimer, scalpTimer;
 let lastFillIds=new Set(), allLogLines=[], logFilter='';
-let lwChart=null, lwSeries=null, lastCandleTime=0;
+let lwChart=null, lwSeries=null, lastCandleTime=0, lastOhlc=[];
+let orderPriceLines=[], markPriceLine=null;
 let fillsOffset=0, fillsTotal=0, fillsLimit=40;
 
 // WebSocket globals
@@ -995,7 +1010,7 @@ function initLwChart() {
         if (el.clientWidth === 0) return false;
         lwChart = LightweightCharts.createChart(el, {
             width: el.clientWidth,
-            height: 200,
+            height: 360,
             layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#7a99bb' },
             grid: { vertLines: { color: 'rgba(26,37,53,.4)' }, horzLines: { color: 'rgba(26,37,53,.4)' } },
             crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
@@ -1021,6 +1036,9 @@ function initLwChart() {
         candleTooltip.style.cssText = 'position:absolute;display:none;background:rgba(6,8,14,.92);border:1px solid #1a2535;border-radius:6px;padding:8px 10px;font-family:var(--mono);font-size:10px;z-index:10;pointer-events:none;white-space:nowrap';
         el.style.position = 'relative';
         el.appendChild(candleTooltip);
+        if(lastOhlc.length){
+          try{ lwSeries.setData(lastOhlc); lastCandleTime=lastOhlc[lastOhlc.length-1].time; }catch(e){}
+        }
 
         lwChart.subscribeCrosshairMove(param => {
           if (!param.time || !param.point) { candleTooltip.style.display = 'none'; return; }
@@ -1078,6 +1096,7 @@ async function fetchMarket(){
       .filter(c=>{if(seen.has(c.time))return false;seen.add(c.time);return true;})
       .sort((a,b)=>a.time-b.time);
     if(ohlc.length){
+      lastOhlc=ohlc;
       initLwChart();
       if(lwSeries){
         try{lwSeries.setData(ohlc);}catch(e){console.warn('[LW] setData:',e.message);}
@@ -1181,6 +1200,20 @@ function switchTab(name,btn){
   $('tab-'+name).classList.add('active');
   if(name==='ml') fetchMLInfo();
   if(name==='fills') loadFillsHistory();
+}
+function switchChartTab(tab){
+  const tv=$('tvChartWrap'), fast=$('candleChart'), legend=$('chartLegend');
+  const isPro=tab==='pro';
+  const pt=$('chartTabPro'), ft=$('chartTabFast');
+  if(pt) pt.classList.toggle('active',isPro);
+  if(ft) ft.classList.toggle('active',!isPro);
+  if(tv) tv.style.display=isPro?'block':'none';
+  if(fast) fast.style.display=isPro?'none':'block';
+  if(legend) legend.style.display=isPro?'none':'flex';
+  if(!isPro){
+    initLwChart();
+    if(lwChart&&fast) lwChart.applyOptions({width:fast.clientWidth});
+  }
 }
 const G_LEN=Math.PI*64;
 function setGauge(conf,dir){
