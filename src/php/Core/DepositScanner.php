@@ -4,6 +4,9 @@ declare(strict_types=1);
 namespace BinanceBot\Core;
 
 use PDO;
+use BinanceBot\Core\RpcClient;
+use BinanceBot\Core\Networks;
+use BinanceBot\Core\Accounting;
 
 class DepositScanner
 {
@@ -167,7 +170,7 @@ class DepositScanner
         // Portable upsert: works on both SQLite and MySQL
         $stmt = $this->pdo->prepare('UPDATE scan_state SET last_block = ? WHERE network = ?');
         $stmt->execute([$block, $this->network]);
-        if ($this->pdo->exec('SELECT changes()') === 0 || $stmt->rowCount() === 0) {
+        if ($stmt->rowCount() === 0) {
             $stmt = $this->pdo->prepare('INSERT INTO scan_state (network, last_block) VALUES (?, ?)');
             $stmt->execute([$this->network, $block]);
         }

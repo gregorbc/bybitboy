@@ -15,6 +15,7 @@ class DepositScannerTest extends TestCase
     private const USDT = '0x55d398326f99059fF775485246999027B3197955';
     private const USER_ADDR = '0xab5801a7d398351b8be11c439e05c5b3259aec9b';
     private const USER2_ADDR = '0xbb5801a7d398351b8be11c439e05c5b3259aec9b';
+    private const TX_HASH = '0x' . 'abababababababababababababababababababab';
 
     protected function setUp(): void
     {
@@ -133,7 +134,7 @@ class DepositScannerTest extends TestCase
         return json_encode([
             'address' => self::USDT,
             'blockNumber' => $blockHex,
-            'transactionHash' => '0x' . bin2hex(random_bytes(20)),
+            'transactionHash' => self::TX_HASH,
             'topics' => [Networks::TRANSFER_TOPIC0, '0x' . str_repeat('0', 64), DepositScanner::padAddress(self::USER_ADDR)],
             'data' => '0x8ac7230489e80000',
         ]);
