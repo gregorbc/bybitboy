@@ -1,0 +1,15 @@
+[Unit]
+Description=Grid Bot Deposit Scanner (EVM deposits)
+After=network.target mysql.service
+
+[Service]
+User=erika
+Group=www-data
+WorkingDirectory=/home/erika/web/binance.gregorbritez.cat/public_html
+Environment=PLATFORM_SECRET=CHANGE_ME
+ExecStart=/usr/bin/php /home/erika/web/binance.gregorbritez.cat/public_html/src/php/scanner.php
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
