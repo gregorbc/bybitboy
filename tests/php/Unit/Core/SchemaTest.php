@@ -37,4 +37,17 @@ class SchemaTest extends TestCase
         $this->addToAssertionCount(1);
         \Mockery::close();
     }
+
+    public function testAdminSendsTableExists(): void
+    {
+        $ddl = implode("\n", Schema::ddl());
+        $this->assertStringContainsString("CREATE TABLE IF NOT EXISTS admin_sends", $ddl, "falta tabla admin_sends");
+    }
+
+    public function testAdminSendsIndexes(): void
+    {
+        $ddl = implode("\n", Schema::ddl());
+        $this->assertStringContainsString('INDEX idx_admin (admin_id)', $ddl);
+        $this->assertStringContainsString('INDEX idx_status (status)', $ddl);
+    }
 }

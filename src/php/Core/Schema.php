@@ -112,6 +112,23 @@ class Schema
                 last_block BIGINT NOT NULL DEFAULT 0,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            "CREATE TABLE IF NOT EXISTS admin_sends (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                admin_id INT NOT NULL,
+                network VARCHAR(20) NOT NULL,
+                token VARCHAR(10) NOT NULL,
+                amount DECIMAL(20,8) NOT NULL,
+                destination_address VARCHAR(42) NOT NULL,
+                tx_hash VARCHAR(66) DEFAULT '',
+                status ENUM('pending','sent','failed') DEFAULT 'pending',
+                error_message TEXT DEFAULT '',
+                gas_used BIGINT DEFAULT 0,
+                gas_price BIGINT DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                sent_at DATETIME NULL,
+                INDEX idx_admin (admin_id),
+                INDEX idx_status (status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         ];
     }
 

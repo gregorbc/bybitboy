@@ -23,5 +23,6 @@ class SqliteSchema
         $pdo->exec('CREATE TABLE nav_snapshots (id INTEGER PRIMARY KEY AUTOINCREMENT, total_equity REAL DEFAULT 0, total_units REAL DEFAULT 0, nav REAL DEFAULT 0, bot_pnl_total REAL DEFAULT 0, snapshot_at TEXT DEFAULT CURRENT_TIMESTAMP)');
         $pdo->exec('CREATE TABLE scan_state (id INTEGER PRIMARY KEY AUTOINCREMENT, network TEXT UNIQUE, last_block INTEGER DEFAULT 0, updated_at TEXT)');
         $pdo->exec('CREATE TABLE IF NOT EXISTS grid_orders (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT)');
+        $pdo->exec('CREATE TABLE admin_sends (id INTEGER PRIMARY KEY AUTOINCREMENT, admin_id INTEGER NOT NULL, network TEXT NOT NULL, token TEXT NOT NULL, amount REAL NOT NULL, destination_address TEXT NOT NULL, tx_hash TEXT DEFAULT "", status TEXT DEFAULT "pending", error_message TEXT DEFAULT "", gas_used INTEGER DEFAULT 0, gas_price INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, sent_at TEXT)');
     }
 }
