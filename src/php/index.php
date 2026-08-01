@@ -167,24 +167,29 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
   .sidebar-left.open{left:0}
   .tv-wrap{height:300px}
   .price-live{font-size:16px}
-  .ticker-block{gap:4px}
+  .ticker-block{gap:4px;flex-wrap:nowrap;min-width:0}
   .bid-ask{display:none}
-  .status-block{gap:4px}
+  .status-block{gap:4px;flex-shrink:1}
+  .uptime,.last-upd,.mode-badge,.ml-badge{display:none}
+  .btns{flex-shrink:1;gap:3px}
   .btns .btn{font-size:9px;padding:3px 6px}
   .btns .btn:nth-child(n+4){display:none}
   .mkt-analysis{grid-template-columns:repeat(2,1fr)}
   .pnl-charts{grid-template-columns:1fr}
   .kpi-grid{gap:4px}
   .kpi-val{font-size:14px}
-  .brand-sub{font-size:7px}
+  .brand-sub{display:none}
   .btn-b{display:inline-flex}
 }
 @media(max-width:480px){
   .price-live{font-size:14px}
+  #priceHL{display:none}
+  .ticker-block>div:nth-child(5){display:none}
+  .brand-name{display:none}
   .kpi-grid{grid-template-columns:1fr 1fr}
   .topbar{padding:0 6px;gap:4px}
   .tb-sep{display:none}
-  .btns .btn{font-size:8px;padding:2px 5px}
+  .btns .btn{font-size:8px;padding:1px 4px}
   .btns .btn:nth-child(n+3){display:none}
   .live-pill{font-size:9px;padding:2px 7px}
 }
