@@ -143,17 +143,30 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .ldr-txt{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:4px;text-transform:uppercase}
 .app{display:flex;flex-direction:column;height:100vh}
 .topbar{background:rgba(6,8,14,.98);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:8px;height:50px;flex-shrink:0;z-index:200}
-.main-grid{display:flex;flex:1;overflow-y:auto;position:relative}
-.sidebar-left{position:fixed;top:50px;left:-100%;width:var(--drawer-width);height:calc(100% - 50px);background:var(--bg2);border-right:1px solid var(--border);transition:left .3s ease;z-index:150;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+.main-grid{display:grid;flex:1;min-height:0;position:relative;gap:1px;overflow:hidden;background:var(--bg);grid-template-columns:260px minmax(0,1fr) 300px;grid-template-rows:auto auto auto auto minmax(0,1fr);grid-template-areas:"hero chart right" "hero mkt right" "cfg pnl right" "cfg cum right" "cfg ladder right"}
+.hero-col{grid-area:hero;min-width:0;min-height:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:1px;overflow-y:auto}
+.sidebar-left{grid-area:cfg;min-width:0;min-height:0;position:static;width:auto;height:auto;left:auto;top:auto;z-index:auto;border-right:1px solid var(--border);background:var(--bg2);display:flex;flex-direction:column;gap:1px;overflow-y:auto}
 .sidebar-left.open{left:0}
 .drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:140;display:none}
 .drawer-overlay.active{display:block}
-.center-col{flex:1;overflow-y:auto;background:var(--bg);display:flex;flex-direction:column;gap:1px}
-.sidebar-right{width:300px;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto; overflow-x:hidden;transition:transform .2s}
-@media(max-width:768px){
+.sidebar-right{grid-area:right;min-width:0;min-height:0;position:static;width:auto;height:auto;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden}
+.chart-sect{grid-area:chart;min-width:0;display:flex;flex-direction:column}
+.mkt-card{grid-area:mkt;min-width:0}
+.pnl-charts{grid-area:pnl;min-width:0}
+.pnl-cum-block{grid-area:cum;min-width:0}
+.ladder-card{grid-area:ladder;min-width:0;min-height:240px;display:flex;flex-direction:column}
+@media(min-width:992px){.menu-btn{display:none}}
+@media(max-width:991px){
+  .main-grid{grid-template-columns:260px minmax(0,1fr);grid-template-areas:"hero chart" "hero mkt" "cfg pnl" "cfg cum" "cfg ladder"}
   .sidebar-right{position:fixed;right:0;top:50px;height:calc(100% - 50px);width:90%;max-width:340px;z-index:160;transform:translateX(100%);box-shadow:-2px 0 12px rgba(0,0,0,.4);transition:transform .25s ease}
-  .sidebar-right.open{transform:translateX(0);overflow-y:auto;}
-  .sidebar-left{width:85%;max-width:300px}
+  .sidebar-right.open{transform:translateX(0);overflow-y:auto}
+}
+@media(max-width:767px){
+  .main-grid{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-template-areas:"chart" "hero" "mkt" "pnl" "cum" "ladder";overflow-y:auto}
+  .hero-col{grid-area:hero;border-right:none}
+  .sidebar-left{position:fixed;top:50px;left:-100%;width:85%;max-width:300px;height:calc(100% - 50px);z-index:150;transition:left .3s ease}
+  .sidebar-left.open{left:0}
+  .tv-wrap{height:300px}
   .price-live{font-size:16px}
   .ticker-block{gap:4px}
   .bid-ask{display:none}
@@ -427,7 +440,7 @@ body.stale #app {opacity:.6;transition:opacity .8s;}
   </nav>
 
   <div class="main-grid">
-    <div class="sidebar-left" id="sidebarLeft">
+    <div class="hero-col" id="heroCol">
       <div class="kpi-grid">
         <div class="kpi pos" id="kpiPnlH">
           <div class="kpi-lbl">PnL Hoy</div>
@@ -510,6 +523,8 @@ body.stale #app {opacity:.6;transition:opacity .8s;}
           <div class="ai-track"><div class="ai-fill" id="aiBar"></div></div>
         </div>
       </div>
+    </div>
+    <div class="sidebar-left" id="sidebarLeft">
       <div class="card">
         <div class="card-hd"><b>Configuración Grid</b></div>
         <div class="cfg-grid">
@@ -532,7 +547,6 @@ body.stale #app {opacity:.6;transition:opacity .8s;}
     </div>
     <div class="drawer-overlay" id="drawerOverlay"></div>
 
-    <div class="center-col" id="centerCol">
       <div class="chart-sect card">
         <div class="chart-hd">
           <b>ETH/USDT · 5m · Bybit</b>
@@ -548,7 +562,7 @@ body.stale #app {opacity:.6;transition:opacity .8s;}
         <div id="candleChart" style="display:none;height:360px"></div>
         <div id="chartLegend" class="chart-legend" style="display:none">Sin órdenes pendientes</div>
       </div>
-      <div class="card">
+      <div class="card mkt-card">
         <div class="chart-hd" style="padding:6px 13px">
           <b>📊 Análisis de Mercado</b>
           <span id="mktUpdTs" style="font-size:8px;color:var(--muted)">--</span>
@@ -569,12 +583,11 @@ body.stale #app {opacity:.6;transition:opacity .8s;}
         <div class="pnl-chart-block" style="border-left:1px solid var(--border)"><div class="pnl-chart-hd"><span>PnL Diario 14d</span><span id="dTot" style="font-family:var(--mono);font-size:9px"></span></div><div class="pnl-chart-wrap"><canvas id="dChart"></canvas></div></div>
       </div>
       <div class="card pnl-cum-block"><div class="pnl-cum-hd"><span>PnL Acumulado</span><span id="cumTot" style="font-family:var(--mono);font-size:9px"></span></div><div class="pnl-cum-wrap"><canvas id="cumChart"></canvas></div></div>
-      <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:240px">
+      <div class="card ladder-card">
         <div class="chart-hd"><b>Order Ladder</b><span id="ladderPx" style="font-family:var(--mono);font-size:10px;color:var(--accent)">$0.00</span></div>
         <div class="ladder-hd"><span>Precio</span><span style="text-align:center">Qty</span><span>Rol</span></div>
         <div class="ladder-wrap" id="ladderWrap"><div class="empty-ladder">Sin órdenes activas</div></div>
       </div>
-    </div>
 
     <div class="sidebar-right" id="sidebarRight">
       <div class="tabs-hd">
