@@ -155,7 +155,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .pnl-charts{grid-area:pnl;min-width:0}
 .pnl-cum-block{grid-area:cum;min-width:0}
 .ladder-card{grid-area:ladder;min-width:0;min-height:240px;display:flex;flex-direction:column}
-@media(min-width:992px){.menu-btn{display:none}}
 @media(max-width:991px){
   .main-grid{grid-template-columns:260px minmax(0,1fr);grid-template-areas:"hero chart" "hero mkt" "cfg pnl" "cfg cum" "cfg ladder"}
   .sidebar-right{position:fixed;right:0;top:50px;height:calc(100% - 50px);width:90%;max-width:340px;z-index:160;transform:translateX(100%);box-shadow:-2px 0 12px rgba(0,0,0,.4);transition:transform .25s ease}
@@ -191,6 +190,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 }
 .menu-btn{background:transparent;border:none;color:var(--dim);font-size:20px;cursor:pointer;padding:6px;margin-right:4px;display:flex;align-items:center}
 .menu-btn:hover{color:var(--accent)}
+@media(min-width:768px){.menu-btn{display:none}}
 .brand{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .brand-icon{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,var(--accent),var(--purple));display:grid;place-items:center;font-size:14px}
 .brand-name{font-size:12px;font-weight:700;color:#fff}
