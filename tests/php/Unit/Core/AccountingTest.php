@@ -92,7 +92,7 @@ class AccountingTest extends TestCase
     {
         $depId = $this->seedDeposit(1, 500.0, 'credited');
         Accounting::markDeployed($this->pdo, $depId);
-        $this->assertSame('1', $this->pdo->query("SELECT deployed FROM deposits WHERE id = $depId")->fetch()['deployed']);
+        $this->assertSame(1, $this->pdo->query("SELECT deployed FROM deposits WHERE id = $depId")->fetch()['deployed']);
         $this->assertSame(0.0, Accounting::walletHeld($this->pdo));
     }
 

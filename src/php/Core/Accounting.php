@@ -13,9 +13,18 @@ class Accounting
         if ($stmt->fetch()) {
             return;
         }
-        $stmt = $pdo->prepare("INSERT INTO bot_meta (meta_key, meta_value) VALUES ('owner_units', ?)");
-        $stmt->execute([(string)$ownerCapital]);
-        self::snapshot($pdo, $ownerCapital, $ownerCapital, 1.0, 0.0);
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare("INSERT INTO bot_meta (meta_key, meta_value) VALUES ('owner_units', ?)");
+            $stmt->execute([(string)$ownerCapital]);
+            self::snapshot($pdo, $ownerCapital, $ownerCapital, 1.0, 0.0);
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
     }
 
     public static function ownerUnits(PDO $pdo): float
@@ -132,9 +141,18 @@ class Accounting
 
     public static function updateNav(PDO $pdo, float $realBalance, float $walletHeld, float $botPnlTotal): void
     {
-        $units = self::totalUnits($pdo);
-        $nav = $units > 0 ? round(($realBalance + $walletHeld) / $units, 8) : 1.0;
-        self::snapshot($pdo, $realBalance + $walletHeld, $units, $nav, $botPnlTotal);
+        $pdo->beginTransaction();
+        try {
+            $units = self::totalUnits($pdo);
+            $nav = $units > 0 ? round(($realBalance + $walletHeld) / $units, 8) : 1.0;
+            self::snapshot($pdo, $realBalance + $walletHeld, $units, $nav, $botPnlTotal);
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
     }
 
     public static function walletHeld(PDO $pdo): float
