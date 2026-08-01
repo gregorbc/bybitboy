@@ -143,7 +143,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .ldr-txt{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:4px;text-transform:uppercase}
 .app{display:flex;flex-direction:column;height:100vh}
 .topbar{background:rgba(6,8,14,.98);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:8px;height:50px;flex-shrink:0;z-index:200}
-.main-grid{display:grid;flex:1;min-height:0;position:relative;gap:1px;overflow:hidden;background:var(--bg);grid-template-columns:260px minmax(0,1fr) 300px;grid-template-rows:auto auto auto auto minmax(0,1fr);grid-template-areas:"hero chart right" "hero mkt right" "cfg pnl right" "cfg cum right" "cfg ladder right"}
+.main-grid{display:grid;flex:1;min-height:0;position:relative;gap:1px;overflow-x:hidden;overflow-y:auto;background:var(--bg);grid-template-columns:260px minmax(0,1fr) 300px;grid-template-rows:auto auto auto auto minmax(0,1fr);grid-template-areas:"hero chart right" "hero mkt right" "cfg pnl right" "cfg cum right" "cfg ladder right"}
 .hero-col{grid-area:hero;min-width:0;min-height:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:1px;overflow-y:auto}
 .sidebar-left{grid-area:cfg;min-width:0;min-height:0;position:static;width:auto;height:auto;left:auto;top:auto;z-index:auto;border-right:1px solid var(--border);background:var(--bg2);display:flex;flex-direction:column;gap:1px;overflow-y:auto}
 .sidebar-left.open{left:0}
@@ -162,8 +162,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
   .sidebar-right.open{transform:translateX(0);overflow-y:auto}
 }
 @media(max-width:767px){
-  .main-grid{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-template-areas:"chart" "hero" "mkt" "pnl" "cum" "ladder";overflow-y:auto}
-  .hero-col{grid-area:hero;border-right:none}
+  .main-grid{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto auto auto auto;grid-template-areas:"chart" "hero" "mkt" "pnl" "cum" "ladder";overflow-y:auto}
+  .hero-col{grid-area:hero;border-right:none;overflow-y:visible;min-height:auto}
   .sidebar-left{position:fixed;top:50px;left:-100%;width:85%;max-width:300px;height:calc(100% - 50px);z-index:150;transition:left .3s ease}
   .sidebar-left.open{left:0}
   .tv-wrap{height:300px}
@@ -1620,7 +1620,7 @@ document.getElementById('drawerOverlay').addEventListener('click',()=>{
   document.getElementById('sidebarLeft').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('active');
 });
-if(window.innerWidth<=900){
+if(window.innerWidth<=991){
   const rightBtn=document.getElementById('rightToggle');
   if(rightBtn){rightBtn.style.display='flex';rightBtn.addEventListener('click',()=>{document.getElementById('sidebarRight').classList.toggle('open');});}
   document.addEventListener('click',e=>{
