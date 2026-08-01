@@ -34,6 +34,7 @@ class SchemaTest extends TestCase
         $n = count(Schema::ddl());
         $pdo->shouldReceive('exec')->times($n)->andReturn(true);
         Schema::createTables($pdo);
+        $this->addToAssertionCount(1);
         \Mockery::close();
     }
 }
