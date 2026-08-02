@@ -502,6 +502,39 @@ public function testCalcPnlBuyExit(): void
         }
         $this->assertTrue($hasCancel, 'breakout must cancel open orders');
     }
+
+    public function testBuildGridSkipsOrdersWhenEffectiveCapExceeded(): void
+    {
+        $api = \Mockery::mock(BybitFutures::class);
+        $api->shouldReceive('balance')->andReturn(1650000.0);
+        $api->shouldReceive('filters')->andReturn(['step'=>0.001,'tick'=>0.01,'mn'=>0.01,'qp'=>3,'pp'=>2]);
+        $api->shouldReceive('limitOrder')->never();
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $ref = new \ReflectionClass(GridManager::class);
+        $cfgProp = $ref->getProperty('cfg');
+        $cfgProp->setAccessible(true);
+        $cfgProp->setValue($manager, [
+            'id' => 1, 'symbol' => 'ETHUSDT', 'direction' => 'SIDEWAYS',
+            'confidence' => 50, 'levels' => 14, 'long_levels' => 7,
+            'short_levels' => 7, 'spacing_pct' => 0.0016,
+            'qty_per_level' => 0.5,
+        ]);
+        $lastBuild = $ref->getProperty('lastGridBuild');
+        $lastBuild->setAccessible(true);
+        $lastBuild->setValue($manager, 0);
+
+        $method = $ref->getMethod('buildGrid');
+        $method->setAccessible(true);
+        $method->invoke($manager, 1869.0);
+
+        $gridBuilt = $ref->getProperty('gridBuilt');
+        $gridBuilt->setAccessible(true);
+        // qty=0.5 -> reqMargin per level = 0.5*1869/20 = 46.7 > effectiveCap=40 -> all skipped
+        $this->assertFalse($gridBuilt->getValue($manager), 'orders must be skipped when margin exceeds effectiveCap');
+    }
 }
 }
 

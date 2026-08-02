@@ -689,6 +689,7 @@ class GridManager {
         $balance = $this->api->balance();
         if ($balance <= 0) { lW("[GRID] Balance 0, usando capital teórico"); $balance = G_CAPITAL; }
         else { lI(sprintf("[GRID] Balance disponible: %.4f USDT", $balance)); }
+        $effectiveCap = min($balance, G_CAPITAL) * G_MARGIN_SAFETY;
         if ($balance < G_CAPITAL * 0.1) {
             lE("[GRID] Balance real ({$balance}) < 10% capital (" . G_CAPITAL . "). Pausando.");
             dbx(function($d) { return $d->prepare("UPDATE grid_configs SET paused_reason='Saldo insuficiente' WHERE symbol=?")->execute([G_SYM]); });
@@ -711,7 +712,7 @@ class GridManager {
         for ($i = 1; $i <= $longLev; $i++) {
             $p = round($price * (1 - $spacing * $i), $f['pp']); if ($p <= 0) continue;
             $reqMargin = ($qty * $p) / G_LEVERAGE;
-            if ($reqMargin > ($balance - $usedMargin) * 0.95) { lW("[GRID] Margen insuficiente BUY L$i"); continue; }
+            if ($reqMargin > ($effectiveCap - $usedMargin) * 0.95) { lW("[GRID] Margen insuficiente BUY L$i"); continue; }
             try {
                 $res = $this->api->limitOrder(G_SYM, 'Buy', $qty, $p, false, true);
                 dbx(function($d) use ($cfgId, $dir, $i, $res, $p, $qty) {
@@ -725,7 +726,7 @@ class GridManager {
         for ($i = 1; $i <= $shortLev; $i++) {
             $p = round($price * (1 + $spacing * $i), $f['pp']);
             $reqMargin = ($qty * $p) / G_LEVERAGE;
-            if ($reqMargin > ($balance - $usedMargin) * 0.95) { lW("[GRID] Margen insuficiente SELL L$i"); continue; }
+            if ($reqMargin > ($effectiveCap - $usedMargin) * 0.95) { lW("[GRID] Margen insuficiente SELL L$i"); continue; }
             try {
                 $res = $this->api->limitOrder(G_SYM, 'Sell', $qty, $p, false, true);
                 dbx(function($d) use ($cfgId, $dir, $i, $res, $p, $qty) {
