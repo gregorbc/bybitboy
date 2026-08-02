@@ -24,6 +24,11 @@ class AdminHttpTest extends TestCase
         putenv('PLATFORM_SECRET=test_secret');
     }
 
+    protected function tearDown(): void
+    {
+        putenv('PLATFORM_SECRET');
+    }
+
     public function testAdminOnly(): void
     {
         $session = ['user_id' => 2, 'role' => 'investor'];

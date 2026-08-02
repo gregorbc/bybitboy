@@ -5,10 +5,8 @@ namespace BinanceBot\Core;
 
 use Nyra\Bip39\Bip39;
 use BIP\BIP44;
-use BIP\HDKey;
 use kornrunner\Keccak;
 use kornrunner\Secp256k1;
-use kornrunner\Serializer\HexPrivateKeySerializer;
 use kornrunner\Ethereum\Address;
 use PDO;
 
@@ -99,11 +97,11 @@ class Wallet
      * @param string $network Red: 'eth' o 'bsc'
      * @param string $token Token: 'USDT' o 'USDC'
      * @param string $to Dirección destino (0x...)
-     * @param float $amount Monto en tokens (ej. 10.5)
+     * @param string $amount Monto en tokens como string decimal (ej. '10.5') para evitar pérdida de precisión
      * @param \BinanceBot\Core\RpcClient|null $rpc Cliente RPC inyectable (para tests)
      * @return array{ok:bool, tx_hash?:string, error?:string, gas_used?:int, gas_price?:int}
      */
-    public static function signAndSendERC20(PDO $pdo, string $secretKey, string $network, string $token, string $to, float $amount, ?\BinanceBot\Core\RpcClient $rpc = null): array
+    public static function signAndSendERC20(PDO $pdo, string $secretKey, string $network, string $token, string $to, string $amount, ?\BinanceBot\Core\RpcClient $rpc = null): array
     {
         // 1. Validaciones básicas
         if (!\BinanceBot\Core\Networks::validateAddress($network, $to)) {
@@ -114,7 +112,11 @@ class Wallet
         if ($contract === '') {
             return ['ok' => false, 'error' => 'Token no soportado en esta red'];
         }
-        if ($amount <= 0) {
+        $amount = trim($amount);
+        if (!preg_match('/^\d{1,18}(\.\d{1,18})?$/', $amount)) {
+            return ['ok' => false, 'error' => 'Monto inválido'];
+        }
+        if (bccomp($amount, '0', 18) <= 0) {
             return ['ok' => false, 'error' => 'Monto debe ser > 0'];
         }
 
@@ -141,7 +143,7 @@ class Wallet
         $balanceHex = self::callBalanceOf($rpcClient, $contract, $fromAddress);
         $balance = self::parseAmount($balanceHex);
         $amountWei = self::toWei($amount);
-        if ($balance < $amountWei) {
+        if (bccomp($balance, $amountWei, 0) < 0) {
             return ['ok' => false, 'error' => 'Balance insuficiente en wallet (disponible: ' . self::fromWei($balance) . ' ' . $token . ')'];
         }
 
@@ -166,20 +168,21 @@ class Wallet
             $gasLimit = (int)hexdec((string)$gasEstimateHex);
             $gasLimit = (int)($gasLimit * 1.2); // +20% buffer
         } catch (\Throwable $e) {
-            return ['ok' => false, 'error' => 'Error estimando gas: ' . $e->getMessage()];
+            error_log('[Wallet::signAndSendERC20] gas estimate: ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'Error estimando gas para el envío'];
         }
 
         // 8. Construir transacción
         $allNetworks = \BinanceBot\Core\Networks::all();
         $chainId = $allNetworks[$network]['chain_id'] ?? 0;
         $tx = [
-            'nonce' => '0x' . dechex($nonce),
-            'gasPrice' => '0x' . dechex($gasPrice),
-            'gasLimit' => '0x' . dechex($gasLimit),
+            'nonce' => self::intToHex($nonce),
+            'gasPrice' => self::intToHex($gasPrice),
+            'gasLimit' => self::intToHex($gasLimit),
             'to' => $contract,
             'value' => '0x0',
             'data' => $data,
-            'chainId' => '0x' . dechex($chainId),
+            'chainId' => self::intToHex($chainId),
         ];
 
         // 9. Firmar
@@ -198,7 +201,8 @@ class Wallet
                 'gas_price' => $gasPrice,
             ];
         } catch (\Throwable $e) {
-            return ['ok' => false, 'error' => 'Error enviando tx: ' . $e->getMessage()];
+            error_log('[Wallet::signAndSendERC20] sendRaw: ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'Error enviando la transacción'];
         }
     }
 
@@ -207,7 +211,7 @@ class Wallet
     private static function callBalanceOf(\BinanceBot\Core\RpcClient $rpc, string $contract, string $from): string
     {
         // balanceOf(address) = 0x70a08231 + address padded to 32 bytes
-        $data = '0x70a08231' . str_pad(ltrim($from, '0x'), 64, '0', STR_PAD_LEFT);
+        $data = '0x70a08231' . str_pad(self::strip0x($from), 64, '0', STR_PAD_LEFT);
         $result = $rpc->call('eth_call', [[
             'to' => $contract,
             'data' => $data,
@@ -215,75 +219,99 @@ class Wallet
         return (string)$result;
     }
 
-    private static function encodeTransferData(string $to, int $amountWei): string
+    private static function encodeTransferData(string $to, string $amountWei): string
     {
         // transfer(address,uint256) = 0xa9059cbb + to(32 bytes) + amount(32 bytes)
-        return '0xa9059cbb' . str_pad(ltrim($to, '0x'), 64, '0', STR_PAD_LEFT) . str_pad(dechex($amountWei), 64, '0', STR_PAD_LEFT);
+        $amountHex = self::decToHex($amountWei);
+        return '0xa9059cbb' . str_pad(self::strip0x($to), 64, '0', STR_PAD_LEFT) . str_pad($amountHex, 64, '0', STR_PAD_LEFT);
     }
 
-    private static function parseAmount(string $hex): int
+    private static function parseAmount(string $hex): string
     {
-        $hex = ltrim(ltrim($hex, '0x'), '0') ?: '0';
+        $hex = ltrim(self::strip0x($hex), '0') ?: '0';
         $dec = '0';
         $len = strlen($hex);
         for ($i = 0; $i < $len; $i++) {
             $dec = bcadd(bcmul($dec, '16', 0), (string)hexdec($hex[$i]), 0);
         }
-        return (int)$dec;
+        return $dec;
     }
 
-    private static function toWei(float $amount): int
+    private static function toWei(string $amount): string
     {
-        return (int)bcmul((string)$amount, '1000000000000000000', 0);
+        return bcmul($amount, '1000000000000000000', 0);
     }
 
-    private static function fromWei(int $wei): string
+    private static function fromWei(string $wei): string
     {
-        return bcdiv((string)$wei, '1000000000000000000', 8);
+        return bcdiv($wei, '1000000000000000000', 8);
+    }
+
+    private static function intToHex(int $value): string
+    {
+        return '0x' . dechex($value);
+    }
+
+    private static function strip0x(string $hex): string
+    {
+        return str_starts_with($hex, '0x') ? substr($hex, 2) : $hex;
+    }
+
+    private static function decToHex(string $dec): string
+    {
+        $dec = ltrim($dec, '0');
+        if ($dec === '') {
+            return '0';
+        }
+        $hex = '';
+        while (bccomp($dec, '0', 0) > 0) {
+            $hex = dechex((int)bcmod($dec, '16', 0)) . $hex;
+            $dec = bcdiv($dec, '16', 0);
+        }
+        return $hex === '' ? '0' : $hex;
     }
 
     private static function signTransaction(string $privateKey, array $tx): ?string
     {
         try {
-            // RLP encode: [nonce, gasPrice, gasLimit, to, value, data, chainId, 0, 0]
-            $rlpItems = [
-                self::rlpEncode(hex2bin(ltrim($tx['nonce'], '0x'))),
-                self::rlpEncode(hex2bin(ltrim($tx['gasPrice'], '0x'))),
-                self::rlpEncode(hex2bin(ltrim($tx['gasLimit'], '0x'))),
-                self::rlpEncode(hex2bin(ltrim($tx['to'], '0x'))),
-                self::rlpEncode(hex2bin(ltrim($tx['value'], '0x'))),
-                self::rlpEncode(hex2bin(ltrim($tx['data'], '0x'))),
-                self::rlpEncode(hex2bin(ltrim($tx['chainId'], '0x'))),
+            // EIP-155: hash = keccak256(rlp([nonce, gasPrice, gasLimit, to, value, data, chainId, 0, 0]))
+            $unsignedItems = [
+                self::rlpEncode(self::bytesFromHex($tx['nonce'])),
+                self::rlpEncode(self::bytesFromHex($tx['gasPrice'])),
+                self::rlpEncode(self::bytesFromHex($tx['gasLimit'])),
+                self::rlpEncode(self::bytesFromHex($tx['to'])),
+                self::rlpEncode(self::bytesFromHex($tx['value'])),
+                self::rlpEncode(self::bytesFromHex($tx['data'])),
+                self::rlpEncode(self::bytesFromHex($tx['chainId'])),
                 self::rlpEncode(''),
                 self::rlpEncode(''),
             ];
-            $rlp = self::rlpEncodeList($rlpItems);
-            $hash = bin2hex(hash('sha256', $rlp, true)); // hex string for secp256k1
+            $unsignedRlp = self::rlpEncodeList($unsignedItems);
+            $hash = Keccak::hash($unsignedRlp, 256);
 
-            // Sign using kornrunner/secp256k1
+            // Firmar
             $secp256k1 = new Secp256k1();
             $signature = $secp256k1->sign($hash, $privateKey, ['canonical' => true]);
-            
-            $r = $signature->getR();
-            $s = $signature->getS();
+
+            $r = gmp_strval($signature->getR(), 16);
+            $s = gmp_strval($signature->getS(), 16);
             $recoveryParam = $signature->getRecoveryParam();
-            
+
             // EIP-155: v = recoveryParam + 35 + chainId * 2
             $chainId = (int)hexdec($tx['chainId']);
             $v = $recoveryParam + 35 + $chainId * 2;
 
-            // RLP encode signed transaction: [nonce, gasPrice, gasLimit, to, value, data, chainId, r, s, v]
+            // Tx firmada: [nonce, gasPrice, gasLimit, to, value, data, v, r, s]
             $signedRlp = self::rlpEncodeList([
-                self::rlpEncode(hex2bin(ltrim($tx['nonce'], '0x'))),
-                self::rlpEncode(hex2bin(ltrim($tx['gasPrice'], '0x'))),
-                self::rlpEncode(hex2bin(ltrim($tx['gasLimit'], '0x'))),
-                self::rlpEncode(hex2bin(ltrim($tx['to'], '0x'))),
-                self::rlpEncode(hex2bin(ltrim($tx['value'], '0x'))),
-                self::rlpEncode(hex2bin(ltrim($tx['data'], '0x'))),
-                self::rlpEncode(hex2bin(ltrim($tx['chainId'], '0x'))),
-                self::rlpEncode(hex2bin(str_pad(gmp_strval($r, 16), 64, '0', STR_PAD_LEFT))),
-                self::rlpEncode(hex2bin(str_pad(gmp_strval($s, 16), 64, '0', STR_PAD_LEFT))),
-                self::rlpEncode(chr($v)),
+                self::rlpEncode(self::bytesFromHex($tx['nonce'])),
+                self::rlpEncode(self::bytesFromHex($tx['gasPrice'])),
+                self::rlpEncode(self::bytesFromHex($tx['gasLimit'])),
+                self::rlpEncode(self::bytesFromHex($tx['to'])),
+                self::rlpEncode(self::bytesFromHex($tx['value'])),
+                self::rlpEncode(self::bytesFromHex($tx['data'])),
+                self::rlpEncode(self::bytesFromHex(self::intToHex($v))),
+                self::rlpEncode(hex2bin(str_pad($r, 64, '0', STR_PAD_LEFT))),
+                self::rlpEncode(hex2bin(str_pad($s, 64, '0', STR_PAD_LEFT))),
             ]);
 
             return '0x' . bin2hex($signedRlp);
@@ -294,10 +322,22 @@ class Wallet
     }
 
     // RLP encoding helpers
+    private static function bytesFromHex(string $hex): string
+    {
+        $hex = self::strip0x($hex);
+        if ($hex === '' || $hex === '0') {
+            return '';
+        }
+        if (strlen($hex) % 2 === 1) {
+            $hex = '0' . $hex;
+        }
+        return hex2bin($hex);
+    }
+
     private static function rlpEncode(string $data): string
     {
         $len = strlen($data);
-        if ($len === 1 && $data[0] >= 0x00 && $data[0] <= 0x7f) {
+        if ($len === 1 && ord($data[0]) <= 0x7f) {
             return $data;
         }
         if ($len <= 55) {

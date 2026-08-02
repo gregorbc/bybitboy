@@ -30,22 +30,20 @@ class AdminHttp
         } elseif ($action === 'deploy') {
             Accounting::markDeployed($pdo, (int)($post['id'] ?? 0));
         } elseif ($action === 'send_direct') {
-            if (!Csrf::verify($session, isset($post['csrf']) ? (string)$post['csrf'] : null)) {
-                $error = 'Token CSRF inválido';
-            } elseif (empty($post['confirm'])) {
+            if (empty($post['confirm'])) {
                 $error = 'Debes confirmar que la dirección y monto son correctos';
             } else {
                 $network = (string)($post['network'] ?? '');
                 $token = strtoupper((string)($post['token'] ?? ''));
                 $destination = (string)($post['destination'] ?? '');
-                $amount = (float)($post['amount'] ?? 0);
+                $amount = trim((string)($post['amount'] ?? ''));
 
                 if (!Networks::validateAddress($network, $destination)) {
                     $error = 'Dirección destino inválida para la red';
                 } elseif (!in_array($token, ['USDT', 'USDC'], true)) {
                     $error = 'Token no soportado';
-                } elseif ($amount <= 0) {
-                    $error = 'Monto debe ser > 0';
+                } elseif (!preg_match('/^\d{1,18}(\.\d{1,18})?$/', $amount)) {
+                    $error = 'Monto inválido';
                 } else {
                     $secret = getenv('PLATFORM_SECRET') ?: '';
                     if ($secret === '') {

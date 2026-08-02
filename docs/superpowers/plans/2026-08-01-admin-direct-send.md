@@ -105,7 +105,8 @@ git commit -m "feat(admin): admin_sends table schema"
 
 **Interfaces:**
 - Consumes: `Wallet::mnemonic()`, `Networks::rpc()`, `Networks::contracts()`, `Networks::chainId()`, `RpcClient`
-- Produces: `Wallet::signAndSendERC20(PDO $pdo, string $secretKey, string $network, string $token, string $to, float $amount): array{ok:bool, tx_hash?:string, error?:string, gas_used?:int, gas_price?:int}`
+- Produces: `Wallet::signAndSendERC20(PDO $pdo, string $secretKey, string $network, string $token, string $to, string $amount, ?RpcClient $rpc = null): array{ok:bool, tx_hash?:string, error?:string, gas_used?:int, gas_price?:int}`
+  - `$amount` es string decimal (ej. `'10.5'`) para evitar pérdida de precisión y overflow de `PHP_INT_MAX`.
 
 - [ ] **Step 1: Escribir test que falla**
 
@@ -124,7 +125,7 @@ public function testSignAndSendErc20HappyPath(): void
         }
         if ($req['method'] === 'eth_call') {
             // balanceOf call
-            return '{"jsonrpc":"2.0","id":1,"result":"0x0de0b6b3a7640000"}'; // 100000000000000000000 = 100 tokens
+            return '{"jsonrpc":"2.0","id":1,"result":"0x56bc75e2d63100000"}'; // 100000000000000000000 = 100 tokens
         }
         if ($req['method'] === 'eth_estimateGas') {
             return '{"jsonrpc":"2.0","id":1,"result":"0x5208"}'; // 21000
@@ -136,7 +137,7 @@ public function testSignAndSendErc20HappyPath(): void
     });
     $rpcUrl = Networks::rpc('bsc');
     // Inyectar RPC mock via reflexión o constructor si se expone
-    $result = Wallet::signAndSendERC20($this->pdo, self::SECRET, 'bsc', 'USDT', '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B', 10.0);
+    $result = Wallet::signAndSendERC20($this->pdo, self::SECRET, 'bsc', 'USDT', '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B', '10.0');
     $this->assertTrue($result['ok']);
     $this->assertSame('0xabcdef1234567890', $result['tx_hash']);
 }
@@ -151,7 +152,7 @@ public function testSignAndSendErc20InsufficientBalance(): void
         }
         return '{"jsonrpc":"2.0","id":1,"result":null}';
     });
-    $result = Wallet::signAndSendERC20($this->pdo, self::SECRET, 'bsc', 'USDT', '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B', 1000.0);
+    $result = Wallet::signAndSendERC20($this->pdo, self::SECRET, 'bsc', 'USDT', '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B', '1000.0');
     $this->assertFalse($result['ok']);
     $this->assertStringContainsString('insuficiente', strtolower($result['error']));
 }
@@ -166,7 +167,7 @@ Expected: FAIL, método no existe.
 
 ```php
 // src/php/Core/Wallet.php - agregar método público estático:
-public static function signAndSendERC20(PDO $pdo, string $secretKey, string $network, string $token, string $to, float $amount): array
+public static function signAndSendERC20(PDO $pdo, string $secretKey, string $network, string $token, string $to, string $amount): array
 {
     // 1. Validaciones básicas
     if (!Networks::validateAddress($network, $to)) {
@@ -259,75 +260,113 @@ public static function signAndSendERC20(PDO $pdo, string $secretKey, string $net
 // Helpers privados (añadir al final de la clase):
 private static function callBalanceOf(RpcClient $rpc, string $contract, string $from): string
 {
-    $data = '0x70a08231' . str_pad(ltrim($from, '0x'), 64, '0', STR_PAD_LEFT); // balanceOf(address)
+    $data = '0x70a08231' . str_pad(self::strip0x($from), 64, '0', STR_PAD_LEFT); // balanceOf(address)
     return (string)$rpc->call('eth_call', [[
         'to' => $contract,
         'data' => $data,
     ], 'latest']);
 }
 
-private static function encodeTransferData(string $to, int $amountWei): string
+private static function encodeTransferData(string $to, string $amountWei): string
 {
-    return '0xa9059cbb' . str_pad(ltrim($to, '0x'), 64, '0', STR_PAD_LEFT) . str_pad(dechex($amountWei), 64, '0', STR_PAD_LEFT);
+    return '0xa9059cbb' . str_pad(self::strip0x($to), 64, '0', STR_PAD_LEFT) . str_pad(self::decToHex($amountWei), 64, '0', STR_PAD_LEFT);
 }
 
-private static function parseAmount(string $hex): int
+private static function parseAmount(string $hex): string
 {
-    $hex = ltrim(ltrim($hex, '0x'), '0') ?: '0';
+    $hex = ltrim(self::strip0x($hex), '0') ?: '0';
     $dec = '0';
     $len = strlen($hex);
     for ($i = 0; $i < $len; $i++) {
         $dec = bcadd(bcmul($dec, '16', 0), (string)hexdec($hex[$i]), 0);
     }
-    return (int)$dec;
+    return $dec;
 }
 
-private static function toWei(float $amount): int
+private static function toWei(string $amount): string
 {
-    return (int)bcmul((string)$amount, '1000000000000000000', 0);
+    return bcmul($amount, '1000000000000000000', 0);
 }
 
-private static function fromWei(int $wei): string
+private static function fromWei(string $wei): string
 {
-    return bcdiv((string)$wei, '1000000000000000000', 8);
+    return bcdiv($wei, '1000000000000000000', 8);
 }
 
 private static function signTransaction(string $privateKey, array $tx): ?string
 {
-    // Usar kornrunner/ethereum-util para RLP encoding + secp256k1 signing
-    // Requiere: kornrunner/ethereum-util (ya instalado como dep de ethereum-offline-account)
+    // EIP-155: keccak256(rlp([nonce, gasPrice, gasLimit, to, value, data, chainId, 0, 0]))
+    // Tx firmada: rlp([nonce, gasPrice, gasLimit, to, value, data, v, r, s])
     try {
-        $rlp = \kornrunner\EthereumUtil\Rlp::encode([
-            hex2bin(ltrim($tx['nonce'], '0x')),
-            hex2bin(ltrim($tx['gasPrice'], '0x')),
-            hex2bin(ltrim($tx['gasLimit'], '0x')),
-            hex2bin(ltrim($tx['to'], '0x')),
-            hex2bin(ltrim($tx['value'], '0x')),
-            hex2bin(ltrim($tx['data'], '0x')),
-            hex2bin(ltrim($tx['chainId'], '0x')),
-            '',
-            '',
-        ]);
-        $hash = hash('sha256', $rlp, true);
-        $sig = \kornrunner\EthereumUtil\Secp256k1::sign($hash, hex2bin(ltrim($privateKey, '0x')));
-        $v = $tx['chainId'] === '0x0' ? $sig['v'] : $sig['v'] + (int)hexdec($tx['chainId']) * 2 + 8;
-        $signedRlp = \kornrunner\EthereumUtil\Rlp::encode([
-            hex2bin(ltrim($tx['nonce'], '0x')),
-            hex2bin(ltrim($tx['gasPrice'], '0x')),
-            hex2bin(ltrim($tx['gasLimit'], '0x')),
-            hex2bin(ltrim($tx['to'], '0x')),
-            hex2bin(ltrim($tx['value'], '0x')),
-            hex2bin(ltrim($tx['data'], '0x')),
-            hex2bin(ltrim($tx['chainId'], '0x')),
-            $sig['r'],
-            $sig['s'],
-            chr($v),
+        $unsignedItems = [
+            self::rlpEncode(self::bytesFromHex($tx['nonce'])),
+            self::rlpEncode(self::bytesFromHex($tx['gasPrice'])),
+            self::rlpEncode(self::bytesFromHex($tx['gasLimit'])),
+            self::rlpEncode(self::bytesFromHex($tx['to'])),
+            self::rlpEncode(self::bytesFromHex($tx['value'])),
+            self::rlpEncode(self::bytesFromHex($tx['data'])),
+            self::rlpEncode(self::bytesFromHex($tx['chainId'])),
+            self::rlpEncode(''),
+            self::rlpEncode(''),
+        ];
+        $unsignedRlp = self::rlpEncodeList($unsignedItems);
+        $hash = Keccak::hash($unsignedRlp, 256); // hex string
+
+        $secp256k1 = new Secp256k1();
+        $signature = $secp256k1->sign($hash, $privateKey, ['canonical' => true]);
+        $r = gmp_strval($signature->getR(), 16);
+        $s = gmp_strval($signature->getS(), 16);
+        $recoveryParam = $signature->getRecoveryParam();
+
+        $chainId = (int)hexdec($tx['chainId']);
+        $v = $recoveryParam + 35 + $chainId * 2; // EIP-155
+
+        $signedRlp = self::rlpEncodeList([
+            self::rlpEncode(self::bytesFromHex($tx['nonce'])),
+            self::rlpEncode(self::bytesFromHex($tx['gasPrice'])),
+            self::rlpEncode(self::bytesFromHex($tx['gasLimit'])),
+            self::rlpEncode(self::bytesFromHex($tx['to'])),
+            self::rlpEncode(self::bytesFromHex($tx['value'])),
+            self::rlpEncode(self::bytesFromHex($tx['data'])),
+            self::rlpEncode(self::bytesFromHex('0x' . dechex($v))),
+            self::rlpEncode(hex2bin(str_pad($r, 64, '0', STR_PAD_LEFT))),
+            self::rlpEncode(hex2bin(str_pad($s, 64, '0', STR_PAD_LEFT))),
         ]);
         return '0x' . bin2hex($signedRlp);
     } catch (\Throwable $e) {
         error_log('[Wallet::signTransaction] ' . $e->getMessage());
         return null;
     }
+}
+
+private static function bytesFromHex(string $hex): string
+{
+    $hex = str_starts_with($hex, '0x') ? substr($hex, 2) : $hex;
+    if ($hex === '' || $hex === '0') return '';
+    if (strlen($hex) % 2 === 1) $hex = '0' . $hex; // pad a longitud par
+    return hex2bin($hex);
+}
+
+private static function strip0x(string $hex): string
+{
+    return str_starts_with($hex, '0x') ? substr($hex, 2) : $hex;
+}
+
+private static function intToHex(int $value): string
+{
+    return '0x' . dechex($value);
+}
+
+private static function decToHex(string $dec): string
+{
+    $dec = ltrim($dec, '0');
+    if ($dec === '') return '0';
+    $hex = '';
+    while (bccomp($dec, '0', 0) > 0) {
+        $hex = dechex((int)bcmod($dec, '16', 0)) . $hex;
+        $dec = bcdiv($dec, '16', 0);
+    }
+    return $hex === '' ? '0' : $hex;
 }
 ```
 
@@ -523,7 +562,7 @@ public function testEstimateGasEndpoint(): void
 
 ```php
 // src/php/Core/AdminHttp.php - agregar método público estático:
-public static function estimateGas(PDO $pdo, string $network, string $token, string $destination, float $amount, string $secret): array
+public static function estimateGas(PDO $pdo, string $network, string $token, string $destination, string $amount, string $secret): array
 {
     if (!Networks::validateAddress($network, $destination)) {
         return ['ok' => false, 'error' => 'Dirección inválida'];
@@ -758,7 +797,7 @@ class AdminDirectSendTest extends TestCase
             $req = json_decode($payload, true);
             if ($req['method'] === 'eth_getTransactionCount') return '{"jsonrpc":"2.0","id":1,"result":"0x0"}';
             if ($req['method'] === 'eth_gasPrice') return '{"jsonrpc":"2.0","id":1,"result":"0x3b9aca00"}';
-            if ($req['method'] === 'eth_call') return '{"jsonrpc":"2.0","id":1,"result":"0x0de0b6b3a7640000"}'; // 100 tokens
+            if ($req['method'] === 'eth_call') return '{"jsonrpc":"2.0","id":1,"result":"0x56bc75e2d63100000"}'; // 100 tokens
             if ($req['method'] === 'eth_estimateGas') return '{"jsonrpc":"2.0","id":1,"result":"0x5208"}';
             if ($req['method'] === 'eth_sendRawTransaction') return '{"jsonrpc":"2.0","id":1,"result":"0xabcdef1234567890"}';
             return '{"jsonrpc":"2.0","id":1,"result":null}';
@@ -794,7 +833,7 @@ Expected: FAIL (método no implementado o mock no inyectado).
 
 ```php
 // En Wallet.php - modificar signature:
-public static function signAndSendERC20(PDO $pdo, string $secretKey, string $network, string $token, string $to, float $amount, ?RpcClient $rpc = null): array
+public static function signAndSendERC20(PDO $pdo, string $secretKey, string $network, string $token, string $to, string $amount, ?RpcClient $rpc = null): array
 {
     // ...
     $rpc = $rpc ?? new RpcClient($rpcUrl);
