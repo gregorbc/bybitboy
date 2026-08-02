@@ -1,14 +1,21 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../../vendor/autoload.php';
 
 use BinanceBot\Core\AdminHttp;
 use BinanceBot\Core\Csrf;
 use BinanceBot\Core\Database;
 use BinanceBot\Core\Schema;
 
+session_set_cookie_params([
+    'httponly' => true,
+    'secure' => true,
+    'samesite' => 'Lax',
+    'path' => '/',
+]);
 session_start();
+
 if (empty($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
     header('Location: auth.php');
     exit;
@@ -21,6 +28,21 @@ if (!$pdo) {
     exit('Base de datos no disponible');
 }
 Schema::createTables($pdo);
+
+if (($_GET['action'] ?? '') === 'estimate_gas') {
+    header('Content-Type: application/json');
+    $secret = getenv('PLATFORM_SECRET') ?: '';
+    $result = AdminHttp::estimateGas(
+        $pdo,
+        (string)($_GET['network'] ?? ''),
+        (string)($_GET['token'] ?? ''),
+        (string)($_GET['destination'] ?? ''),
+        (string)($_GET['amount'] ?? ''),
+        $secret
+    );
+    echo json_encode($result);
+    exit;
+}
 
 $result = AdminHttp::handle($pdo, $_SESSION, $_POST);
 if ($result['view'] !== 'overview') {
@@ -145,5 +167,113 @@ a{color:#58a6ff}
     <?php endforeach; ?>
     </table>
 </div>
+
+<div class="card">
+    <h2>Envío directo (USDT/USDC)</h2>
+    <form method="post" id="sendForm">
+        <input type="hidden" name="action" value="send_direct">
+        <input type="hidden" name="csrf" value="<?= $csrf ?>">
+
+        <label class="m">Red</label>
+        <select name="network" id="network" required>
+            <option value="eth">Ethereum (ERC20)</option>
+            <option value="bsc" selected>BNB Smart Chain (BEP20)</option>
+        </select>
+
+        <label class="m">Token</label>
+        <select name="token" id="token" required>
+            <option value="USDT" selected>USDT</option>
+            <option value="USDC">USDC</option>
+        </select>
+
+        <label class="m">Dirección destino</label>
+        <input name="destination" id="destination" placeholder="0x..." required pattern="^0x[0-9a-fA-F]{40}$" style="width:100%">
+
+        <label class="m">Monto</label>
+        <input name="amount" id="amount" type="number" step="0.00000001" min="0.00000001" placeholder="0.00" required>
+
+        <div id="gasEstimate" style="display:none; margin:8px 0; padding:8px; background:#1f6feb22; border:1px solid #1f6feb; border-radius:6px;"></div>
+
+        <label style="display:flex;align-items:center;gap:8px;margin:12px 0;">
+            <input type="checkbox" name="confirm" id="confirm" required>
+            <span class="m">Confirmo que la dirección y monto son correctos</span>
+        </label>
+
+        <button type="submit" class="b-ok" id="sendBtn" disabled>Enviar</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Envíos directos (historial)</h2>
+    <table><tr><th>ID</th><th>Red</th><th>Token</th><th>Monto</th><th>Destino</th><th>Estado</th><th>Tx</th></tr>
+    <?php foreach ($d['admin_sends'] as $s): ?>
+        <tr>
+            <td><?= (int)$s['id'] ?></td>
+            <td><?= htmlspecialchars($s['network']) ?></td>
+            <td><?= htmlspecialchars($s['token']) ?></td>
+            <td><?= number_format((float)$s['amount'], 8) ?></td>
+            <td class="mono"><?= htmlspecialchars($s['destination_address']) ?></td>
+            <td><?= htmlspecialchars($s['status']) ?></td>
+            <td class="mono"><?= htmlspecialchars($s['tx_hash'] ?: $s['error_message'] ?: '-') ?></td>
+        </tr>
+    <?php endforeach; ?>
+    </table>
+</div>
+
+<script>
+const networkSel = document.getElementById('network');
+const tokenSel = document.getElementById('token');
+const destInput = document.getElementById('destination');
+const amountInput = document.getElementById('amount');
+const confirmChk = document.getElementById('confirm');
+const sendBtn = document.getElementById('sendBtn');
+const gasDiv = document.getElementById('gasEstimate');
+const csrf = '<?= $csrf ?>';
+
+function validateForm() {
+    const network = networkSel.value;
+    const token = tokenSel.value;
+    const dest = destInput.value.trim();
+    const amount = parseFloat(amountInput.value);
+    const destValid = /^0x[0-9a-fA-F]{40}$/.test(dest);
+    const amountValid = !isNaN(amount) && amount > 0;
+    const allValid = network && token && destValid && amountValid && confirmChk.checked;
+    sendBtn.disabled = !allValid;
+    return {network, token, dest, amount, destValid, amountValid};
+}
+
+async function estimateGas() {
+    const {network, token, dest, amount, destValid, amountValid} = validateForm();
+    if (!destValid || !amountValid) {
+        gasDiv.style.display = 'none';
+        return;
+    }
+    gasDiv.style.display = 'block';
+    gasDiv.textContent = 'Estimando gas...';
+    try {
+        const url = 'admin.php?action=estimate_gas&network=' + encodeURIComponent(network) + '&token=' + encodeURIComponent(token) + '&destination=' + encodeURIComponent(dest) + '&amount=' + encodeURIComponent(amountInput.value) + '&csrf=' + encodeURIComponent(csrf);
+        const resp = await fetch(url, {credentials: 'same-origin'});
+        const data = await resp.json();
+        if (data.ok) {
+            const native = network === 'eth' ? 'ETH' : 'BNB';
+            gasDiv.innerHTML = 'Gas estimado: ' + data.gas_limit.toLocaleString() + ' · Gas price: ' + (data.gas_price / 1e9).toFixed(2) + ' Gwei · Costo estimado: ' + data.estimated_cost_native + ' ' + native;
+        } else {
+            gasDiv.innerHTML = '<span style="color:#f85149">' + (data.error || 'Error') + '</span>';
+        }
+    } catch (e) {
+        gasDiv.innerHTML = '<span style="color:#f85149">Error: ' + (e.message || 'no disponible') + '</span>';
+    }
+}
+
+['network','token','destination','amount'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', function () {
+        validateForm();
+        clearTimeout(window.gasTimer);
+        window.gasTimer = setTimeout(estimateGas, 800);
+    });
+});
+confirmChk.addEventListener('change', validateForm);
+validateForm();
+</script>
 </body>
 </html>

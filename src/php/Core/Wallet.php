@@ -206,6 +206,84 @@ class Wallet
         }
     }
 
+    /**
+     * Estima el gas y costo de un envío ERC20 (sin enviar la transacción)
+     *
+     * @param PDO $pdo
+     * @param string $secretKey Clave para descifrar el mnemonic (PLATFORM_SECRET)
+     * @param string $network Red: 'eth' o 'bsc'
+     * @param string $token Token: 'USDT' o 'USDC'
+     * @param string $to Dirección destino (0x...)
+     * @param string $amount Monto en tokens como string decimal
+     * @param \BinanceBot\Core\RpcClient|null $rpc Cliente RPC inyectable (para tests)
+     * @return array{ok:bool, gas_limit?:int, gas_price?:int, estimated_cost_native?:string, error?:string}
+     */
+    public static function estimateGas(PDO $pdo, string $secretKey, string $network, string $token, string $to, string $amount, ?\BinanceBot\Core\RpcClient $rpc = null): array
+    {
+        // 1. Validaciones básicas
+        if (!\BinanceBot\Core\Networks::validateAddress($network, $to)) {
+            return ['ok' => false, 'error' => 'Dirección destino inválida para la red'];
+        }
+        $contracts = \BinanceBot\Core\Networks::contracts($network);
+        $contract = $contracts[$token] ?? '';
+        if ($contract === '') {
+            return ['ok' => false, 'error' => 'Token no soportado en esta red'];
+        }
+        $amount = trim($amount);
+        if (!preg_match('/^\d{1,18}(\.\d{1,18})?$/', $amount)) {
+            return ['ok' => false, 'error' => 'Monto inválido'];
+        }
+        if (bccomp($amount, '0', 18) <= 0) {
+            return ['ok' => false, 'error' => 'Monto debe ser > 0'];
+        }
+
+        // 2. RPC client (inyectable para tests)
+        $rpcUrl = \BinanceBot\Core\Networks::rpc($network);
+        if ($rpcUrl === '') {
+            return ['ok' => false, 'error' => 'RPC no configurado para la red'];
+        }
+        $rpcClient = $rpc ?? new \BinanceBot\Core\RpcClient($rpcUrl);
+
+        // 3. Cuenta maestra (index 0)
+        $mnemonic = self::mnemonic($pdo, $secretKey);
+        $fromAddress = self::deriveAddress($mnemonic, 0);
+
+        // 4. Verificar balance del token
+        $balanceHex = self::callBalanceOf($rpcClient, $contract, $fromAddress);
+        $balance = self::parseAmount($balanceHex);
+        $amountWei = self::toWei($amount);
+        if (bccomp($balance, $amountWei, 0) < 0) {
+            return ['ok' => false, 'error' => 'Balance insuficiente en wallet (disponible: ' . self::fromWei($balance) . ' ' . $token . ')'];
+        }
+
+        // 5. Estimar gas
+        $data = self::encodeTransferData($to, $amountWei);
+        try {
+            $gasEstimateHex = $rpcClient->call('eth_estimateGas', [[
+                'from' => $fromAddress,
+                'to' => $contract,
+                'data' => $data,
+                'value' => '0x0',
+            ]]);
+            $gasLimit = (int)hexdec((string)$gasEstimateHex);
+            $gasLimit = (int)($gasLimit * 1.2); // +20% buffer
+
+            $gasPriceHex = $rpcClient->call('eth_gasPrice', []);
+            $gasPrice = (int)hexdec((string)$gasPriceHex);
+            $gasPrice = (int)($gasPrice * 1.1); // +10% buffer
+
+            return [
+                'ok' => true,
+                'gas_limit' => $gasLimit,
+                'gas_price' => $gasPrice,
+                'estimated_cost_native' => bcdiv(bcmul((string)$gasLimit, (string)$gasPrice, 0), '1000000000000000000', 8),
+            ];
+        } catch (\Throwable $e) {
+            error_log('[Wallet::estimateGas] ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'Error estimando gas para el envío'];
+        }
+    }
+
     // ===== Helpers privados =====
 
     private static function callBalanceOf(\BinanceBot\Core\RpcClient $rpc, string $contract, string $from): string

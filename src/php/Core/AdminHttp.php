@@ -7,6 +7,11 @@ use PDO;
 
 class AdminHttp
 {
+    public static function estimateGas(PDO $pdo, string $network, string $token, string $destination, string $amount, string $secret, ?RpcClient $rpc = null): array
+    {
+        return Wallet::estimateGas($pdo, $secret, $network, $token, $destination, $amount, $rpc);
+    }
+
     public static function handle(PDO $pdo, array &$session, array $post, ?callable $sendDirect = null): array
     {
         if (empty($session['user_id']) || ($session['role'] ?? '') !== 'admin') {
@@ -87,6 +92,7 @@ class AdminHttp
             'pending_withdrawals' => Accounting::pendingWithdrawals($pdo),
             'withdrawals' => $pdo->query('SELECT w.*, u.username FROM withdrawals w JOIN users u ON u.id = w.user_id ORDER BY w.id DESC LIMIT 50')->fetchAll(),
             'deposits' => $pdo->query('SELECT d.*, u.username FROM deposits d JOIN users u ON u.id = d.user_id ORDER BY d.id DESC LIMIT 50')->fetchAll(),
+            'admin_sends' => $pdo->query('SELECT * FROM admin_sends ORDER BY id DESC LIMIT 50')->fetchAll(),
             'nav' => Accounting::currentNav($pdo),
             'total_units' => Accounting::totalUnits($pdo),
             'wallet_held' => Accounting::walletHeld($pdo),

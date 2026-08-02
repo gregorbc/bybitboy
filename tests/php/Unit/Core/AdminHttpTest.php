@@ -8,6 +8,7 @@ use PDO;
 use BinanceBot\Core\Accounting;
 use BinanceBot\Core\AdminHttp;
 use BinanceBot\Core\Csrf;
+use BinanceBot\Core\RpcClient;
 use BinanceBot\Core\Wallet;
 use Tests\Support\SqliteSchema;
 
@@ -157,5 +158,36 @@ class AdminHttpTest extends TestCase
         $result = AdminHttp::handle($this->pdo, $session, $post);
         $this->assertSame('overview', $result['view']);
         $this->assertStringContainsString('inválida', strtolower($result['data']['error'] ?? ''));
+    }
+
+    public function testEstimateGasSuccess(): void
+    {
+        Wallet::init($this->pdo, 'test_secret');
+        $fakeRpc = new RpcClient('http://fake', function (string $url, string $payload): string {
+            $req = json_decode($payload, true);
+            if ($req['method'] === 'eth_call') {
+                return '{"jsonrpc":"2.0","id":1,"result":"0x56bc75e2d63100000"}'; // 100 USDT
+            }
+            if ($req['method'] === 'eth_estimateGas') {
+                return '{"jsonrpc":"2.0","id":1,"result":"0x5208"}'; // 21000
+            }
+            if ($req['method'] === 'eth_gasPrice') {
+                return '{"jsonrpc":"2.0","id":1,"result":"0x3b9aca00"}'; // 1 gwei
+            }
+            return '{"jsonrpc":"2.0","id":1,"result":null}';
+        });
+        $result = AdminHttp::estimateGas($this->pdo, 'bsc', 'USDT', '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B', '10.0', 'test_secret', $fakeRpc);
+        $this->assertTrue($result['ok']);
+        $this->assertSame(25200, $result['gas_limit']);      // 21000 * 1.2
+        $this->assertSame(1100000000, $result['gas_price']); // 1 gwei * 1.1
+        $this->assertSame('0.00002772', $result['estimated_cost_native']);
+    }
+
+    public function testEstimateGasInvalidToken(): void
+    {
+        Wallet::init($this->pdo, 'test_secret');
+        $result = AdminHttp::estimateGas($this->pdo, 'bsc', 'DOGE', '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B', '10.0', 'test_secret');
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('soportado', strtolower($result['error']));
     }
 }
