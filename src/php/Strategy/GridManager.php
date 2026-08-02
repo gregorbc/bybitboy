@@ -284,23 +284,53 @@ class GridManager {
         $this->cfg = $row;
 
         $currentSpacing = (float)($row['spacing_pct'] ?? G_BASE_SPACING);
-        $feeFloor = (G_MAKER_FEE + G_MAKER_FEE) * G_FEE_SAFETY;
+
+        // Fee floor calculation with configurable mode
+        $makerFee   = G_MAKER_FEE;
+        $takerFee   = G_TAKER_FEE;
+        $safety     = G_FEE_SAFETY;
+        $enforceFee = (bool)($this->cfg['enforce_fee_floor'] ?? true);
+        $feeMode    = $this->cfg['fee_floor_mode'] ?? 'optimistic'; // 'conservative' | 'optimistic' | 'disabled'
+
+        // Fee floor modes:
+        // - conservative: (maker + taker) * safety  -> assumes exit might be market order
+        // - optimistic:   (maker + maker) * safety  -> assumes both entry/exit are PostOnly limit
+        // - disabled:     no fee floor enforcement
+        switch ($feeMode) {
+            case 'conservative':
+                $feeFloor = ($makerFee + $takerFee) * $safety;
+                break;
+            case 'optimistic':
+                $feeFloor = ($makerFee + $makerFee) * $safety;
+                break;
+            case 'disabled':
+                $feeFloor = 0;
+                break;
+            default:
+                $feeFloor = ($makerFee + $makerFee) * $safety;
+        }
+
         $dynamicMin = max(G_MIN_SPACING, $feeFloor);
-        if ($currentSpacing < $dynamicMin) {
+
+        if ($feeMode !== 'disabled' && $enforceFee && $currentSpacing < $dynamicMin) {
             $adjustedSpacing = min(G_MAX_SPACING, $dynamicMin);
-            lI(sprintf("[CFG] Spacing %.4f%% below fee floor %.4f%% -> ajustando a %.4f%%",
-                $currentSpacing * 100, $dynamicMin * 100, $adjustedSpacing * 100));
+            lI(sprintf("[CFG] Spacing %.4f%% below fee floor %.4f%% (mode=%s, conservative=%.4f%%, optimistic=%.4f%%) -> ajustando a %.4f%%",
+                $currentSpacing * 100, $feeFloor * 100, $feeMode, ($makerFee + $takerFee) * $safety * 100, ($makerFee + $makerFee) * $safety * 100, $adjustedSpacing * 100));
             dbx(function($d) use ($adjustedSpacing) {
                 return $d->prepare("UPDATE grid_configs SET spacing_pct=? WHERE symbol=?")
                     ->execute([$adjustedSpacing, G_SYM]);
             });
             $this->cfg['spacing_pct'] = $adjustedSpacing;
             $currentSpacing = $adjustedSpacing;
+        } elseif (($feeMode === 'disabled' || !$enforceFee) && $currentSpacing < $dynamicMin) {
+            lW(sprintf("[CFG] Spacing %.4f%% below fee floor %.4f%% (mode=%s/enforce=%s, sin ajustar)",
+                $currentSpacing * 100, $dynamicMin * 100, $feeMode, $enforceFee ? 'true' : 'false'));
         }
 
-        lI(sprintf("[CFG] niv=%d spc=%.4f%% long=%d short=%d capital=%.0f",
+        lI(sprintf("[CFG] niv=%d spc=%.4f%% long=%d short=%d capital=%.0f | feeFloor=%.4f%% (mode=%s, maker=%.4f%% taker=%.4f%% safety=%.2f)",
             isset($row['levels']) ? $row['levels'] : G_FIXED_LEVELS, $currentSpacing * 100,
-            isset($row['long_levels']) ? $row['long_levels'] : G_LONG_LEVELS, isset($row['short_levels']) ? $row['short_levels'] : G_SHORT_LEVELS, G_CAPITAL));
+            isset($row['long_levels']) ? $row['long_levels'] : G_LONG_LEVELS, isset($row['short_levels']) ? $row['short_levels'] : G_SHORT_LEVELS, G_CAPITAL,
+            $feeFloor * 100, $feeMode, $makerFee * 100, $takerFee * 100, $safety));
     }
 
     private function syncPositions() {
@@ -1134,7 +1164,11 @@ class GridManager {
             $r = dbx(function($d) {
                 return $d->query("SELECT COALESCE(SUM(pnl_usd),0) AS p FROM grid_orders WHERE symbol='" . G_SYM . "' AND grid_role='EXIT' AND status='FILLED' AND DATE(filled_at)=CURDATE()")->fetch();
             });
-            return $r ? (float)$r['p'] : 0.0;
+            $pnl = $r ? (float)$r['p'] : 0.0;
+            foreach ($this->api->positions(G_SYM) as $pos) {
+                $pnl += (float)($pos['unRealizedProfit'] ?? 0);
+            }
+            return $pnl;
         } catch (\Exception $e) { lE("[PNL] " . $e->getMessage()); return 0.0; }
     }
 

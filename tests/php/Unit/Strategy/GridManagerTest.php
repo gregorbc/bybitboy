@@ -403,6 +403,27 @@ public function testCalcPnlBuyExit(): void
         $this->assertFalse($result, 'expired pause must not pause the bot');
         $this->assertFileDoesNotExist($pauseFile, 'expired pause file must be cleaned up');
     }
+
+    public function testGetPnlTodayIncludesOpenPositionUPnL(): void
+    {
+        $api = \Mockery::mock(BybitFutures::class);
+        $api->shouldReceive('positions')->with('ETHUSDT')->once()->andReturn([
+            ['unRealizedProfit' => 0.5, 'positionAmt' => 0.03, 'side' => 'Buy'],
+            ['unRealizedProfit' => -0.2, 'positionAmt' => -0.03, 'side' => 'Sell'],
+        ]);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        self::$dbxFetchResult = ['p' => '1.00000000'];
+
+        $ref = new \ReflectionMethod(GridManager::class, 'getPnlToday');
+        $ref->setAccessible(true);
+        $result = $ref->invoke($manager);
+
+        // 1.0 (EXITs filled today) + 0.5 + (-0.2) = 1.3
+        $this->assertEqualsWithDelta(1.3, $result, 0.000001);
+    }
 }
 }
 
