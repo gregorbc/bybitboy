@@ -70,12 +70,12 @@ describe('createBoard', () => {
 describe('rotate', () => {
   test('clockwise without mutating input', () => {
     const m = [[1, 0], [1, 0]];
-    expect(rotate(m)).toEqual([[0, 1], [0, 1]]);
+    expect(rotate(m)).toEqual([[1, 1], [0, 0]]);
     expect(m).toEqual([[1, 0], [1, 0]]);
   });
   test('counter-clockwise reverses', () => {
     const m = [[1, 0], [1, 0]];
-    expect(rotate(m, -1)).toEqual([[1, 1], [0, 0]]);
+    expect(rotate(m, -1)).toEqual([[0, 0], [1, 1]]);
   });
 });
 
@@ -111,8 +111,8 @@ describe('clearFullLines', () => {
     b[ROWS - 2][0] = 2;
     const { board: out, linesCleared } = clearFullLines(b);
     expect(linesCleared).toBe(1); expect(out.length).toBe(ROWS);
-    expect(out[ROWS - 1].every((c) => c === 0)).toBe(true);
-    expect(out[ROWS - 2].includes(2)).toBe(true);
+    expect(out[ROWS - 1][0]).toBe(2);
+    expect(out[0].every((c) => c === 0)).toBe(true);
   });
   test('counts two cleared lines', () => {
     const b = createBoard();
