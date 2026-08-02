@@ -7,7 +7,7 @@ use PDO;
 
 class AdminHttp
 {
-    public static function handle(PDO $pdo, array &$session, array $post): array
+    public static function handle(PDO $pdo, array &$session, array $post, ?callable $sendDirect = null): array
     {
         if (empty($session['user_id']) || ($session['role'] ?? '') !== 'admin') {
             return ['view' => 'forbidden', 'data' => []];
@@ -29,6 +29,59 @@ class AdminHttp
             $pdo->prepare("UPDATE users SET status = 'active' WHERE id = ?")->execute([(int)($post['id'] ?? 0)]);
         } elseif ($action === 'deploy') {
             Accounting::markDeployed($pdo, (int)($post['id'] ?? 0));
+        } elseif ($action === 'send_direct') {
+            if (!Csrf::verify($session, isset($post['csrf']) ? (string)$post['csrf'] : null)) {
+                $error = 'Token CSRF inválido';
+            } elseif (empty($post['confirm'])) {
+                $error = 'Debes confirmar que la dirección y monto son correctos';
+            } else {
+                $network = (string)($post['network'] ?? '');
+                $token = strtoupper((string)($post['token'] ?? ''));
+                $destination = (string)($post['destination'] ?? '');
+                $amount = (float)($post['amount'] ?? 0);
+
+                if (!Networks::validateAddress($network, $destination)) {
+                    $error = 'Dirección destino inválida para la red';
+                } elseif (!in_array($token, ['USDT', 'USDC'], true)) {
+                    $error = 'Token no soportado';
+                } elseif ($amount <= 0) {
+                    $error = 'Monto debe ser > 0';
+                } else {
+                    $secret = getenv('PLATFORM_SECRET') ?: '';
+                    if ($secret === '') {
+                        $error = 'PLATFORM_SECRET no configurado';
+                    } else {
+                        $result = $sendDirect
+                            ? $sendDirect($pdo, $secret, $network, $token, $destination, $amount)
+                            : Wallet::signAndSendERC20($pdo, $secret, $network, $token, $destination, $amount);
+                        if ($result['ok']) {
+                            $stmt = $pdo->prepare('INSERT INTO admin_sends (admin_id, network, token, amount, destination_address, tx_hash, status, gas_used, gas_price, sent_at) VALUES (?, ?, ?, ?, ?, ?, "sent", ?, ?, datetime("now"))');
+                            $stmt->execute([
+                                $session['user_id'],
+                                $network,
+                                $token,
+                                $amount,
+                                $destination,
+                                $result['tx_hash'],
+                                $result['gas_used'] ?? 0,
+                                $result['gas_price'] ?? 0,
+                            ]);
+                            $session['flash'] = 'Envío exitoso. Tx: ' . $result['tx_hash'];
+                        } else {
+                            $stmt = $pdo->prepare('INSERT INTO admin_sends (admin_id, network, token, amount, destination_address, status, error_message) VALUES (?, ?, ?, ?, ?, "failed", ?)');
+                            $stmt->execute([
+                                $session['user_id'],
+                                $network,
+                                $token,
+                                $amount,
+                                $destination,
+                                $result['error'],
+                            ]);
+                            $error = $result['error'];
+                        }
+                    }
+                }
+            }
         }
 
         $data = [

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Core;
 
 use PHPUnit\Framework\TestCase;
+use PDO;
 use BinanceBot\Core\Accounting;
 use BinanceBot\Core\AdminHttp;
 use BinanceBot\Core\Csrf;
@@ -12,14 +13,15 @@ use Tests\Support\SqliteSchema;
 
 class AdminHttpTest extends TestCase
 {
-    private \PDO $pdo;
+    protected ?PDO $pdo = null;
 
     protected function setUp(): void
     {
-        $this->pdo = new \PDO('sqlite::memory:');
+        $this->pdo = new PDO('sqlite::memory:');
         SqliteSchema::apply($this->pdo);
         $this->pdo->exec("INSERT INTO users (id, username, email, password_hash, role) VALUES (1, 'admin', 'a@e.com', 'x', 'admin'), (2, 'inv', 'i@e.com', 'x', 'investor')");
         Accounting::init($this->pdo, 100000.0);
+        putenv('PLATFORM_SECRET=test_secret');
     }
 
     public function testAdminOnly(): void
@@ -88,5 +90,67 @@ class AdminHttpTest extends TestCase
         $post = ['action' => 'deploy', 'id' => (string)$depId, 'csrf' => Csrf::token($session)];
         AdminHttp::handle($this->pdo, $session, $post);
         $this->assertSame(1, $this->pdo->query('SELECT deployed FROM deposits')->fetch()['deployed']);
+    }
+
+    public function testSendDirectSuccess(): void
+    {
+        $session = ['user_id' => 1, 'role' => 'admin'];
+        $session['csrf'] = Csrf::token($session);
+        $post = [
+            'action' => 'send_direct',
+            'network' => 'bsc',
+            'token' => 'USDT',
+            'destination' => '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B',
+            'amount' => '10.0',
+            'confirm' => '1',
+            'csrf' => $session['csrf'],
+        ];
+        // Inject fake sender instead of mocking Wallet (overload: breaks the class globally)
+        $sendDirect = static function (): array {
+            return ['ok' => true, 'tx_hash' => '0x' . str_repeat('ab', 32), 'gas_used' => 50000, 'gas_price' => 20000000000];
+        };
+
+        $result = AdminHttp::handle($this->pdo, $session, $post, $sendDirect);
+        $this->assertSame('overview', $result['view']);
+        $row = $this->pdo->query("SELECT * FROM admin_sends")->fetch();
+        $this->assertSame('bsc', $row['network']);
+        $this->assertSame('USDT', $row['token']);
+        $this->assertSame(10.0, (float)$row['amount']);
+        $this->assertSame('sent', $row['status']);
+    }
+
+    public function testSendDirectMissingConfirm(): void
+    {
+        $session = ['user_id' => 1, 'role' => 'admin'];
+        $session['csrf'] = Csrf::token($session);
+        $post = [
+            'action' => 'send_direct',
+            'network' => 'bsc',
+            'token' => 'USDT',
+            'destination' => '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B',
+            'amount' => '10.0',
+            'csrf' => $session['csrf'],
+        ];
+        $result = AdminHttp::handle($this->pdo, $session, $post);
+        $this->assertSame('overview', $result['view']);
+        $this->assertStringContainsString('confirm', strtolower($result['data']['error'] ?? ''));
+    }
+
+    public function testSendDirectInvalidAddress(): void
+    {
+        $session = ['user_id' => 1, 'role' => 'admin'];
+        $session['csrf'] = Csrf::token($session);
+        $post = [
+            'action' => 'send_direct',
+            'network' => 'bsc',
+            'token' => 'USDT',
+            'destination' => 'direccion_invalida',
+            'amount' => '10.0',
+            'confirm' => '1',
+            'csrf' => $session['csrf'],
+        ];
+        $result = AdminHttp::handle($this->pdo, $session, $post);
+        $this->assertSame('overview', $result['view']);
+        $this->assertStringContainsString('inválida', strtolower($result['data']['error'] ?? ''));
     }
 }
