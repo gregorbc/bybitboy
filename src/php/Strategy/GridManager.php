@@ -1106,7 +1106,7 @@ class GridManager {
     private function profitOptimize($price) {
         $pnlTdy = $this->getPnlToday();
         $balance = $this->api->balance(); if ($balance <= 0) $balance = G_CAPITAL;
-        $pct = $pnlTdy / $balance * 100;
+        $pct = $pnlTdy / G_CAPITAL * 100;
         if ($pnlTdy > $this->peakPnl) {
             $this->peakPnl = $pnlTdy;
             dbx(function($d) { return $d->prepare("UPDATE grid_configs SET peak_pnl_today=? WHERE symbol=?")->execute([$this->peakPnl, G_SYM]); });
@@ -1117,7 +1117,7 @@ class GridManager {
             $oldQty  = (float)(isset($this->cfg['qty_per_level']) ? $this->cfg['qty_per_level'] : 0);
             if ($oldQty <= 0) $oldQty = $this->calcQty($price, $levels, $f);
             $maxAllowed = ($oldQty * 3.0);
-            $hardCap    = ($balance * 0.12 * G_LEVERAGE) / $price;
+            $hardCap    = (G_CAPITAL * 0.12 * G_LEVERAGE) / $price;
             $newQty  = min($oldQty * G_COMPOUND_MULT, $maxAllowed, $hardCap);
             $newQty  = max($f['step'], round($newQty / $f['step']) * $f['step']);
             if (abs($newQty - $oldQty) > $f['step'] * 0.3) {

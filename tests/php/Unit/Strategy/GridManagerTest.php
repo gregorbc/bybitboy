@@ -424,6 +424,43 @@ public function testCalcPnlBuyExit(): void
         // 1.0 (EXITs filled today) + 0.5 + (-0.2) = 1.3
         $this->assertEqualsWithDelta(1.3, $result, 0.000001);
     }
+
+    public function testProfitOptimizeUsesCapitalNotBalanceForCompound(): void
+    {
+        $api = \Mockery::mock(BybitFutures::class);
+        $api->shouldReceive('balance')->andReturn(1650000.0);
+        $api->shouldReceive('filters')->andReturn(['step'=>0.001,'tick'=>0.01,'mn'=>0.01,'qp'=>3,'pp'=>2]);
+        $api->shouldReceive('positions')->andReturn([]);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $ref = new \ReflectionClass(GridManager::class);
+        $cfgProp = $ref->getProperty('cfg');
+        $cfgProp->setAccessible(true);
+        $cfgProp->setValue($manager, [
+            'id' => 1, 'symbol' => 'ETHUSDT', 'direction' => 'SIDEWAYS',
+            'confidence' => 50, 'qty_per_level' => 0.03, 'recovery_active' => 0,
+            'spacing_pct' => 0.0016,
+        ]);
+        $lastCompound = $ref->getProperty('lastCompound');
+        $lastCompound->setAccessible(true);
+        $lastCompound->setValue($manager, 0);
+
+        self::$dbxFetchResult = ['p' => '2.00000000'];
+
+        $method = $ref->getMethod('profitOptimize');
+        $method->setAccessible(true);
+        $method->invoke($manager, 1869.0);
+
+        $hasQtyUpdate = false;
+        foreach (self::$dbxCalls as $sql) {
+            if (str_contains($sql, 'UPDATE grid_configs SET qty_per_level')) $hasQtyUpdate = true;
+        }
+        // With 1.65M demo balance, pct = 2/1650000*100 = 0.00012% (old code → no compound).
+        // With G_CAPITAL=100, pct = 2/100*100 = 2% >= 1.5 (new code → compound fires).
+        $this->assertTrue($hasQtyUpdate, 'compounding must use G_CAPITAL, not demo balance');
+    }
 }
 }
 
@@ -466,6 +503,42 @@ namespace
     }
     if (!defined('G_CYCLE_SEC')) {
         define('G_CYCLE_SEC', 1);
+    }
+    if (!defined('G_CAPITAL')) {
+        define('G_CAPITAL', 100.0);
+    }
+    if (!defined('G_LEVERAGE')) {
+        define('G_LEVERAGE', 20);
+    }
+    if (!defined('G_MARGIN_SAFETY')) {
+        define('G_MARGIN_SAFETY', 0.40);
+    }
+    if (!defined('G_COMPOUND_THR')) {
+        define('G_COMPOUND_THR', 1.5);
+    }
+    if (!defined('G_COMPOUND_MULT')) {
+        define('G_COMPOUND_MULT', 1.05);
+    }
+    if (!defined('G_COMPOUND_CD')) {
+        define('G_COMPOUND_CD', 0);
+    }
+    if (!defined('G_FIXED_LEVELS')) {
+        define('G_FIXED_LEVELS', 14);
+    }
+    if (!defined('G_LONG_LEVELS')) {
+        define('G_LONG_LEVELS', 7);
+    }
+    if (!defined('G_SHORT_LEVELS')) {
+        define('G_SHORT_LEVELS', 7);
+    }
+    if (!defined('G_ML_BLEND_WEIGHT')) {
+        define('G_ML_BLEND_WEIGHT', 0.90);
+    }
+    if (!defined('G_VL_BLEND_WEIGHT')) {
+        define('G_VL_BLEND_WEIGHT', 0.10);
+    }
+    if (!defined('G_AI_INTERVAL')) {
+        define('G_AI_INTERVAL', 120);
     }
 
     // Test-only dbx() stub: passes a PDO mock into the closure and records SQL.
