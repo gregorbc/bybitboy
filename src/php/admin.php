@@ -31,15 +31,21 @@ Schema::createTables($pdo);
 
 if (($_GET['action'] ?? '') === 'estimate_gas') {
     header('Content-Type: application/json');
+    header('Cache-Control: no-store');
     $secret = getenv('PLATFORM_SECRET') ?: '';
-    $result = AdminHttp::estimateGas(
-        $pdo,
-        (string)($_GET['network'] ?? ''),
-        (string)($_GET['token'] ?? ''),
-        (string)($_GET['destination'] ?? ''),
-        (string)($_GET['amount'] ?? ''),
-        $secret
-    );
+    try {
+        $result = AdminHttp::estimateGas(
+            $pdo,
+            (string)($_GET['network'] ?? ''),
+            (string)($_GET['token'] ?? ''),
+            (string)($_GET['destination'] ?? ''),
+            (string)($_GET['amount'] ?? ''),
+            $secret
+        );
+    } catch (\Throwable $e) {
+        error_log('[admin.php] estimate_gas: ' . $e->getMessage());
+        $result = ['ok' => false, 'error' => 'Error estimando gas'];
+    }
     echo json_encode($result);
     exit;
 }
@@ -228,7 +234,6 @@ const amountInput = document.getElementById('amount');
 const confirmChk = document.getElementById('confirm');
 const sendBtn = document.getElementById('sendBtn');
 const gasDiv = document.getElementById('gasEstimate');
-const csrf = '<?= $csrf ?>';
 
 function validateForm() {
     const network = networkSel.value;
@@ -251,17 +256,19 @@ async function estimateGas() {
     gasDiv.style.display = 'block';
     gasDiv.textContent = 'Estimando gas...';
     try {
-        const url = 'admin.php?action=estimate_gas&network=' + encodeURIComponent(network) + '&token=' + encodeURIComponent(token) + '&destination=' + encodeURIComponent(dest) + '&amount=' + encodeURIComponent(amountInput.value) + '&csrf=' + encodeURIComponent(csrf);
+        const url = 'admin.php?action=estimate_gas&network=' + encodeURIComponent(network) + '&token=' + encodeURIComponent(token) + '&destination=' + encodeURIComponent(dest) + '&amount=' + encodeURIComponent(amountInput.value);
         const resp = await fetch(url, {credentials: 'same-origin'});
         const data = await resp.json();
         if (data.ok) {
             const native = network === 'eth' ? 'ETH' : 'BNB';
-            gasDiv.innerHTML = 'Gas estimado: ' + data.gas_limit.toLocaleString() + ' · Gas price: ' + (data.gas_price / 1e9).toFixed(2) + ' Gwei · Costo estimado: ' + data.estimated_cost_native + ' ' + native;
+            gasDiv.textContent = 'Gas estimado: ' + Number(data.gas_limit).toLocaleString() + ' · Gas price: ' + (data.gas_price / 1e9).toFixed(2) + ' Gwei · Costo estimado: ' + data.estimated_cost_native + ' ' + native;
         } else {
-            gasDiv.innerHTML = '<span style="color:#f85149">' + (data.error || 'Error') + '</span>';
+            gasDiv.textContent = (data.error || 'Error');
+            gasDiv.style.color = '#f85149';
         }
     } catch (e) {
-        gasDiv.innerHTML = '<span style="color:#f85149">Error: ' + (e.message || 'no disponible') + '</span>';
+        gasDiv.textContent = 'Error: ' + (e.message || 'no disponible');
+        gasDiv.style.color = '#f85149';
     }
 }
 

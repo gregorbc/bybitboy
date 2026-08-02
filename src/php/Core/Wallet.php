@@ -249,7 +249,12 @@ class Wallet
         $fromAddress = self::deriveAddress($mnemonic, 0);
 
         // 4. Verificar balance del token
-        $balanceHex = self::callBalanceOf($rpcClient, $contract, $fromAddress);
+        try {
+            $balanceHex = self::callBalanceOf($rpcClient, $contract, $fromAddress);
+        } catch (\Throwable $e) {
+            error_log('[Wallet::estimateGas] balance: ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'No se pudo consultar el balance'];
+        }
         $balance = self::parseAmount($balanceHex);
         $amountWei = self::toWei($amount);
         if (bccomp($balance, $amountWei, 0) < 0) {
