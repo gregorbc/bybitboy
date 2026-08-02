@@ -8,34 +8,36 @@
   "bot": {
     "symbol": "ETHUSDT",
     "capital_usd": 100,
-    "leverage": 100,
+    "leverage": 20,
     "timeframe": "5",
     "candles_feed": 150,
     "cycle_sec": 8,
     "ai_interval_sec": 120,
-    "levels": 16,
-    "long_levels": 8,
-    "short_levels": 8
+    "levels": 14,
+    "long_levels": 7,
+    "short_levels": 7
   },
   "grid": {
-    "min_levels": 8,
+    "min_levels": 7,
     "max_levels": 20,
-    "min_spacing": 0.0003,
-    "max_spacing": 0.0012,
-    "base_spacing": 0.0003,
-    "spacing_atr_mult": 0.28,
+    "min_spacing": 0.0014,
+    "max_spacing": 0.0020,
+    "base_spacing": 0.0016,
+    "spacing_atr_mult": 0.4,
     "min_build_interval_sec": 90
   },
   "risk": {
-    "margin_safety": 0.30,
-    "max_daily_loss": 12.0,
-    "hard_stop_pct": 3.0,
-    "recovery_thr": 1.0,
-    "recovery_loss_pct": 3.0
+    "margin_safety": 0.40,
+    "max_daily_loss": 8.0,
+    "hard_stop_pct": 4.0,
+    "recovery_thr": 1.5,
+    "recovery_loss_pct": 4.0
   },
   "fees": {
     "maker": 0.0001,
-    "taker": 0.0006
+    "taker": 0.0006,
+    "safety": 2.0,
+    "fee_floor_mode": "conservative"
   },
   "compound": {
     "threshold": 1.5,
