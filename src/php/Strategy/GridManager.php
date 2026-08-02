@@ -471,6 +471,16 @@ class GridManager {
         }
     }
 
+    private function computeBlendWeights(int $mlConf): array {
+        $w_ml   = G_ML_BLEND_WEIGHT;
+        $w_heur = 1 - $w_ml;
+        if ($mlConf < 85) {
+            $w_heur = max($w_heur, 0.30);
+            $w_ml   = 1 - $w_heur;
+        }
+        return ['ml' => $w_ml, 'heur' => $w_heur];
+    }
+
     private function aiEvaluate($price) {
         global $NV_ENABLED, $NV_API_KEY, $NV_INTERVAL;
         lI("[AI] Evaluando ML + heurístico" . (G_VL_BLEND_WEIGHT > 0 && $NV_ENABLED ? " + VL" : "") . "...");
@@ -521,8 +531,9 @@ class GridManager {
             $this->lastVL = time();
         }
         
-        $w_ml = G_ML_BLEND_WEIGHT;
-        $w_heur = 1 - $w_ml;
+        $blend = $this->computeBlendWeights($mlResult['confidence']);
+        $w_ml = $blend['ml'];
+        $w_heur = $blend['heur'];
         if ($vlProbs) {
             $w_vl = G_VL_BLEND_WEIGHT;
             $w_ml = $w_ml * (1 - $w_vl);

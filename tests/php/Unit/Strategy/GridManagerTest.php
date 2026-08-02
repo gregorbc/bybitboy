@@ -535,6 +535,25 @@ public function testCalcPnlBuyExit(): void
         // qty=0.5 -> reqMargin per level = 0.5*1869/20 = 46.7 > effectiveCap=40 -> all skipped
         $this->assertFalse($gridBuilt->getValue($manager), 'orders must be skipped when margin exceeds effectiveCap');
     }
+
+    public function testComputeBlendWeightsBoostsHeuristicOnLowConfidence(): void
+    {
+        $api = new BybitFutures('test_key', 'test_secret', true);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $ref = new \ReflectionMethod(GridManager::class, 'computeBlendWeights');
+        $ref->setAccessible(true);
+
+        $high = $ref->invoke($manager, 99);
+        $this->assertEqualsWithDelta(0.90, $high['ml'], 0.0001);
+        $this->assertEqualsWithDelta(0.10, $high['heur'], 0.0001);
+
+        $low = $ref->invoke($manager, 70);
+        $this->assertEqualsWithDelta(0.70, $low['ml'], 0.0001);
+        $this->assertEqualsWithDelta(0.30, $low['heur'], 0.0001);
+    }
 }
 }
 
