@@ -176,7 +176,7 @@ function renderPieces() {
     }
   }
   renderBoard(view);
-  renderNext(pad(SHAPES[bagKeys[0]]));
+  renderNext(bagKeys[0] ? pad(SHAPES[bagKeys[0]]) : null);
   renderHold(hold ? pad(SHAPES[hold]) : null);
 }
 
@@ -189,6 +189,7 @@ function schedule() {
 
 document.addEventListener('keydown', (e) => {
   if (over) return;
+  if (paused && e.key !== 'P' && e.key !== 'p') return;
   switch (e.key) {
     case 'ArrowLeft': e.preventDefault(); move(-1, 0); break;
     case 'ArrowRight': e.preventDefault(); move(1, 0); break;
