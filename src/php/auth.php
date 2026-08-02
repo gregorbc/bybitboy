@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../../vendor/autoload.php';
 
 use BinanceBot\Core\AuthHttp;
 use BinanceBot\Core\Config;
@@ -9,13 +9,13 @@ use BinanceBot\Core\Csrf;
 use BinanceBot\Core\Database;
 use BinanceBot\Core\Schema;
 
-session_start();
 session_set_cookie_params([
     'httponly' => true,
     'secure' => true,
     'samesite' => 'Lax',
     'path' => '/',
 ]);
+session_start();
 
 $db = Database::getInstance();
 $pdo = $db->getPdo();
