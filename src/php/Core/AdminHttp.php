@@ -12,7 +12,7 @@ class AdminHttp
         return Wallet::estimateGas($pdo, $secret, $network, $token, $destination, $amount, $rpc);
     }
 
-    public static function handle(PDO $pdo, array &$session, array $post, ?callable $sendDirect = null): array
+    public static function handle(PDO $pdo, array &$session, array $post, ?callable $sendDirect = null, ?RpcClient $rpc = null): array
     {
         if (empty($session['user_id']) || ($session['role'] ?? '') !== 'admin') {
             return ['view' => 'forbidden', 'data' => []];
@@ -56,7 +56,7 @@ class AdminHttp
                     } else {
                         $result = $sendDirect
                             ? $sendDirect($pdo, $secret, $network, $token, $destination, $amount)
-                            : Wallet::signAndSendERC20($pdo, $secret, $network, $token, $destination, $amount);
+                            : Wallet::signAndSendERC20($pdo, $secret, $network, $token, $destination, $amount, $rpc);
                         if ($result['ok']) {
                             $stmt = $pdo->prepare('INSERT INTO admin_sends (admin_id, network, token, amount, destination_address, tx_hash, status, gas_used, gas_price, sent_at) VALUES (?, ?, ?, ?, ?, ?, "sent", ?, ?, datetime("now"))');
                             $stmt->execute([
