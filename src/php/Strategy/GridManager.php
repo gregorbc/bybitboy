@@ -1152,10 +1152,11 @@ class GridManager {
                 lI(sprintf("[BREAKOUT] $%.2f fuera rango pero fill reciente (%ds), esperando...", $price, time() - strtotime($lastFill)));
                 return;
             }
-            lI(sprintf("[BREAKOUT] $%.2f fuera [%.2f-%.2f] → rebuild", $price, $r['mn'], $r['mx']));
+            lI(sprintf("[BREAKOUT] $%.2f fuera [%.2f-%.2f] → re-centrando grid, conservando posiciones", $price, $r['mn'], $r['mx']));
             $this->api->cancelAll(G_SYM);
             dbx(function($d) { return $d->prepare("UPDATE grid_orders SET status='CANCELED' WHERE symbol=? AND status='OPEN'")->execute([G_SYM]); });
             $this->gridBuilt = false; $this->lastGridBuild = 0;
+            $this->syncPositions();
         }
     }
 

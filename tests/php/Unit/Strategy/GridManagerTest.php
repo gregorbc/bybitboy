@@ -461,6 +461,47 @@ public function testCalcPnlBuyExit(): void
         // With G_CAPITAL=100, pct = 2/100*100 = 2% >= 1.5 (new code → compound fires).
         $this->assertTrue($hasQtyUpdate, 'compounding must use G_CAPITAL, not demo balance');
     }
+
+    public function testBreakoutCheckReCentersAndPreservesPositions(): void
+    {
+        $api = \Mockery::mock(BybitFutures::class);
+        $api->shouldReceive('cancelAll')->with('ETHUSDT')->once();
+        $api->shouldReceive('positions')->once()->andReturn([]);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $ref = new \ReflectionClass(GridManager::class);
+        $gridBuilt = $ref->getProperty('gridBuilt');
+        $gridBuilt->setAccessible(true);
+        $gridBuilt->setValue($manager, true);
+        $lastBuild = $ref->getProperty('lastGridBuild');
+        $lastBuild->setAccessible(true);
+        $lastBuild->setValue($manager, 999999);
+        $cfgProp = $ref->getProperty('cfg');
+        $cfgProp->setAccessible(true);
+        $cfgProp->setValue($manager, [
+            'id' => 1, 'symbol' => 'ETHUSDT', 'direction' => 'SIDEWAYS',
+            'levels' => 14, 'long_levels' => 7, 'short_levels' => 7,
+            'spacing_pct' => 0.0016,
+        ]);
+
+        // DB range: mn=1800, mx=1900 -> margin=30 -> price 2000 is a breakout
+        self::$dbxFetchResult = ['mn' => '1800.00000000', 'mx' => '1900.00000000'];
+
+        $method = $ref->getMethod('breakoutCheck');
+        $method->setAccessible(true);
+        $method->invoke($manager, 2000.0);
+
+        $this->assertFalse($gridBuilt->getValue($manager), 'breakout must mark grid for rebuild');
+        $this->assertSame(0, $lastBuild->getValue($manager), 'breakout must rebuild immediately');
+
+        $hasCancel = false;
+        foreach (self::$dbxCalls as $sql) {
+            if (str_contains($sql, "SET status='CANCELED' WHERE symbol=? AND status='OPEN'")) $hasCancel = true;
+        }
+        $this->assertTrue($hasCancel, 'breakout must cancel open orders');
+    }
 }
 }
 
