@@ -20,10 +20,6 @@ function press(key) {
   document.dispatchEvent(new window.KeyboardEvent('keydown', { key }));
 }
 
-function coloredCount() {
-  return [...document.querySelectorAll('#board .cell')].filter((c) => /bg[1-7]/.test(c.className)).length;
-}
-
 describe('tetris integration (real tetris.js in jsdom)', () => {
   beforeEach(() => {
     vi.resetModules();
