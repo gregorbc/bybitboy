@@ -201,6 +201,30 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+const touchActions = {
+  left: () => move(-1, 0),
+  right: () => move(1, 0),
+  down: () => softDrop(),
+  rotate: () => rotatePiece(),
+  drop: () => hardDrop(),
+  hold: () => holdPiece(),
+  pause: () => togglePause(),
+  restart: () => location.reload(),
+};
+
+document.querySelectorAll('.touch-controls .tc-btn').forEach((btn) => {
+  const act = btn.dataset.act;
+  const fn = touchActions[act];
+  if (!fn) return;
+  btn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (paused && act !== 'pause' && act !== 'restart') return;
+    if (over && act !== 'restart') return;
+    fn();
+  });
+  btn.addEventListener('click', (e) => e.preventDefault());
+});
+
 updateHud();
 spawn();
 schedule();

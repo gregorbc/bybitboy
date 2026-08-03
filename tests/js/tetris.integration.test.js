@@ -7,6 +7,16 @@ function makeDom() {
   const dom = new JSDOM(`<!DOCTYPE html><html><body>
     <div id="board"></div><div id="next"></div><div id="hold"></div>
     <span id="score">0</span><span id="lines">0</span><span id="level">1</span>
+    <div class="touch-controls">
+      <button data-act="left" class="tc-btn">◀</button>
+      <button data-act="right" class="tc-btn">▶</button>
+      <button data-act="down" class="tc-btn">▼</button>
+      <button data-act="rotate" class="tc-btn">↻</button>
+      <button data-act="drop" class="tc-btn">⤓</button>
+      <button data-act="hold" class="tc-btn">Hold</button>
+      <button data-act="pause" class="tc-btn">Pausa</button>
+      <button data-act="restart" class="tc-btn">Reiniciar</button>
+    </div>
   </body></html>`, { pretendToBeVisual: true });
   global.document = dom.window.document;
   global.window = dom.window;
@@ -18,6 +28,11 @@ async function loadGame() {
 
 function press(key) {
   document.dispatchEvent(new window.KeyboardEvent('keydown', { key }));
+}
+
+function tap(btn) {
+  const evt = new (window.PointerEvent || window.Event)('pointerdown', { bubbles: true });
+  btn.dispatchEvent(evt);
 }
 
 describe('tetris integration (real tetris.js in jsdom)', () => {
@@ -76,6 +91,40 @@ describe('tetris integration (real tetris.js in jsdom)', () => {
     press('ArrowDown');
     expect(boardCount()).toBe(during); // input gated while paused
     press('p');
+    expect(document.body.classList.contains('paused')).toBe(false);
+  });
+
+  test('touch buttons exist and drive the game via pointerdown', async () => {
+    await loadGame();
+    const t = (act) => tap(document.querySelector(`.tc-btn[data-act="${act}"]`));
+    const before = boardCount();
+    t('left'); t('right'); t('down'); t('rotate');
+    expect(boardCount()).toBeGreaterThanOrEqual(before);
+    t('drop');
+    expect(boardCount()).toBeGreaterThanOrEqual(before);
+  });
+
+  test('hold via touch button renders in hold box', async () => {
+    await loadGame();
+    tap(document.querySelector('.tc-btn[data-act="hold"]'));
+    expect(document.getElementById('hold').childElementCount).toBeGreaterThan(0);
+  });
+
+  test('pause via touch button toggles paused class', async () => {
+    await loadGame();
+    tap(document.querySelector('.tc-btn[data-act="pause"]'));
+    expect(document.body.classList.contains('paused')).toBe(true);
+  });
+
+  test('touch movement is gated while paused (except pause/restart)', async () => {
+    await loadGame();
+    const t = (act) => tap(document.querySelector(`.tc-btn[data-act="${act}"]`));
+    t('pause');
+    expect(document.body.classList.contains('paused')).toBe(true);
+    const during = boardCount();
+    t('left'); t('down'); t('rotate');
+    expect(boardCount()).toBe(during);
+    t('pause');
     expect(document.body.classList.contains('paused')).toBe(false);
   });
 });

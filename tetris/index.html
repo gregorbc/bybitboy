@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>TETRIS — Gregor Britez</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -28,6 +28,23 @@
       <p>C hold</p>
       <p>P pausa</p>
       <p><button onclick="location.reload()">Reiniciar</button></p>
+    </div>
+  </div>
+
+  <div class="touch-controls">
+    <div class="touch-row">
+      <button data-act="rotate" class="tc-btn tc-wide">↻ Rotar</button>
+      <button data-act="hold" class="tc-btn">Hold</button>
+      <button data-act="pause" class="tc-btn">Pausa</button>
+    </div>
+    <div class="touch-row">
+      <button data-act="left" class="tc-btn">◀</button>
+      <button data-act="down" class="tc-btn">▼</button>
+      <button data-act="right" class="tc-btn">▶</button>
+    </div>
+    <div class="touch-row">
+      <button data-act="drop" class="tc-btn tc-drop">⤓ Caída rápida</button>
+      <button data-act="restart" class="tc-btn tc-wide">↻ Reiniciar</button>
     </div>
   </div>
 

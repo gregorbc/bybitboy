@@ -33,3 +33,37 @@ body {
 body.paused .board-wrap { opacity: .55; }
 footer { margin-top: auto; padding: 14px; color: #8f97bf; letter-spacing: .05em; }
 footer strong { color: var(--neon); }
+
+.touch-controls { display: none; }
+
+@media (max-width: 720px) {
+  body { padding: 10px 8px; gap: 12px; }
+  .title { font-size: 1.8rem; letter-spacing: 0.2em; text-shadow: 0 0 12px var(--neon); }
+  .game { flex-direction: column; gap: 12px; align-items: center; }
+  .panel {
+    flex-direction: row; flex-wrap: wrap; justify-content: space-around;
+    min-width: 0; width: 100%; max-width: 360px; padding: 10px; gap: 10px;
+  }
+  .hud { font-size: 1rem; flex: 1 1 30%; min-width: 90px; }
+  .hud > div { min-height: 44px; }
+  #hold .cell, #next .cell { width: 14px; height: 14px; }
+  .side.controls { display: none; }
+  #board .cell { width: calc((100vw - 40px) / 10); height: calc((100vw - 40px) / 10); max-width: 30px; max-height: 30px; }
+
+  .touch-controls {
+    display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 360px;
+    margin-top: 4px; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+  .touch-row { display: flex; gap: 8px; }
+  .tc-btn {
+    flex: 1; padding: 16px 8px; font-size: 1.05rem; cursor: pointer; color: var(--text);
+    background: #1c2548; border: 1px solid var(--neon); border-radius: 8px;
+    letter-spacing: 0.05em; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  .tc-btn:active { background: #26325e; transform: scale(0.97); }
+  .tc-wide { flex: 2; }
+  .tc-drop { background: #1a2a5e; border-color: var(--neon); font-weight: 600; }
+  footer { padding: 10px; font-size: 0.85rem; }
+}
+
+@media (min-width: 721px) { .touch-controls { display: none !important; } }
