@@ -31,7 +31,8 @@ body {
 .hud > div { min-height: 62px; }
 .board-wrap { background: #0b0e1a; border: 3px solid var(--neon); box-shadow: 0 0 26px rgba(0,217,255,.25); }
 .row { display: flex; }
-#board .cell { width: var(--cell); height: var(--cell); border: 1px solid rgba(255,255,255,.06); background: #0f1424; }
+#board .cell { width: var(--cell); height: var(--cell); border: 1px solid rgba(255,255,255,.06); }
+#board .cell:not(.bg1):not(.bg2):not(.bg3):not(.bg4):not(.bg5):not(.bg6):not(.bg7):not(.ghost) { background: #0f1424; }
 #hold .cell, #next .cell { width: 22px; height: 22px; border: 1px solid rgba(255,255,255,.05); background: #0f1424; }
 .bg1 { background: #00f0f0; } .bg2 { background: #f0f000; }
 .bg3 { background: #a000f0; } .bg4 { background: #00f000; }
