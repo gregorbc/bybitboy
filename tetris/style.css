@@ -5,7 +5,8 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
-  min-height: 100vh; min-height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
   background: radial-gradient(ellipse at top, #1b2340 0%, var(--bg) 70%);
   color: var(--text);
   font-family: 'Segoe UI', system-ui, sans-serif;
@@ -58,7 +59,7 @@ footer strong { color: var(--neon); }
 
 /* Mobile portrait (<=720px) */
 @media (max-width: 720px) {
-  body { padding: 8px 8px env(safe-area-inset-bottom, 8px); gap: 8px; min-height: 100dvh; }
+  body { padding: 8px 8px env(safe-area-inset-bottom, 8px); gap: 8px; min-height: 100vh; min-height: 100dvh; }
   .title { font-size: 1.5rem; letter-spacing: 0.2em; text-shadow: 0 0 10px var(--neon); margin: 2px 0; }
   .game { flex-direction: column; gap: 8px; align-items: center; }
   .panel {
@@ -70,13 +71,15 @@ footer strong { color: var(--neon); }
   #hold .cell, #next .cell { width: 12px; height: 12px; }
   .side.controls { display: none; }
 
-  /* Tablero 2:1 (20 rows / 10 cols) que cabe sin scroll vertical.
-     cell = min((100vw - bordes) / 10, (alturaDisponible) / 20).
-     El 18vw deja ~30% para HUD arriba y botones abajo; un clamp lo ajusta a pantallas cortas. */
+  /* Tablero 2:1 (20 rows / 10 cols) que cabe sin scroll vertical (fallback vh antes de dvh) */
   .board-wrap { border-width: 2px; }
-  :root { --cell: clamp(16px, min(9vw, 4.2dvh), 30px); }
-  #board .cell { width: var(--cell); height: var(--cell); }
-
+  #board .cell { width: 9vw; height: 9vw; max-width: 30px; max-height: 30px; }
+  @supports (width: clamp(1px, 1vw, 100px)) {
+    #board .cell { width: clamp(16px, min(9vw, 4.2vh), 30px); height: clamp(16px, min(9vw, 4.2vh), 30px); }
+  }
+  @supports (width: clamp(1px, 1vw, 100px)) and (height: 1dvh) {
+    #board .cell { width: clamp(16px, min(9vw, 4.2dvh), 30px); height: clamp(16px, min(9vw, 4.2dvh), 30px); }
+  }
   .touch-controls {
     display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 94vw;
     margin: 2px 0 0; user-select: none; -webkit-user-select: none; touch-action: manipulation;
@@ -111,7 +114,10 @@ footer strong { color: var(--neon); }
   .hud { font-size: 0.85rem; flex: none; }
   .hud > div { min-height: 28px; }
   #hold .cell, #next .cell { width: 10px; height: 10px; }
-  :root { --cell: clamp(12px, 3.6dvh, 24px); }
+  #board .cell { width: 3.6vh; height: 3.6vh; max-width: 24px; max-height: 24px; }
+  @supports (height: 1dvh) {
+    #board .cell { width: clamp(12px, 3.6dvh, 24px); height: clamp(12px, 3.6dvh, 24px); }
+  }
   .board-wrap { order: 1; }
   .side.controls { display: none; }
   .touch-controls { order: 3; display: flex; flex-direction: column; gap: 4px; max-width: 180px; flex: 1; }
