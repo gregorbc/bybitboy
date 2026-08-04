@@ -1,0 +1,130 @@
+:root {
+  --bg: #0b0e1a; --panel: #131a2e; --neon: #00d9ff; --text: #e8ecff;
+  --cell: 26px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: radial-gradient(ellipse at top, #1b2340 0%, var(--bg) 70%);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  gap: 18px;
+  padding: 24px 12px env(safe-area-inset-bottom, 12px) env(safe-area-inset-top, 12px) env(safe-area-inset-right, 12px) env(safe-area-inset-left, 12px);
+}
+.title { font-size: 3rem; letter-spacing: 0.3em; color: var(--neon); text-shadow: 0 0 18px var(--neon); }
+.game { display: flex; gap: 20px; align-items: stretch; }
+.panel {
+  background: var(--panel); border: 1px solid #223055; border-radius: 10px; padding: 14px;
+  min-width: 150px; display: flex; flex-direction: column; gap: 14px;
+}
+.side p { font-size: 0.85rem; color: #c6cde8; line-height: 1.6; }
+.side button {
+  margin-top: 8px; padding: 8px 14px; cursor: pointer; color: var(--text);
+  background: #1c2548; border: 1px solid var(--neon); border-radius: 6px; letter-spacing: 0.05em;
+}
+.side button:hover { background: #26325e; }
+.hud .lbl { display: block; font-size: 0.7rem; color: #9aa3c0; letter-spacing: 0.18em; margin-bottom: 2px; }
+.hud { font-size: 1.4rem; }
+.hud > div { min-height: 62px; }
+.board-wrap { background: #0b0e1a; border: 3px solid var(--neon); box-shadow: 0 0 26px rgba(0,217,255,.25); }
+.row { display: flex; }
+#board .cell { width: var(--cell); height: var(--cell); border: 1px solid rgba(255,255,255,.06); }
+#board .cell:not(.bg1):not(.bg2):not(.bg3):not(.bg4):not(.bg5):not(.bg6):not(.bg7):not(.ghost) { background: #0f1424; }
+#hold .cell, #next .cell { width: 22px; height: 22px; border: 1px solid rgba(255,255,255,.05); background: #0f1424; }
+.bg1 { background: #00f0f0; } .bg2 { background: #f0f000; }
+.bg3 { background: #a000f0; } .bg4 { background: #00f000; }
+.bg5 { background: #f00000; } .bg6 { background: #1375d3; } .bg7 { background: #f0a000; }
+.ghost { background: rgba(255,255,255,.14); }
+body.paused .board-wrap { opacity: .55; }
+footer { margin-top: auto; padding: 14px; color: #8f97bf; letter-spacing: .05em; }
+footer strong { color: var(--neon); }
+
+.touch-controls { display: none; }
+
+/* Tablet portrait (721–1023px): panel compacto a izquierda */
+@media (max-width: 1023px) and (min-width: 721px) {
+  body { padding: 18px 12px; gap: 14px; }
+  .title { font-size: 2.2rem; letter-spacing: 0.25em; }
+  .game { gap: 14px; }
+  .panel { min-width: 120px; padding: 12px; gap: 10px; }
+  .hud { font-size: 1.1rem; }
+  :root { --cell: 22px; }
+  #hold .cell, #next .cell { width: 16px; height: 16px; }
+}
+
+/* Touch control buttons only on touch devices */
+.touch-controls { display: none; }
+
+/* Mobile portrait (<=720px) */
+@media (max-width: 720px) {
+  body { padding: 8px 8px env(safe-area-inset-bottom, 8px); gap: 8px; min-height: 100vh; min-height: 100dvh; }
+  .title { font-size: 1.5rem; letter-spacing: 0.2em; text-shadow: 0 0 10px var(--neon); margin: 2px 0; }
+  .game { flex-direction: column; gap: 8px; align-items: center; }
+  .panel {
+    flex-direction: row; flex-wrap: wrap; justify-content: space-around;
+    min-width: 0; width: 100%; max-width: 94vw; padding: 8px; gap: 6px;
+  }
+  .hud { font-size: 0.95rem; flex: 1 1 28%; min-width: 80px; }
+  .hud > div { min-height: 32px; }
+  #hold .cell, #next .cell { width: 12px; height: 12px; }
+  .side.controls { display: none; }
+
+  /* Tablero 2:1 (20 rows / 10 cols) que cabe sin scroll vertical (fallback vh antes de dvh) */
+  .board-wrap { border-width: 2px; }
+  #board .cell { width: 9vw; height: 9vw; max-width: 30px; max-height: 30px; }
+  @supports (width: clamp(1px, 1vw, 100px)) {
+    #board .cell { width: clamp(16px, min(9vw, 4.2vh), 30px); height: clamp(16px, min(9vw, 4.2vh), 30px); }
+  }
+  @supports (width: clamp(1px, 1vw, 100px)) and (height: 1dvh) {
+    #board .cell { width: clamp(16px, min(9vw, 4.2dvh), 30px); height: clamp(16px, min(9vw, 4.2dvh), 30px); }
+  }
+  .touch-controls {
+    display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 94vw;
+    margin: 2px 0 0; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+  .touch-row { display: flex; gap: 6px; }
+  .tc-btn {
+    flex: 1; padding: 14px 6px; font-size: 1rem; cursor: pointer; color: var(--text);
+    background: #1c2548; border: 1px solid var(--neon); border-radius: 8px;
+    letter-spacing: 0.04em; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  .tc-btn:active { background: #26325e; transform: scale(0.96); }
+  .tc-wide { flex: 1.6; }
+  .tc-drop { background: #1a2a5e; border-color: var(--neon); font-weight: 600; }
+  footer { padding: 8px; font-size: 0.8rem; margin-top: 4px; }
+}
+
+/* Mobile muy pequeno (<=360px) */
+@media (max-width: 360px) {
+  body { padding: 6px 4px env(safe-area-inset-bottom, 6px); gap: 6px; }
+  .title { font-size: 1.2rem; }
+  .hud { font-size: 0.85rem; min-width: 70px; }
+  .tc-btn { padding: 11px 4px; font-size: 0.9rem; }
+  .touch-row { gap: 4px; }
+}
+
+/* Mobile landscape: tablero a la izquierda, HUD y botones a la derecha */
+@media (max-width: 920px) and (orientation: landscape) and (max-height: 520px) {
+  body { padding: 6px env(safe-area-inset-right, 8px) 6px env(safe-area-inset-left, 8px); gap: 8px; }
+  .title { display: none; }
+  .game { flex-direction: row; gap: 8px; align-items: flex-start; flex: 1; min-height: 0; }
+  .panel { flex-direction: column; min-width: 100px; max-width: 120px; padding: 8px; gap: 6px; order: 2; }
+  .hud { font-size: 0.85rem; flex: none; }
+  .hud > div { min-height: 28px; }
+  #hold .cell, #next .cell { width: 10px; height: 10px; }
+  #board .cell { width: 3.6vh; height: 3.6vh; max-width: 24px; max-height: 24px; }
+  @supports (height: 1dvh) {
+    #board .cell { width: clamp(12px, 3.6dvh, 24px); height: clamp(12px, 3.6dvh, 24px); }
+  }
+  .board-wrap { order: 1; }
+  .side.controls { display: none; }
+  .touch-controls { order: 3; display: flex; flex-direction: column; gap: 4px; max-width: 180px; flex: 1; }
+  .touch-row { flex-direction: row; gap: 4px; }
+  .tc-btn { padding: 8px 4px; font-size: 0.85rem; }
+  footer { padding: 2px; font-size: 0.7rem; margin-top: 0; }
+}
+
+@media (min-width: 721px) { .touch-controls { display: none !important; } }

@@ -1,0 +1,37 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.gregorbritez.tetris'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.gregorbritez.tetris'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        release {
+            def props = new Properties()
+            def f = file('../keystore.properties')
+            if (f.exists()) {
+                props.load(new FileInputStream(f))
+            }
+            storeFile file(props.getProperty('STORE_FILE', 'missing.keystore'))
+            storePassword props.getProperty('STORE_PASSWORD', '')
+            keyAlias props.getProperty('KEY_ALIAS', '')
+            keyPassword props.getProperty('KEY_PASSWORD', '')
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+    }
+}

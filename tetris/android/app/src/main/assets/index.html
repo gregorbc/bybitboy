@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TETRIS — Gregor Britez</title>
+  <link rel="stylesheet" href="style.css?v=4" />
+</head>
+<body>
+  <h1 class="title">TETRIS</h1>
+
+  <div class="game">
+    <div class="panel">
+      <div class="hud"><span class="lbl">PUNTOS</span><span id="score">0</span></div>
+      <div class="hud"><span class="lbl">LÍNEAS</span><span id="lines">0</span></div>
+      <div class="hud"><span class="lbl">NIVEL</span><span id="level">1</span></div>
+      <div class="hud"><span class="lbl">HOLD</span><div id="hold"></div></div>
+      <div class="hud"><span class="lbl">SIGUIENTE</span><div id="next"></div></div>
+    </div>
+
+    <div class="board-wrap"><div id="board"></div></div>
+
+    <div class="side controls">
+      <p>← → mover</p>
+      <p>↑ rotar</p>
+      <p>↓ caída</p>
+      <p>Espacio caída rápida</p>
+      <p>C hold</p>
+      <p>P pausa</p>
+      <p><button onclick="location.reload()">Reiniciar</button></p>
+    </div>
+  </div>
+
+  <div class="touch-controls">
+    <div class="touch-row">
+      <button data-act="rotate" class="tc-btn tc-wide">↻ Rotar</button>
+      <button data-act="hold" class="tc-btn">Hold</button>
+      <button data-act="pause" class="tc-btn">Pausa</button>
+    </div>
+    <div class="touch-row">
+      <button data-act="left" class="tc-btn">◀</button>
+      <button data-act="down" class="tc-btn">▼</button>
+      <button data-act="right" class="tc-btn">▶</button>
+    </div>
+    <div class="touch-row">
+      <button data-act="drop" class="tc-btn tc-drop">⤓ Caída rápida</button>
+      <button data-act="restart" class="tc-btn tc-wide">↻ Reiniciar</button>
+    </div>
+  </div>
+
+  <footer>Desarrollado por <strong>Gregor Britez</strong></footer>
+
+  <script type="module" src="tetris.js?v=4"></script>
+</body>
+</html>
