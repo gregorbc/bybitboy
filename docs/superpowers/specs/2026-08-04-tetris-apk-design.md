@@ -60,7 +60,7 @@ copian a `app/src/main/assets/`. Los enlaces relativos del HTML funcionan tal cu
 ## Firma
 
 - Se genera un keystore de release (`keystore/release.keystore`) con `keytool`.
-- Las credenciales (contraseña, alias) se guardan en `app/gradle.properties`
+- Las credenciales (contraseña, alias) se guardan en `keystore.properties`
   (local, excluido de git) y se referencian desde `app/build.gradle` vía
   `signingConfigs.release`.
 - El keystore NO se versiona en git; se documenta en `.gitignore`.
