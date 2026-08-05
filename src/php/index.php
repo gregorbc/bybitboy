@@ -583,14 +583,14 @@ body.stale #app {opacity:.6;transition:opacity .8s;}
           <div class="mkt-cell"><div class="mkt-lbl">EMA 9/21/50</div><div style="font-family:var(--mono);font-size:10px;margin-top:3px;line-height:1.8"><span style="color:var(--cyan)">E9: <span id="mE9">--</span></span><br><span style="color:var(--accent)">E21: <span id="mE21">--</span></span><br><span style="color:var(--purple)">E50: <span id="mE50">--</span></span></div></div>
         </div>
       </div>
-      <div class="pnl-charts card">
+      <div class="pnl-charts pnl-charts-wrap card">
         <div class="pnl-chart-block"><div class="pnl-chart-hd"><span>PnL Horario 48h</span><span id="hTot" style="font-family:var(--mono);font-size:9px"></span></div><div class="pnl-chart-wrap"><canvas id="hChart"></canvas></div></div>
-        <div class="pnl-chart-block" style="border-left:1px solid var(--border)"><div class="pnl-chart-hd"><span>PnL Diario 14d</span><span id="dTot" style="font-family:var(--mono);font-size:9px"></span></div><div class="pnl-chart-wrap"><canvas id="dChart"></canvas></div></div>
+        <div class="pnl-chart-block"><div class="pnl-chart-hd"><span>PnL Diario 14d</span><span id="dTot" style="font-family:var(--mono);font-size:9px"></span></div><div class="pnl-chart-wrap"><canvas id="dChart"></canvas></div></div>
       </div>
       <div class="card pnl-cum-block"><div class="pnl-cum-hd"><span>PnL Acumulado</span><span id="cumTot" style="font-family:var(--mono);font-size:9px"></span></div><div class="pnl-cum-wrap"><canvas id="cumChart"></canvas></div></div>
       <div class="card ladder-card">
         <div class="chart-hd"><b>Order Ladder</b><span id="ladderPx" style="font-family:var(--mono);font-size:10px;color:var(--accent)">$0.00</span></div>
-        <div class="ladder-hd"><span>Precio</span><span style="text-align:center">Qty</span><span>Rol</span></div>
+        <div class="ladder-hd"><span class="lr-label-right">Precio</span><span class="lr-label-center">Qty</span><span class="lr-label-left">Rol</span></div>
         <div class="ladder-wrap" id="ladderWrap"><div class="empty-ladder">Sin órdenes activas</div></div>
       </div>
 
@@ -1599,9 +1599,9 @@ function openConfig() {
   el('cfgLong').value = parseInt(ls[0] || '4');
   el('cfgShort').value = parseInt(ls[1] || '4');
   el('cfgSpacing').value = (parseFloat(($('cSpc').textContent || '0.08').replace('%','')) || 0.08).toFixed(4);
-  el('configModal').style.display = 'grid';
+  document.getElementById('configModal').classList.add('open');
 }
-function closeConfig() { document.getElementById('configModal').style.display = 'none'; }
+function closeConfig() { document.getElementById('configModal').classList.remove('open'); }
 async function applyConfig() {
   const b = new URLSearchParams({action:'update_config',
     capital_usd: document.getElementById('cfgCapital').value,
@@ -1704,17 +1704,17 @@ fetchScalp();
 loadFillsHistory(); // Carga inicial de fills
 setInterval(tickAI,1000);
 </script>
-<div id="configModal" class="modal-overlay" style="display:none">
-  <div class="modal">
-    <div class="modal-hd">⚙️ Configuración en Vivo</div>
-    <div class="modal-bd">
+<div id="configModal" class="config-modal-overlay" style="display:none">
+  <div class="config-modal">
+    <div class="config-modal-hd">⚙️ Configuración en Vivo</div>
+    <div class="config-modal-bd">
       <div class="cfg-field"><label>Capital (USDT)</label><input type="number" id="cfgCapital" class="cfg-input" min="10" step="10"></div>
       <div class="cfg-field"><label>Apalancamiento (×)</label><input type="number" id="cfgLeverage" class="cfg-input" min="1" max="100"></div>
       <div class="cfg-field"><label>Niveles totales</label><input type="number" id="cfgLevels" class="cfg-input" min="4" max="50"></div>
       <div class="cfg-row"><div class="cfg-field"><label>Long</label><input type="number" id="cfgLong" class="cfg-input" min="1"></div><div class="cfg-field"><label>Short</label><input type="number" id="cfgShort" class="cfg-input" min="1"></div></div>
       <div class="cfg-field"><label>Spacing (%)</label><input type="number" id="cfgSpacing" class="cfg-input" min="0.01" step="0.005"></div>
     </div>
-    <div class="modal-ft">
+    <div class="config-modal-ft">
       <button class="btn" onclick="closeConfig()">Cancelar</button>
       <button class="btn btn-g" onclick="applyConfig()">Aplicar y Reconstruir</button>
     </div>

@@ -249,6 +249,26 @@
 .lr-label-center { text-align: center; flex: 1; }
 .lr-label-left { text-align: left; flex: 1; }
 @media (max-width: 480px) { .ladder-hd { font-size: 0.6rem; } .lr-label-right, .lr-label-center, .lr-label-left { font-size: 0.6rem; } }
+
+.config-modal-hd {
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+.config-modal-bd { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.config-modal-ft {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+.cfg-field { display: flex; flex-direction: column; gap: 3px; }
+.cfg-field label { font-size: 9px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
 .toast {
   position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
   padding: 10px 20px; border-radius: var(--radius-md); font-size: 0.85rem;
