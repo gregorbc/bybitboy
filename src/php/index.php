@@ -1625,12 +1625,34 @@ document.getElementById('drawerOverlay').addEventListener('click',()=>{
   document.getElementById('sidebarLeft').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('active');
 });
-if(window.innerWidth<=991){
-  const rightBtn=document.getElementById('rightToggle');
-  if(rightBtn){rightBtn.style.display='flex';rightBtn.addEventListener('click',()=>{document.getElementById('sidebarRight').classList.toggle('open');});}
-  document.addEventListener('click',e=>{
-    const right=document.getElementById('sidebarRight');
-    if(right.classList.contains('open')&&!right.contains(e.target)&&e.target!==document.getElementById('rightToggle')) right.classList.remove('open');
+
+// Right panel overlay functions
+function toggleRightPanel() {
+  const panel = document.getElementById('sidebarRight');
+  const overlay = document.getElementById('rightOverlay');
+  if (window.innerWidth < 1024) {
+    panel.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('open');
+  }
+}
+function closeRightPanel() {
+  const panel = document.getElementById('sidebarRight');
+  const overlay = document.getElementById('rightOverlay');
+  panel.classList.remove('open');
+  if (overlay) overlay.classList.remove('open');
+}
+
+// Mobile right panel toggle + click outside
+if (window.innerWidth < 1024) {
+  const rightBtn = document.getElementById('rightToggle');
+  if (rightBtn) { rightBtn.style.display = 'flex'; }
+  document.addEventListener('click', e => {
+    const right = document.getElementById('sidebarRight');
+    const overlay = document.getElementById('rightOverlay');
+    if (right.classList.contains('open') && !right.contains(e.target) && e.target !== document.getElementById('rightToggle') && e.target !== overlay) {
+      right.classList.remove('open');
+      if (overlay) overlay.classList.remove('open');
+    }
   });
 }
 
