@@ -1292,6 +1292,7 @@ class GridManager {
                 'pnl_1h'         => round((float)(isset($pnl1h['p']) ? $pnl1h['p'] : 0), 4),
                 'avg_pnl_fill'   => round((float)$avgPnlPerFill, 4),
                 'cycle_n'        => $this->cycleN,
+                'last_nav_sync'  => $this->lastNavSyncCycle,
                 'real_positions' => $positions,
                 'atr_predicted'  => $this->last_atr_predicho,
                 'vl_used'        => ($this->last_vl_result !== null),
@@ -1301,7 +1302,7 @@ class GridManager {
         ], JSON_PRETTY_PRINT));
     }
 
-    private function syncNav() {
+    private function syncNav(): void {
         try {
             BotAccountingSync::sync(db(), $this->api, G_SYM);
             $this->lastNavSyncCycle = $this->cycleN;

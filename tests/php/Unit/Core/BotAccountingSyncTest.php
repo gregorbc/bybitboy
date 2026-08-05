@@ -92,13 +92,14 @@ class BotAccountingSyncTest extends TestCase
         $this->assertSame(5.9789, $result['bot_pnl_total']);
         $this->assertSame(1673409.20, $result['real_balance']);
         $this->assertEqualsWithDelta(16.734092, $result['nav'], 0.000001);
+        $row = $this->pdo->query('SELECT * FROM nav_snapshots ORDER BY id DESC LIMIT 1')->fetch();
+        $this->assertEqualsWithDelta(5.9789, (float)$row['bot_pnl_total'], 0.000001);
+        $this->assertEqualsWithDelta(16.734092, (float)$row['nav'], 0.000001);
     }
 
     public function testSyncIgnoresApiFailureForBalanceAndPositions(): void
     {
         Accounting::init($this->pdo, 100000.0);
-        $this->api->balanceVal = -1.0; // -1 no es float real; usamos excepción abajo
-        $this->api->positionsArr = [];
 
         // Simula fallo de red: balance() lanza, positions() lanza
         $throwing = new class extends FakeBybit {
@@ -118,6 +119,9 @@ class BotAccountingSyncTest extends TestCase
         $this->assertSame(0.0, $result['real_balance']);
         $this->assertSame(0.0, $result['unrealized_pnl']);
         $this->assertSame(0.0, $result['bot_pnl_total']);
+        $row = $this->pdo->query('SELECT * FROM nav_snapshots ORDER BY id DESC LIMIT 1')->fetch();
+        $this->assertNotFalse($row);
+        $this->assertSame(0.0, (float)$row['bot_pnl_total']);
     }
 
     public function testSyncRespectsWalletHeld(): void
