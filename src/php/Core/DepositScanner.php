@@ -10,7 +10,7 @@ use BinanceBot\Core\Accounting;
 
 class DepositScanner
 {
-    public const RANGE_LIMIT = 5000;
+    public const RANGE_LIMIT = 3000;
 
     /** @param array{USDT:string,USDC:string} $contracts */
     public function __construct(

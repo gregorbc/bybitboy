@@ -12,12 +12,28 @@ use BinanceBot\Core\Networks;
 use BinanceBot\Core\RpcClient;
 use BinanceBot\Core\Schema;
 
-$db = Database::getInstance();
-if (!$db->isConnected()) {
+// Función con reconexión automática (patrón de bot.php)
+function getPdo(): ?\PDO {
+    static $pdo = null;
+    static $ts = 0;
+    
+    if ($pdo === null || time() - $ts > 30) {
+        Database::reset();
+        $db = Database::getInstance();
+        $pdo = $db->isConnected() ? $db->getPdo() : null;
+        if ($pdo) {
+            try { $pdo->query('SELECT 1'); } catch (\Throwable $e) { $pdo = null; }
+        }
+        $ts = time();
+    }
+    return $pdo;
+}
+
+$pdo = getPdo();
+if (!$pdo) {
     fwrite(STDERR, "ERROR: sin conexión MySQL\n");
     exit(1);
 }
-$pdo = $db->getPdo();
 Schema::createTables($pdo);
 
 $cfg = Config::getInstance();
@@ -28,6 +44,13 @@ $statusFile = (string)($cfg->get('paths.status', dirname(__DIR__, 2) . '/config/
 error_log('[scanner] iniciado (intervalo ' . $interval . 's)');
 
 while (true) {
+    $pdo = getPdo();
+    if (!$pdo) {
+        error_log('[scanner] sin DB, reintentando...');
+        sleep($interval);
+        continue;
+    }
+
     foreach (Networks::all() as $network => $net) {
         $rpcUrl = Networks::rpc($network);
         if ($rpcUrl === '') {
@@ -42,18 +65,22 @@ while (true) {
             error_log("[scanner:$network] error: " . $e->getMessage());
         }
     }
-    try {
-        $status = [];
-        if (file_exists($statusFile)) {
-            $status = json_decode((string)file_get_contents($statusFile), true);
+    
+    $pdo = getPdo();
+    if ($pdo) {
+        try {
+            $status = [];
+            if (file_exists($statusFile)) {
+                $status = json_decode((string)file_get_contents($statusFile), true);
+            }
+            $realBalance = (float)($status['real_balance'] ?? 0);
+            $pnlTotal = (float)($status['pnl_total'] ?? 0);
+            if ($realBalance > 0) {
+                Accounting::updateNav($pdo, $realBalance, Accounting::walletHeld($pdo), $pnlTotal);
+            }
+        } catch (\Throwable $e) {
+            error_log('[scanner] nav error: ' . $e->getMessage());
         }
-        $realBalance = (float)($status['real_balance'] ?? 0);
-        $pnlTotal = (float)($status['pnl_total'] ?? 0);
-        if ($realBalance > 0) {
-            Accounting::updateNav($pdo, $realBalance, Accounting::walletHeld($pdo), $pnlTotal);
-        }
-    } catch (\Throwable $e) {
-        error_log('[scanner] nav error: ' . $e->getMessage());
     }
     sleep($interval);
 }

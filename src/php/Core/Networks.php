@@ -15,7 +15,7 @@ class Networks
             'eth' => [
                 'chain_id' => 1,
                 'name' => 'Ethereum',
-                'rpc' => ['https://ethereum-rpc.publicnode.com', 'https://eth.llamarpc.com'],
+                'rpc' => ['https://eth.api.onfinality.io/public', 'https://ethereum-rpc.publicnode.com', 'https://eth.llamarpc.com'],
                 'confirmations' => 12,
                 'contracts' => [
                     'USDT' => '0xdAC17F958D2ee523a2206206994597C13D831ec7',
