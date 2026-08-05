@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../vendor/autoload.php';
 
-use BinanceBot\Core\Accounting;
 use BinanceBot\Core\Config;
 use BinanceBot\Core\Database;
 use BinanceBot\Core\DepositScanner;
@@ -39,7 +38,6 @@ Schema::createTables($pdo);
 $cfg = Config::getInstance();
 $interval = (int)($cfg->get('platform.scan_interval_sec', 30));
 $minAmount = (float)($cfg->get('platform.min_deposit', 1.0));
-$statusFile = (string)($cfg->get('paths.status', dirname(__DIR__, 2) . '/config/grid_status.json'));
 
 error_log('[scanner] iniciado (intervalo ' . $interval . 's)');
 
@@ -63,23 +61,6 @@ while (true) {
             error_log(sprintf('[scanner:%s] head=%d from=%d to=%d logs=%d new=%d credited=%d failed=%d', $network, $tick['head'], $tick['from'], $tick['to'], $tick['logs'], $tick['inserted'], $proc['credited'], $proc['failed']));
         } catch (\Throwable $e) {
             error_log("[scanner:$network] error: " . $e->getMessage());
-        }
-    }
-    
-    $pdo = getPdo();
-    if ($pdo) {
-        try {
-            $status = [];
-            if (file_exists($statusFile)) {
-                $status = json_decode((string)file_get_contents($statusFile), true);
-            }
-            $realBalance = (float)($status['real_balance'] ?? 0);
-            $pnlTotal = (float)($status['pnl_total'] ?? 0);
-            if ($realBalance > 0) {
-                Accounting::updateNav($pdo, $realBalance, Accounting::walletHeld($pdo), $pnlTotal);
-            }
-        } catch (\Throwable $e) {
-            error_log('[scanner] nav error: ' . $e->getMessage());
         }
     }
     sleep($interval);
