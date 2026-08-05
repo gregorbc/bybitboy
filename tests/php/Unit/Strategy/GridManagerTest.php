@@ -640,4 +640,10 @@ namespace
             return \Tests\Unit\Strategy\GridManagerTest::dbxHandle($fn);
         }
     }
+
+    // Nota (plan nav-bot-pnl, Task 2): GridManager::syncNav() se llama en run()
+    // cada 5 ciclos. No se testea aquí: el loop depende de globals (G_SYM,
+    // G_CYCLE_SEC) y de la función global db() que no está stubbeada; el
+    // comportamiento de syncNav (PnL -> NAV) queda cubierto por
+    // BotAccountingSyncTest. La invocación se valida por revisión manual.
 }

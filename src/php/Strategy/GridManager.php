@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace BinanceBot\Strategy;
 
 use BinanceBot\Exchange\BybitFutures;
+use BinanceBot\Core\BotAccountingSync;
 
 /**
  * Grid trading orchestration: build grids, detect fills, recycle entries, manage risk.
@@ -29,6 +30,7 @@ class GridManager {
     private $lastVL = 0;
     private $gridBuilt = false;
     private $cycleN = 0;
+    private int $lastNavSyncCycle = 0;
     private $peakPnl = 0.0;
     private $lastCompound = 0;
     private $lastGridBuild = 0;
@@ -266,6 +268,7 @@ class GridManager {
                 $this->profitOptimize($price);
                 $this->breakoutCheck($price);
                 if ($this->cycleN % 5 === 0) $this->writeStatus($price);
+                if ($this->cycleN % 5 === 0) $this->syncNav();
                 if ($this->cycleN % 10 === 0) $this->logCycleSummary($price);
             } catch (\Exception $e) { lE("[MAIN] " . $e->getMessage()); }
             sleep(G_CYCLE_SEC);
@@ -1296,6 +1299,15 @@ class GridManager {
                 'vl_confidence'  => $this->last_vl_result['confidence'] ?? null,
             ]],
         ], JSON_PRETTY_PRINT));
+    }
+
+    private function syncNav() {
+        try {
+            BotAccountingSync::sync(db(), $this->api, G_SYM);
+            $this->lastNavSyncCycle = $this->cycleN;
+        } catch (\Throwable $e) {
+            lW('[NAV] sync falló: ' . $e->getMessage());
+        }
     }
 
     private function appendConf($conf, $dir) {
