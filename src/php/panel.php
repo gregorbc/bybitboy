@@ -63,6 +63,7 @@ $networks = [
 <nav class="navbar">
     <span class="navbar-brand">Grid Bot</span>
     <div class="navbar-actions">
+        <span class="nav-chip"><span class="chip-label">Usuario</span><span class="chip-val"><?= htmlspecialchars($_SESSION['username'] ?? '') ?></span></span>
         <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
         <a class="btn btn-primary navbar-action-btn" href="admin.php">Admin</a>
         <?php endif; ?>
@@ -115,7 +116,7 @@ $networks = [
                 <p style="margin: 0 0 4px;"><strong><?= htmlspecialchars($networks[$network] ?? $network) ?></strong></p>
                 <p style="margin: 0 0 12px; font-family: var(--font-mono); word-break: break-all; color: var(--text-secondary);"><?= htmlspecialchars($d['addresses'][$network] ?? 'no disponible') ?></p>
             <?php endforeach; ?>
-            <p class="kpi-card-label">Envía USDT o USDC a tu dirección. Solo se acreditan depósitos confirmados.</p>
+            <p style="margin:0; color: var(--text-muted); font-size: 0.85rem;">Envía USDT o USDC a tu dirección. Solo se acreditan depósitos confirmados.</p>
         </div>
 
         <div class="card" style="margin-top: var(--space-md);">
@@ -154,8 +155,8 @@ $networks = [
                 <?php foreach ($d['deposits'] as $dep): ?>
                 <tr>
                     <td>
-                        <?php $depBadge = $dep['status'] === 'pending' ? 'badge-accent' : ($dep['status'] === 'credited' ? 'badge-green' : 'badge-red'); ?>
-                        <?php $depLabel = $dep['status'] === 'pending' ? 'Pendiente' : ($dep['status'] === 'credited' ? 'Acreditado' : 'Fallido'); ?>
+                        <?php $depBadge = ($dep['status'] ?? '') === 'pending' ? 'badge-accent' : (($dep['status'] ?? '') === 'credited' ? 'badge-green' : 'badge-red'); ?>
+                        <?php $depLabel = ($dep['status'] ?? '') === 'pending' ? 'Pendiente' : (($dep['status'] ?? '') === 'credited' ? 'Acreditado' : 'Fallido'); ?>
                         <span class="badge <?= $depBadge ?>"><?= $depLabel ?></span>
                     </td>
                     <td><?= htmlspecialchars($dep['network']) ?></td>
@@ -165,6 +166,9 @@ $networks = [
                 </tr>
                 <?php endforeach; ?>
             </table>
+            <?php if (empty($d['deposits'])): ?>
+            <div class="empty-state">Sin registros.</div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -176,8 +180,8 @@ $networks = [
                 <?php foreach ($d['withdrawals'] as $w): ?>
                 <tr>
                     <td>
-                        <?php $wBadge = $w['status'] === 'sent' ? 'badge-green' : ($w['status'] === 'rejected' ? 'badge-red' : 'badge-accent'); ?>
-                        <?php $wLabel = $w['status'] === 'sent' ? 'Enviado' : ($w['status'] === 'rejected' ? 'Rechazado' : ($w['status'] === 'approved' ? 'Aprobado' : 'Pendiente')); ?>
+                        <?php $wBadge = ($w['status'] ?? '') === 'sent' ? 'badge-green' : (($w['status'] ?? '') === 'rejected' ? 'badge-red' : 'badge-accent'); ?>
+                        <?php $wLabel = ($w['status'] ?? '') === 'sent' ? 'Enviado' : (($w['status'] ?? '') === 'rejected' ? 'Rechazado' : (($w['status'] ?? '') === 'approved' ? 'Aprobado' : 'Pendiente')); ?>
                         <span class="badge <?= $wBadge ?>"><?= $wLabel ?></span>
                     </td>
                     <td><?= htmlspecialchars($w['network']) ?></td>
@@ -186,6 +190,9 @@ $networks = [
                 </tr>
                 <?php endforeach; ?>
             </table>
+            <?php if (empty($d['withdrawals'])): ?>
+            <div class="empty-state">Sin registros.</div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -198,8 +205,8 @@ $networks = [
                 <tr>
                     <td style="font-family: var(--font-mono); white-space: nowrap;"><?= htmlspecialchars($m['created_at']) ?></td>
                     <td>
-                        <?php $mBadge = $m['type'] === 'deposit' ? 'badge-green' : ($m['type'] === 'withdrawal' ? 'badge-red' : 'badge-accent'); ?>
-                        <?php $mLabel = $m['type'] === 'deposit' ? 'Depósito' : ($m['type'] === 'withdrawal' ? 'Retiro' : 'Ajuste'); ?>
+                        <?php $mBadge = ($m['type'] ?? '') === 'deposit' ? 'badge-green' : (($m['type'] ?? '') === 'withdrawal' ? 'badge-red' : 'badge-accent'); ?>
+                        <?php $mLabel = ($m['type'] ?? '') === 'deposit' ? 'Depósito' : (($m['type'] ?? '') === 'withdrawal' ? 'Retiro' : 'Ajuste'); ?>
                         <span class="badge <?= $mBadge ?>"><?= $mLabel ?></span>
                     </td>
                     <td class="num"><?= number_format((float)$m['amount'], 8) ?></td>
@@ -216,14 +223,21 @@ $networks = [
     </div>
 </div>
 <script>
+function activatePanelTab(tab) {
+    document.querySelectorAll('.panel-tab').forEach(function (t) { t.classList.remove('active'); });
+    document.querySelectorAll('.panel-content').forEach(function (p) { p.classList.remove('active'); });
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    history.replaceState(null, '', '#' + tab.dataset.tab);
+}
 document.querySelectorAll('.panel-tab').forEach(function (tab) {
-    tab.addEventListener('click', function () {
-        document.querySelectorAll('.panel-tab').forEach(function (t) { t.classList.remove('active'); });
-        document.querySelectorAll('.panel-content').forEach(function (p) { p.classList.remove('active'); });
-        tab.classList.add('active');
-        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
-    });
+    tab.addEventListener('click', function () { activatePanelTab(tab); });
 });
+var savedTab = location.hash.replace('#', '');
+if (savedTab) {
+    var savedEl = document.querySelector('.panel-tab[data-tab="' + savedTab + '"]');
+    if (savedEl) activatePanelTab(savedEl);
+}
 </script>
 </body>
 </html>

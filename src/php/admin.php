@@ -73,6 +73,7 @@ $csrf = Csrf::token($_SESSION);
 <nav class="navbar">
     <span class="navbar-brand">Grid Bot · Admin</span>
     <div class="navbar-actions">
+        <span class="nav-chip"><span class="chip-label">Usuario</span><span class="chip-val"><?= htmlspecialchars($_SESSION['username'] ?? '') ?></span></span>
         <a class="btn btn-primary navbar-action-btn" href="panel.php">Mi panel</a>
         <a class="btn btn-danger navbar-action-btn" href="auth.php?action=logout">Salir</a>
     </div>
@@ -153,8 +154,8 @@ $csrf = Csrf::token($_SESSION);
                 <tr>
                     <td><?= htmlspecialchars($w['username']) ?></td>
                     <td>
-                        <?php $whBadge = $w['status'] === 'sent' ? 'badge-green' : ($w['status'] === 'rejected' ? 'badge-red' : 'badge-accent'); ?>
-                        <?php $whLabel = $w['status'] === 'sent' ? 'Enviado' : ($w['status'] === 'rejected' ? 'Rechazado' : ($w['status'] === 'approved' ? 'Aprobado' : 'Pendiente')); ?>
+                        <?php $whBadge = ($w['status'] ?? '') === 'sent' ? 'badge-green' : (($w['status'] ?? '') === 'rejected' ? 'badge-red' : 'badge-accent'); ?>
+                        <?php $whLabel = ($w['status'] ?? '') === 'sent' ? 'Enviado' : (($w['status'] ?? '') === 'rejected' ? 'Rechazado' : (($w['status'] ?? '') === 'approved' ? 'Aprobado' : 'Pendiente')); ?>
                         <span class="badge <?= $whBadge ?>"><?= $whLabel ?></span>
                     </td>
                     <td class="num"><?= number_format((float)$w['amount'], 2) ?></td>
@@ -162,6 +163,9 @@ $csrf = Csrf::token($_SESSION);
                 </tr>
                 <?php endforeach; ?>
             </table>
+            <?php if (empty($d['withdrawals'])): ?>
+            <div class="empty-state">Sin registros.</div>
+            <?php endif; ?>
             <?php if ($d['withdrawals']): ?>
             <form method="post" style="margin-top: var(--space-lg);">
                 <input type="hidden" name="action" value="sent">
@@ -189,8 +193,8 @@ $csrf = Csrf::token($_SESSION);
                 <tr>
                     <td><?= htmlspecialchars($dep['username']) ?></td>
                     <td>
-                        <?php $adBadge = $dep['status'] === 'pending' ? 'badge-accent' : ($dep['status'] === 'credited' ? 'badge-green' : 'badge-red'); ?>
-                        <?php $adLabel = $dep['status'] === 'pending' ? 'Pendiente' : ($dep['status'] === 'credited' ? 'Acreditado' : 'Fallido'); ?>
+                        <?php $adBadge = ($dep['status'] ?? '') === 'pending' ? 'badge-accent' : (($dep['status'] ?? '') === 'credited' ? 'badge-green' : 'badge-red'); ?>
+                        <?php $adLabel = ($dep['status'] ?? '') === 'pending' ? 'Pendiente' : (($dep['status'] ?? '') === 'credited' ? 'Acreditado' : 'Fallido'); ?>
                         <span class="badge <?= $adBadge ?>"><?= $adLabel ?></span>
                     </td>
                     <td><?= htmlspecialchars($dep['network']) ?></td>
@@ -205,6 +209,9 @@ $csrf = Csrf::token($_SESSION);
                 </tr>
                 <?php endforeach; ?>
             </table>
+            <?php if (empty($d['deposits'])): ?>
+            <div class="empty-state">Sin registros.</div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -220,8 +227,8 @@ $csrf = Csrf::token($_SESSION);
                     <td class="hide-mobile"><?= htmlspecialchars($u['email']) ?></td>
                     <td><?= htmlspecialchars($u['role']) ?></td>
                     <td>
-                        <?php $uBadge = $u['status'] === 'active' ? 'badge-green' : 'badge-red'; ?>
-                        <?php $uLabel = $u['status'] === 'active' ? 'Activo' : 'Suspendido'; ?>
+                        <?php $uBadge = ($u['status'] ?? '') === 'active' ? 'badge-green' : 'badge-red'; ?>
+                        <?php $uLabel = ($u['status'] ?? '') === 'active' ? 'Activo' : 'Suspendido'; ?>
                         <span class="badge <?= $uBadge ?>"><?= $uLabel ?></span>
                     </td>
                     <td>
@@ -234,6 +241,9 @@ $csrf = Csrf::token($_SESSION);
                 </tr>
                 <?php endforeach; ?>
             </table>
+            <?php if (empty($d['users'])): ?>
+            <div class="empty-state">Sin registros.</div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -274,7 +284,7 @@ $csrf = Csrf::token($_SESSION);
 
                 <label style="display:flex;align-items:center;gap:8px;margin-top: var(--space-md);">
                     <input type="checkbox" name="confirm" id="confirm" required>
-                    <span class="kpi-card-label">Confirmo que la dirección y monto son correctos</span>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Confirmo que la dirección y monto son correctos</span>
                 </label>
 
                 <button type="submit" class="btn btn-primary" id="sendBtn" disabled style="margin-top: var(--space-md);">Enviar</button>
@@ -297,6 +307,9 @@ $csrf = Csrf::token($_SESSION);
                 </tr>
                 <?php endforeach; ?>
             </table>
+            <?php if (empty($d['admin_sends'])): ?>
+            <div class="empty-state">Sin registros.</div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -328,6 +341,7 @@ async function estimateGas() {
         return;
     }
     gasDiv.style.display = 'block';
+    gasDiv.style.color = '';
     gasDiv.textContent = 'Estimando gas...';
     try {
         const url = 'admin.php?action=estimate_gas&network=' + encodeURIComponent(network) + '&token=' + encodeURIComponent(token) + '&destination=' + encodeURIComponent(dest) + '&amount=' + encodeURIComponent(amountInput.value);
@@ -356,14 +370,21 @@ async function estimateGas() {
 confirmChk.addEventListener('change', validateForm);
 validateForm();
 
+function activatePanelTab(tab) {
+    document.querySelectorAll('.panel-tab').forEach(function (t) { t.classList.remove('active'); });
+    document.querySelectorAll('.panel-content').forEach(function (p) { p.classList.remove('active'); });
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    history.replaceState(null, '', '#' + tab.dataset.tab);
+}
 document.querySelectorAll('.panel-tab').forEach(function (tab) {
-    tab.addEventListener('click', function () {
-        document.querySelectorAll('.panel-tab').forEach(function (t) { t.classList.remove('active'); });
-        document.querySelectorAll('.panel-content').forEach(function (p) { p.classList.remove('active'); });
-        tab.classList.add('active');
-        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
-    });
+    tab.addEventListener('click', function () { activatePanelTab(tab); });
 });
+var savedTab = location.hash.replace('#', '');
+if (savedTab) {
+    var savedEl = document.querySelector('.panel-tab[data-tab="' + savedTab + '"]');
+    if (savedEl) activatePanelTab(savedEl);
+}
 </script>
 </body>
 </html>
