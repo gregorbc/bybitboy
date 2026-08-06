@@ -54,74 +54,176 @@ $networks = [
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Mi inversión · Grid Bot</title>
-<style>
-body{font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3;margin:0;padding:16px}
-.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;margin-bottom:14px}
-h1{font-size:18px;margin:0 0 4px} h2{font-size:15px;margin:0 0 10px}
-.g{color:#3fb950} .r{color:#f85149} .m{color:#8b949e}
-.mono{font-family:monospace;font-size:12px;word-break:break-all}
-table{width:100%;border-collapse:collapse;font-size:12px}
-td,th{text-align:left;padding:6px 4px;border-bottom:1px solid #21262d}
-label{display:block;font-size:12px;color:#8b949e;margin:8px 0 4px}
-input,select{padding:8px;border-radius:6px;border:1px solid #30363d;background:#0d1117;color:#e6edf3}
-button{padding:9px 14px;border:0;border-radius:6px;background:#238636;color:#fff;cursor:pointer}
-.flash{background:#1f6feb22;border:1px solid #1f6feb;border-radius:6px;padding:8px;margin-bottom:12px}
-.err{background:#f8514922;border:1px solid #f85149;border-radius:6px;padding:8px;margin-bottom:12px}
-a{color:#58a6ff}
-</style>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/design-system.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/components.css">
 </head>
 <body>
-<h1>Mi inversión</h1>
-<p class="m">Usuario: <strong><?= htmlspecialchars($_SESSION['username'] ?? '') ?></strong> · <a href="auth.php?action=logout">Salir</a></p>
-<?php if (!empty($d['flash'])): ?><div class="flash"><?= htmlspecialchars($d['flash']) ?></div><?php endif; ?>
-<?php if (!empty($d['error'])): ?><div class="err"><?= htmlspecialchars($d['error']) ?></div><?php endif; ?>
+<nav class="navbar">
+    <span class="navbar-brand">Grid Bot</span>
+    <div class="navbar-actions">
+        <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
+        <a class="btn btn-primary navbar-action-btn" href="admin.php">Admin</a>
+        <?php endif; ?>
+        <a class="btn btn-danger navbar-action-btn" href="auth.php?action=logout">Salir</a>
+    </div>
+</nav>
+<div class="app-container">
+    <?php if (!empty($d['flash'])): ?>
+    <div class="card" style="border-color: var(--accent); background: rgba(14,165,233,0.08); margin-top: var(--space-md);">
+        <p style="margin:0; color: var(--accent); font-size: 0.85rem;"><?= htmlspecialchars($d['flash']) ?></p>
+    </div>
+    <?php endif; ?>
+    <?php if (!empty($d['error'])): ?>
+    <div class="card" style="border-color: var(--red); background: rgba(239,68,68,0.08); margin-top: var(--space-md);">
+        <p style="margin:0; color: var(--red); font-size: 0.85rem;"><?= htmlspecialchars($d['error']) ?></p>
+    </div>
+    <?php endif; ?>
 
-<div class="card">
-    <h2>Mi saldo</h2>
-    <p>Equidad: <strong class="g"><?= number_format($d['equity'], 2) ?> USDT</strong></p>
-    <p class="m">Unidades: <?= number_format($d['units'], 8) ?> · NAV: <?= number_format($d['nav'], 6) ?></p>
-</div>
+    <div class="kpi-row">
+        <div class="card">
+            <div class="kpi-card-value green"><?= number_format($d['equity'], 2) ?> USDT</div>
+            <div class="kpi-card-label">Equidad</div>
+        </div>
+        <div class="card">
+            <div class="kpi-card-value accent"><?= number_format($d['units'], 8) ?></div>
+            <div class="kpi-card-label">Unidades</div>
+        </div>
+        <div class="card">
+            <div class="kpi-card-value"><?= number_format($d['nav'], 6) ?></div>
+            <div class="kpi-card-label">NAV</div>
+        </div>
+        <div class="card">
+            <?php $pendingCount = 0; foreach ($d['deposits'] as $dep) { if (($dep['status'] ?? '') === 'pending') { $pendingCount++; } } ?>
+            <div class="kpi-card-value"><?= $pendingCount ?> <span class="badge badge-accent">dep</span></div>
+            <div class="kpi-card-label">Depósitos pendientes</div>
+        </div>
+    </div>
 
-<div class="card">
-    <h2>Direcciones de depósito (USDT / USDC)</h2>
-    <?php foreach ($d['networks'] as $network): ?>
-        <p><strong><?= htmlspecialchars($networks[$network] ?? $network) ?></strong></p>
-        <p class="mono"><?= htmlspecialchars($d['addresses'][$network] ?? 'no disponible') ?></p>
-    <?php endforeach; ?>
-    <p class="m">Envía USDT o USDC a tu dirección. Solo se acreditan depósitos confirmados.</p>
-</div>
+    <div class="panel-tabs">
+        <div class="panel-tab active" data-tab="resumen">Resumen</div>
+        <div class="panel-tab" data-tab="depositos">Depósitos</div>
+        <div class="panel-tab" data-tab="retiros">Retiros</div>
+        <div class="panel-tab" data-tab="movimientos">Movimientos</div>
+    </div>
 
-<div class="card">
-    <h2>Solicitar retiro</h2>
-    <form method="post">
-        <input type="hidden" name="action" value="withdraw">
-        <input type="hidden" name="csrf" value="<?= $csrf ?>">
-        <label>Red</label>
-        <select name="network"><?php foreach ($d['networks'] as $n): ?><option value="<?= $n ?>"><?= htmlspecialchars($networks[$n] ?? $n) ?></option><?php endforeach; ?></select>
-        <label>Token</label>
-        <select name="token"><option>USDT</option><option>USDC</option></select>
-        <label>Monto (USDT)</label><input name="amount" type="number" step="0.01" min="0" required>
-        <label>Dirección destino</label><input name="destination" placeholder="0x..." required>
-        <button type="submit">Solicitar retiro</button>
-    </form>
-</div>
+    <div id="tab-resumen" class="panel-content active">
+        <div class="card">
+            <div class="card-header"><span class="card-title">Direcciones de depósito (USDT / USDC)</span></div>
+            <?php foreach ($d['networks'] as $network): ?>
+                <p style="margin: 0 0 4px;"><strong><?= htmlspecialchars($networks[$network] ?? $network) ?></strong></p>
+                <p style="margin: 0 0 12px; font-family: var(--font-mono); word-break: break-all; color: var(--text-secondary);"><?= htmlspecialchars($d['addresses'][$network] ?? 'no disponible') ?></p>
+            <?php endforeach; ?>
+            <p class="kpi-card-label">Envía USDT o USDC a tu dirección. Solo se acreditan depósitos confirmados.</p>
+        </div>
 
-<div class="card">
-    <h2>Mis retiros</h2>
-    <table><tr><th>Estado</th><th>Red</th><th>Monto</th><th>Tx</th></tr>
-    <?php foreach ($d['withdrawals'] as $w): ?>
-        <tr><td><?= htmlspecialchars($w['status']) ?></td><td><?= htmlspecialchars($w['network']) ?></td><td><?= number_format((float)$w['amount'], 2) ?></td><td class="mono"><?= htmlspecialchars($w['tx_hash'] ?: '-') ?></td></tr>
-    <?php endforeach; ?>
-    </table>
-</div>
+        <div class="card" style="margin-top: var(--space-md);">
+            <div class="card-header"><span class="card-title">Solicitar retiro</span></div>
+            <form method="post">
+                <input type="hidden" name="action" value="withdraw">
+                <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                <div class="cfg-row">
+                    <div class="cfg-field" style="flex:1;">
+                        <label for="wNetwork">Red</label>
+                        <select class="cfg-input" id="wNetwork" name="network"><?php foreach ($d['networks'] as $n): ?><option value="<?= $n ?>"><?= htmlspecialchars($networks[$n] ?? $n) ?></option><?php endforeach; ?></select>
+                    </div>
+                    <div class="cfg-field" style="flex:1;">
+                        <label for="wToken">Token</label>
+                        <select class="cfg-input" id="wToken" name="token"><option>USDT</option><option>USDC</option></select>
+                    </div>
+                </div>
+                <div class="cfg-field" style="margin-top: var(--space-md);">
+                    <label for="wAmount">Monto (USDT)</label>
+                    <input class="cfg-input" id="wAmount" name="amount" type="number" step="0.01" min="0" required>
+                </div>
+                <div class="cfg-field" style="margin-top: var(--space-md);">
+                    <label for="wDest">Dirección destino</label>
+                    <input class="cfg-input" id="wDest" name="destination" placeholder="0x..." required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: var(--space-lg);">Solicitar retiro</button>
+            </form>
+        </div>
+    </div>
 
-<div class="card">
-    <h2>Depósitos</h2>
-    <table><tr><th>Estado</th><th>Red</th><th>Token</th><th>Monto</th><th>Tx</th></tr>
-    <?php foreach ($d['deposits'] as $dep): ?>
-        <tr><td><?= htmlspecialchars($dep['status']) ?></td><td><?= htmlspecialchars($dep['network']) ?></td><td><?= htmlspecialchars($dep['token']) ?></td><td><?= number_format((float)$dep['amount'], 2) ?></td><td class="mono"><?= htmlspecialchars($dep['tx_hash']) ?></td></tr>
-    <?php endforeach; ?>
-    </table>
+    <div id="tab-depositos" class="panel-content">
+        <div class="card">
+            <div class="card-header"><span class="card-title">Depósitos</span></div>
+            <table class="data-table">
+                <tr><th>Estado</th><th>Red</th><th>Token</th><th>Monto</th><th class="hide-mobile">Tx</th></tr>
+                <?php foreach ($d['deposits'] as $dep): ?>
+                <tr>
+                    <td>
+                        <?php $depBadge = $dep['status'] === 'pending' ? 'badge-accent' : ($dep['status'] === 'credited' ? 'badge-green' : 'badge-red'); ?>
+                        <?php $depLabel = $dep['status'] === 'pending' ? 'Pendiente' : ($dep['status'] === 'credited' ? 'Acreditado' : 'Fallido'); ?>
+                        <span class="badge <?= $depBadge ?>"><?= $depLabel ?></span>
+                    </td>
+                    <td><?= htmlspecialchars($dep['network']) ?></td>
+                    <td><?= htmlspecialchars($dep['token']) ?></td>
+                    <td class="num"><?= number_format((float)$dep['amount'], 2) ?></td>
+                    <td class="hide-mobile" style="font-family: var(--font-mono); word-break: break-all;"><?= htmlspecialchars($dep['tx_hash'] ?: '-') ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-retiros" class="panel-content">
+        <div class="card">
+            <div class="card-header"><span class="card-title">Mis retiros</span></div>
+            <table class="data-table">
+                <tr><th>Estado</th><th>Red</th><th>Monto</th><th class="hide-mobile">Tx</th></tr>
+                <?php foreach ($d['withdrawals'] as $w): ?>
+                <tr>
+                    <td>
+                        <?php $wBadge = $w['status'] === 'sent' ? 'badge-green' : ($w['status'] === 'rejected' ? 'badge-red' : 'badge-accent'); ?>
+                        <?php $wLabel = $w['status'] === 'sent' ? 'Enviado' : ($w['status'] === 'rejected' ? 'Rechazado' : ($w['status'] === 'approved' ? 'Aprobado' : 'Pendiente')); ?>
+                        <span class="badge <?= $wBadge ?>"><?= $wLabel ?></span>
+                    </td>
+                    <td><?= htmlspecialchars($w['network']) ?></td>
+                    <td class="num"><?= number_format((float)$w['amount'], 2) ?></td>
+                    <td class="hide-mobile" style="font-family: var(--font-mono); word-break: break-all;"><?= htmlspecialchars($w['tx_hash'] ?: '-') ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-movimientos" class="panel-content">
+        <div class="card">
+            <div class="card-header"><span class="card-title">Movimientos</span></div>
+            <table class="data-table">
+                <tr><th>Fecha</th><th>Tipo</th><th>Monto</th><th class="hide-mobile">Unidades</th><th class="hide-mobile">NAV</th><th class="hide-mobile">Saldo posterior</th></tr>
+                <?php foreach ($d['movements'] as $m): ?>
+                <tr>
+                    <td style="font-family: var(--font-mono); white-space: nowrap;"><?= htmlspecialchars($m['created_at']) ?></td>
+                    <td>
+                        <?php $mBadge = $m['type'] === 'deposit' ? 'badge-green' : ($m['type'] === 'withdrawal' ? 'badge-red' : 'badge-accent'); ?>
+                        <?php $mLabel = $m['type'] === 'deposit' ? 'Depósito' : ($m['type'] === 'withdrawal' ? 'Retiro' : 'Ajuste'); ?>
+                        <span class="badge <?= $mBadge ?>"><?= $mLabel ?></span>
+                    </td>
+                    <td class="num"><?= number_format((float)$m['amount'], 8) ?></td>
+                    <td class="hide-mobile num"><?= number_format((float)$m['units'], 8) ?></td>
+                    <td class="hide-mobile num"><?= number_format((float)$m['nav'], 6) ?></td>
+                    <td class="hide-mobile num"><?= number_format((float)$m['balance_after'], 2) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+            <?php if (empty($d['movements'])): ?>
+            <div class="empty-state">Sin movimientos todavía.</div>
+            <?php endif; ?>
+        </div>
+    </div>
 </div>
+<script>
+document.querySelectorAll('.panel-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+        document.querySelectorAll('.panel-tab').forEach(function (t) { t.classList.remove('active'); });
+        document.querySelectorAll('.panel-content').forEach(function (p) { p.classList.remove('active'); });
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+});
+</script>
 </body>
 </html>
