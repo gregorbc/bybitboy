@@ -25,6 +25,17 @@ function trimRecursive(array $arr): array {
 }
 $cfg = trimRecursive($cfg); $mc = $cfg['mysql'] ?? [];
 define('EXPORT_TOKEN', getenv('SECURITY_TOKEN') ?: 'g273f123');
+if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params([
+        'httponly' => true,
+        'secure' => true,
+        'samesite' => 'Lax',
+        'path' => '/',
+    ]);
+    session_start();
+}
+$IS_ADMIN = ($_SESSION['role'] ?? '') === 'admin';
+$CTRL_TOKEN = $IS_ADMIN ? EXPORT_TOKEN : '';
 $AI_INT   = (int)($cfg['bot']['ai_interval_sec'] ?? 120);
 $CAPITAL  = (int)($cfg['bot']['capital_usd']     ?? 20);
 $LEVERAGE = (int)($cfg['bot']['leverage']        ?? 100);
@@ -436,11 +447,13 @@ body.stale #app {opacity:.6;transition:opacity .8s;}
     </div>
     <div class="btns">
       <button class="btn btn-b" onclick="toggleSpeed()" id="speedBtn">⚡ Rápido</button>
+      <?php if ($IS_ADMIN): ?>
       <button class="btn btn-b" onclick="openConfig()">⚙️</button>
       <button class="btn btn-b" onclick="cmd('force_ai')">🧠 IA</button>
       <button class="btn btn-g" onclick="cmd('reset_grid')">↻ Grid</button>
       <button class="btn btn-b" onclick="exportPnl()">📥</button>
       <button class="btn btn-r" onclick="cmd('stop')">■ Stop</button>
+      <?php endif; ?>
     </div>
   </nav>
 
@@ -1579,7 +1592,8 @@ function cmd(action){
   const labels={stop:'¿Detener el bot?',force_ai:'¿Forzar evaluación IA?',reset_grid:'¿Reconstruir grilla?'};
   if(!confirm(labels[action]||'¿Confirmar?')) return;
   const fd=new FormData();fd.append('_control','1');fd.append('action',action);
-  fetch(API,{method:'POST',body:fd}).then(r=>r.json()).then(d=>{if(d.ok)toast('Comando enviado',action,'info');else alert(d.msg);}).catch(()=>alert('Error'));
+  const qs = '<?= $CTRL_TOKEN ?>' ? '?token=' + encodeURIComponent('<?= $CTRL_TOKEN ?>') : '';
+  fetch(API + qs,{method:'POST',body:fd}).then(r=>r.json()).then(d=>{if(d.ok)toast('Comando enviado',action,'info');else alert(d.msg);}).catch(()=>alert('Error'));
 }
 function exportPnl(){window.open('?export_pnl=1&token=<?= EXPORT_TOKEN ?>','_blank');}
 function toggleSpeed(){
