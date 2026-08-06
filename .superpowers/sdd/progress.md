@@ -121,3 +121,22 @@ Task 6 (revision final + verificacion E2E): complete. PLAN COMPLETO (tasks 1-6, 
 - E2E en host real https://binance.gregorbritez.cat (el 8080 del plan pega al vhost default): landing "Grid Bot" x4; _landing_stats ok:true price 1898.4; register 3 campos; demo btn noopener x1; _control=1&action=stop -> {"ok":false,"msg":"No autorizado"}. Todo verde.
 - phpcs: CONFIG ROTA PRE-EXISTENTE — phpcs.xml(.dist) referencia sniff inexistente PSR12.ControlStructures.ControlSignature y property inexistente ignoreNewlines en PSR12.Classes.ClassInstantiation con PHPCS 3.13.5 instalado; vendor/bin/phpcs no ejecuta. Reconstruccion best-effort (PSR12 + inline control structures permitidos): pre-plan 708 err/167 warn en 4 archivos vs HEAD 731/213 en 6 (2 nuevos); ~+23 netos, estilo compacto pre-existente del repo, no una regresion del plan. Sin tocar config por instruccion del brief (no instalar/arreglar sin preguntar). Sugerencia: renovar ruleset a sniff validos (ControlStructureSpacing) o correr phpcbf.
 - Operativo: surge transitorio de php-fpm (workers bloqueados en locks_lock_inode_wait -> timeouts proxy_fcgi AH01075) durante la primera pasada E2E; pool ondemand se recupero solo (max_children 8, workers reciclados) y todos los checks pasaron. Observar si se repite; sospecha: contencion de lock de archivo (posiblemente grid lock/pid) con el bot activo.
+REVISIÓN FINAL WHOLE-BRANCH (2278d01..4009ec6, 7 commits): "With fixes" — 0 Critical, 3 Important.
+  #1 (session lock en todo grid_ajax, correlacionado con surge fpm locks_lock_inode_wait) -> FIX
+  #2 (export_pnl gate cosmetico, token publico) -> FIX
+  #3 (Config putenv sobreescribe env systemd) -> verificado benigno (sin overlap de keys; scanner recibe PLATFORM_SECRET via systemd Environment mismo valor) + hardening defensivo
+FIX SUBAGENT: commit 5b68033 fix(dashboard): scope session to control endpoints, gate export_pnl
+  - sesion bootstrap movida SOLO a _control/update_config, con session_write_close() tras el check admin; endpoints publicos (incl. _landing_stats) sin Set-Cookie (verificado live)
+  - export_pnl: 403 si !$IS_ADMIN (ademas del token)
+  - _landing_stats: header Content-Type: application/json
+  - testControlWithoutAdminSessionRejected: ahora assert 403 via register_shutdown_function (adaptado: grid_ajax exit dentro del branch, codigo tras require inalcanzable)
+  - CTRL_TOKEN via json_encode (const JS), cmd() usa CTRL_TOKEN
+  - Config::loadEnvFile: solo putenv si getenv($key)===false (env real siempre gana)
+  - Tests: focused 11/11, full 224/908 green; live: control 403, export_pnl 403, landing_stats ok + content-type json sin cookie, cmd('stop')=0
+  - Adaptacion: index.php usa $IS_ADMIN precomputado (no carga Helpers.php)
+PLAN COMPLETO. Task 1..6 + fix despliegue + fix revision final. 9 commits: 2c8c442,71d9d04,251e028,5afc3b3,0be5ad2,bf6ef3c,4009ec6,5b68033 (+base 2278d01).
+PENDIENTES (no bloquean): phpcs ruleset roto (sniffs inexistentes vs PHPCS 3.13.5) -> modernizar o correr phpcbf; login admin live no probado (sin credencial documentada); decidir atribucion de cambios Helpers.php bundleados (beneficiosos); observacion fpm surge con journalctl tras sesion acotada.
+
+# Panels design-system plan (2026-08-06) — subagent-driven, master branch
+Base: ec5467c. Plan: docs/superpowers/plans/2026-08-06-panels-design-system.md
+Task 1 (panel.php investor): complete (commit f1398e9, review Approved). Minor ledger notes: (a) badge ternaries sin `?? ''` en panel.php:158,180,202 vs coalesce en KPI loop (inconsistencia cosmetico-null-safety, interface garantiza keys); (b) badge "dep" junto a count pendientes criptico — plan-mandated verbatim. Smoke live verificado por controller: panel.php sin sesion -> 302 auth.php.
