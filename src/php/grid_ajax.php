@@ -69,17 +69,6 @@ if (!function_exists('sanitize')) {
     require_once __DIR__ . '/Helpers.php';
 }
 
-// ─── Session bootstrap (for admin-guarded POST endpoints) ───
-if (session_status() === PHP_SESSION_NONE) {
-    session_set_cookie_params([
-        'httponly' => true,
-        'secure' => true,
-        'samesite' => 'Lax',
-        'path' => '/',
-    ]);
-    session_start();
-}
-
 // ═══════════════════════════════════════════════════════
 // 1. TICKER (sin token)
 // ═══════════════════════════════════════════════════════
@@ -351,11 +340,21 @@ if (isset($_GET['_logs'])) {
 // 5. CONTROL (POST) – CON VERIFICACIÓN DE TOKEN
 // ═══════════════════════════════════════════════════════
 if (isset($_POST['_control'])) {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_set_cookie_params([
+            'httponly' => true,
+            'secure' => true,
+            'samesite' => 'Lax',
+            'path' => '/',
+        ]);
+        session_start();
+    }
     if (!isAdminSession($_SESSION)) {
         http_response_code(403);
         echo json_encode(['ok' => false, 'msg' => 'No autorizado']);
         exit;
     }
+    session_write_close();
     if (!checkToken($requiredToken)) {
         echo json_encode(['ok' => false, 'msg' => 'Token inválido']);
         exit;
@@ -378,11 +377,21 @@ if (isset($_POST['_control'])) {
 // 5b. CONFIG UPDATE (POST) – actualizar configuración en vivo
 // ═══════════════════════════════════════════════════════
 if (isset($_POST['action']) && $_POST['action'] === 'update_config') {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_set_cookie_params([
+            'httponly' => true,
+            'secure' => true,
+            'samesite' => 'Lax',
+            'path' => '/',
+        ]);
+        session_start();
+    }
     if (!isAdminSession($_SESSION)) {
         http_response_code(403);
         echo json_encode(['ok' => false, 'msg' => 'No autorizado']);
         exit;
     }
+    session_write_close();
     $allowed = ['capital_usd', 'leverage', 'levels', 'long_levels', 'short_levels', 'spacing_pct'];
     $updates = [];
     foreach ($allowed as $k) {
@@ -607,6 +616,7 @@ if (isset($_GET['_landing_stats'])) {
             $data['open_orders'] = (int)$db->query("SELECT COUNT(*) FROM grid_orders WHERE symbol='ETHUSDT' AND status='OPEN'")->fetchColumn();
         } catch (Exception $e) {}
     }
+    header('Content-Type: application/json');
     echo json_encode($data, JSON_PRESERVE_ZERO_FRACTION); exit;
 }
 

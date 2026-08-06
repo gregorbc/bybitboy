@@ -89,7 +89,9 @@ class Config
             }
             [$key, $value] = explode('=', $line, 2);
             $key = trim($key);
-            putenv($key . '=' . trim($value, '"\' '));
+            if (getenv($key) === false) {
+                putenv($key . '=' . trim($value, '"\' '));
+            }
             self::$envKeys[] = $key;
         }
     }

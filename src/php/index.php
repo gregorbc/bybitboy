@@ -41,6 +41,7 @@ $CAPITAL  = (int)($cfg['bot']['capital_usd']     ?? 20);
 $LEVERAGE = (int)($cfg['bot']['leverage']        ?? 100);
 
 if (isset($_GET['export_pnl'])) {
+    if (!$IS_ADMIN) { http_response_code(403); exit("Acceso denegado"); }
     if (!isset($_GET['token']) || $_GET['token'] !== EXPORT_TOKEN) { http_response_code(403); exit("Acceso denegado"); }
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="pnl_diario_ethusdt_' . date('Y-m-d') . '.csv"');
@@ -694,6 +695,7 @@ body.stale #app {opacity:.6;transition:opacity .8s;}
 const API = './grid_ajax.php';
 const AI_INT = <?= $AI_INT ?>;
 const CAPITAL_CFG = <?= $CAPITAL ?>;
+const CTRL_TOKEN = <?= json_encode($CTRL_TOKEN) ?>;
 let SPEED = 'fast';
 const IV = { fast:{tick:1000,stat:3000,log:4000,mkt:30000,upnl:2500,scalp:15000}, normal:{tick:2000,stat:5000,log:8000,mkt:60000,upnl:5000,scalp:30000} };
 let charts = {};
@@ -1592,7 +1594,7 @@ function cmd(action){
   const labels={stop:'¿Detener el bot?',force_ai:'¿Forzar evaluación IA?',reset_grid:'¿Reconstruir grilla?'};
   if(!confirm(labels[action]||'¿Confirmar?')) return;
   const fd=new FormData();fd.append('_control','1');fd.append('action',action);
-  const qs = '<?= $CTRL_TOKEN ?>' ? '?token=' + encodeURIComponent('<?= $CTRL_TOKEN ?>') : '';
+  const qs = CTRL_TOKEN ? '?token=' + encodeURIComponent(CTRL_TOKEN) : '';
   fetch(API + qs,{method:'POST',body:fd}).then(r=>r.json()).then(d=>{if(d.ok)toast('Comando enviado',action,'info');else alert(d.msg);}).catch(()=>alert('Error'));
 }
 function exportPnl(){window.open('?export_pnl=1&token=<?= EXPORT_TOKEN ?>','_blank');}

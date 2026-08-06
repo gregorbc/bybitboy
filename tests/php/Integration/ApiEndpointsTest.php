@@ -130,11 +130,10 @@ ini_set("display_errors", "0");
 \$_SESSION = [];
 \$_POST = ['_control' => '1', 'action' => 'stop'];
 \$_SERVER = ["REQUEST_METHOD" => "POST"];
+register_shutdown_function(function () { echo "\nSTATUS:" . http_response_code(); });
 chdir('/home/erika/web/binance.gregorbritez.cat/public_html');
 ob_start();
 require '/home/erika/web/binance.gregorbritez.cat/public_html/src/php/grid_ajax.php';
-\$output = ob_get_clean();
-echo \$output;
 PHP;
         $tmpFile = sys_get_temp_dir() . '/test_control_' . uniqid() . '.php';
         file_put_contents($tmpFile, $script);
@@ -146,9 +145,15 @@ PHP;
         fclose($pipes[2]);
         proc_close($process);
         unlink($tmpFile);
-        $result = json_decode($output ?: '{}', true);
+        $status = null;
+        if (preg_match('/STATUS:(\d+)/', $output, $m)) {
+            $status = (int)$m[1];
+        }
+        $json = preg_replace('/\n?STATUS:\d+\s*$/', '', $output);
+        $result = json_decode($json ?: '{}', true);
         $this->assertIsArray($result);
         $this->assertFalse($result['ok']);
         $this->assertSame('No autorizado', $result['msg']);
+        $this->assertSame(403, $status);
     }
 }
