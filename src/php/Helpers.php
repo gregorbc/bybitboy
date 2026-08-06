@@ -17,8 +17,9 @@ function checkToken(string $requiredToken): bool {
 function getUptime(string $pf): string {
     if (!file_exists($pf)) return '--';
     $pid = trim(file_get_contents($pf));
+    if ($pid === '' || !ctype_digit($pid)) return '--';
     $age = 0;
-    if ($pid && ctype_digit($pid) && file_exists("/proc/$pid/stat")) {
+    if (file_exists("/proc/$pid/stat")) {
         $up   = (float)explode(' ', (string)@file_get_contents('/proc/uptime'))[0];
         $stat = (string)@file_get_contents("/proc/$pid/stat");
         $rp   = strrpos($stat, ')');
@@ -30,7 +31,7 @@ function getUptime(string $pf): string {
     if ($age <= 0 && file_exists($pf)) {
         $age = max(0, time() - filemtime($pf));
     }
-    if ($age <= 0) return '1m';
+    if ($age <= 0) return '--';
     if ($age >= 3600) return intdiv($age, 3600) . 'h ' . intdiv($age % 3600, 60) . 'm';
     if ($age >= 60)   return intdiv($age, 60) . 'm ' . ($age % 60) . 's';
     return $age . 's';
@@ -107,6 +108,8 @@ function dbInitOnce(PDO $db): void {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
         try { $db->exec("ALTER TABLE grid_configs ADD COLUMN ml_accuracy DECIMAL(6,4) DEFAULT 0"); } catch (Exception $e) {}
+        try { $db->exec("ALTER TABLE grid_configs ADD COLUMN enforce_fee_floor TINYINT(1) DEFAULT 1"); } catch (Exception $e) {}
+        try { $db->exec("ALTER TABLE grid_configs ADD COLUMN fee_floor_mode VARCHAR(20) DEFAULT 'optimistic'"); } catch (Exception $e) {}
 
         $db->prepare("INSERT INTO bot_meta (meta_key, meta_value) VALUES ('db_inited', '1') ON DUPLICATE KEY UPDATE meta_value='1'")->execute();
     } catch (Exception $e) {}
@@ -198,4 +201,8 @@ if (!function_exists('analyzeChartWithVL')) {
     {
         return \BinanceBot\Strategy\ChartVL::analyze($imagePath, $apiKey);
     }
+}
+
+function isAdminSession(array $session): bool {
+    return ($session['role'] ?? '') === 'admin';
 }

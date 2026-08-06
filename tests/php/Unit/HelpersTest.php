@@ -8,6 +8,7 @@ use function checkToken;
 use function getUptime;
 use function botRunning;
 use function analyzeChartWithVL;
+use function isAdminSession;
 use PHPUnit\Framework\TestCase;
 
 class HelpersTest extends TestCase
@@ -65,5 +66,20 @@ class HelpersTest extends TestCase
     {
         $result = analyzeChartWithVL('/tmp/nonexistent_image_' . uniqid() . '.png', 'fake_api_key');
         $this->assertNull($result);
+    }
+
+    public function testIsAdminSessionFalseWhenEmpty(): void
+    {
+        $this->assertFalse(isAdminSession([]));
+    }
+
+    public function testIsAdminSessionFalseForInvestor(): void
+    {
+        $this->assertFalse(isAdminSession(['role' => 'investor']));
+    }
+
+    public function testIsAdminSessionTrueForAdmin(): void
+    {
+        $this->assertTrue(isAdminSession(['role' => 'admin']));
     }
 }
