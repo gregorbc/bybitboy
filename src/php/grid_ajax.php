@@ -562,5 +562,32 @@ if (isset($_GET['_health'])) {
     exit;
 }
 
+// ═══════════════════════════════════════════════════════
+// 6b. LANDING STATS (público, solo lectura)
+// ═══════════════════════════════════════════════════════
+if (isset($_GET['_landing_stats'])) {
+    $db = getDB($mc);
+    $data = ['ok' => true, 'price' => 0.0, 'pnl_today' => 0.0, 'win_rate' => 0.0,
+             'fills_total' => 0, 'open_orders' => 0, 'updated_at' => date('Y-m-d H:i:s')];
+    $st = file_exists($statusFile) ? json_decode(file_get_contents($statusFile), true) : null;
+    if ($st && isset($st['pairs']['ETHUSDT']['price'])) {
+        $data['price'] = (float)$st['pairs']['ETHUSDT']['price'];
+    }
+    if ($db) {
+        dbInitOnce($db);
+        try {
+            $r1 = $db->query("SELECT COUNT(*) c, COALESCE(SUM(pnl_usd),0) p FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED' AND DATE(filled_at)=CURDATE()")->fetch();
+            $r2 = $db->query("SELECT COUNT(*) c, COALESCE(SUM(pnl_usd),0) p FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED'")->fetch();
+            $totalFills = (int)($r2['c'] ?? 0);
+            $wins = (int)$db->query("SELECT COUNT(*) FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED' AND pnl_usd>0")->fetchColumn();
+            $data['pnl_today']   = round((float)($r1['p'] ?? 0), 6);
+            $data['fills_total'] = $totalFills;
+            $data['win_rate']    = $totalFills > 0 ? round(($wins / $totalFills) * 100, 1) : 0.0;
+            $data['open_orders'] = (int)$db->query("SELECT COUNT(*) FROM grid_orders WHERE symbol='ETHUSDT' AND status='OPEN'")->fetchColumn();
+        } catch (Exception $e) {}
+    }
+    echo json_encode($data, JSON_PRESERVE_ZERO_FRACTION); exit;
+}
+
 echo json_encode(['error' => 'no action', 'version' => '15.4']);
 ?>

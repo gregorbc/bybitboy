@@ -97,4 +97,27 @@ PHP;
         $this->assertArrayHasKey('mysql', $data);
         $this->assertIsBool($data['mysql']);
     }
+
+    public function testLandingStatsEndpointReturnsStructure(): void
+    {
+        $data = $this->executeEndpoint(['_landing_stats' => '1']);
+        $this->assertIsArray($data);
+        $this->assertTrue($data['ok']);
+        $this->assertArrayHasKey('price', $data);
+        $this->assertArrayHasKey('pnl_today', $data);
+        $this->assertArrayHasKey('win_rate', $data);
+        $this->assertArrayHasKey('fills_total', $data);
+        $this->assertArrayHasKey('open_orders', $data);
+        $this->assertArrayHasKey('updated_at', $data);
+    }
+
+    public function testLandingStatsReturnsNumericFields(): void
+    {
+        $data = $this->executeEndpoint(['_landing_stats' => '1']);
+        $this->assertIsFloat($data['price']);
+        $this->assertIsFloat($data['pnl_today']);
+        $this->assertIsFloat($data['win_rate']);
+        $this->assertIsInt($data['fills_total']);
+        $this->assertIsInt($data['open_orders']);
+    }
 }
