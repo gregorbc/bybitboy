@@ -38,4 +38,10 @@ class ConfigTest extends TestCase
         $config->set(['bot', 'symbol'], 'BNBUSDT');
         $this->assertSame('BNBUSDT', $config->get('bot.symbol'));
     }
+
+    public function testEnvFileCandidatesIncludeProjectRoot(): void
+    {
+        $root = dirname(__DIR__, 4);
+        $this->assertContains($root . '/.env', Config::envFileCandidates());
+    }
 }

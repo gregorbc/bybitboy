@@ -56,7 +56,28 @@ class Config
 
     private function loadEnv(): void
     {
-        $envFile = dirname(__DIR__, 2) . '/.env';
+        foreach ($this->envFileCandidates() as $envFile) {
+            if (file_exists($envFile)) {
+                $this->loadEnvFile($envFile);
+            }
+        }
+    }
+
+    /**
+     * Rutas candidatas para el archivo .env, en orden de preferencia.
+     * El .env puede vivir en src/, en la raíz del proyecto o junto al código.
+     */
+    public static function envFileCandidates(): array
+    {
+        return [
+            dirname(__DIR__, 2) . '/.env',
+            dirname(__DIR__, 3) . '/.env',
+            dirname(__DIR__) . '/.env',
+        ];
+    }
+
+    private function loadEnvFile(string $envFile): void
+    {
         if (!file_exists($envFile)) {
             return;
         }
