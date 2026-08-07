@@ -37,9 +37,24 @@ function sanitizeInput($input, $type = 'string') {
     }
 }
 
-/* ── Security token ── */
+/* ── Solo administradores ── */
+if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params([
+        'httponly' => true,
+        'secure' => true,
+        'samesite' => 'Lax',
+        'path' => '/',
+    ]);
+    session_start();
+}
+if (!isAdminSession($_SESSION)) {
+    header('Location: login.php');
+    exit;
+}
+
+/* ── Security token (fail-closed) ── */
 $token = $_GET['token'] ?? $_POST['token'] ?? '';
-if ($token !== EXPORT_TOKEN && !empty($token)) {
+if ($token !== EXPORT_TOKEN) {
     http_response_code(403); exit('Acceso denegado');
 }
 

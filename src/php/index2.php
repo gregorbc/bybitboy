@@ -33,11 +33,25 @@ function trimRecursive(array $arr): array {
 }
 $cfg = trimRecursive($cfg);
 $mc = $cfg['mysql'] ?? [];
-define('EXPORT_TOKEN', getenv('SECURITY_TOKEN') ?: 'g273f123');
+define('EXPORT_TOKEN', getenv('SECURITY_TOKEN') ?: '');
 $AI_INT   = (int)($cfg['bot']['ai_interval_sec'] ?? 120);
 $CAPITAL  = (int)($cfg['bot']['capital_usd']     ?? 20);
 $LEVERAGE = (int)($cfg['bot']['leverage']        ?? 100);
 $SYMBOL   = $cfg['bot']['symbol'] ?? 'ETHUSDT';
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params([
+        'httponly' => true,
+        'secure' => true,
+        'samesite' => 'Lax',
+        'path' => '/',
+    ]);
+    session_start();
+}
+if (!isAdminSession($_SESSION)) {
+    header('Location: login.php');
+    exit;
+}
 
 // Export PnL CSV
 if (isset($_GET['export_pnl'])) {

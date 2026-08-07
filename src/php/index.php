@@ -21,7 +21,7 @@ function trimRecursive(array $arr): array {
     return $out;
 }
 $cfg = trimRecursive($cfg); $mc = $cfg['mysql'] ?? [];
-define('EXPORT_TOKEN', getenv('SECURITY_TOKEN') ?: 'g273f123');
+define('EXPORT_TOKEN', getenv('SECURITY_TOKEN') ?: '');
 if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params([
         'httponly' => true,
@@ -31,8 +31,12 @@ if (session_status() === PHP_SESSION_NONE) {
     ]);
     session_start();
 }
-$IS_ADMIN = ($_SESSION['role'] ?? '') === 'admin';
-$CTRL_TOKEN = $IS_ADMIN ? EXPORT_TOKEN : '';
+if (!isAdminSession($_SESSION)) {
+    header('Location: login.php');
+    exit;
+}
+$IS_ADMIN = true;
+$CTRL_TOKEN = EXPORT_TOKEN;
 $AI_INT   = (int)($cfg['bot']['ai_interval_sec'] ?? 120);
 $CAPITAL  = (int)($cfg['bot']['capital_usd']     ?? 20);
 $LEVERAGE = (int)($cfg['bot']['leverage']        ?? 100);
