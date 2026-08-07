@@ -53,4 +53,15 @@ class SecurityHelpersTest extends TestCase
         $_SESSION['role'] = 'admin';
         $this->assertTrue(requireAdminSession());
     }
+
+    public function testPrivateConfigHasNoInlineSecrets(): void
+    {
+        $path = privateConfigPath();
+        $this->assertFileExists($path);
+        $raw = (string)file_get_contents($path);
+        $this->assertStringNotContainsString('api_key', $raw);
+        $this->assertStringNotContainsString('api_secret', $raw);
+        $this->assertStringNotContainsString('password', $raw);
+        $this->assertStringNotContainsString('token', $raw);
+    }
 }

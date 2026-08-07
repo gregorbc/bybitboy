@@ -65,6 +65,7 @@ htmlcov/
 # Runtime / local tooling
 grid_bot.pid
 liq_prot_state.json
+config.json
 .phpunit.result.cache
 skills-lock.json
 graphify-out/
