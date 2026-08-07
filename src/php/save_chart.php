@@ -5,12 +5,21 @@
 
 header('Content-Type: application/json');
 
+require_once __DIR__ . '/../../vendor/autoload.php';
+
 // Si se ejecuta en CLI, mostrar mensaje amigable y salir
 if (php_sapi_name() === 'cli') {
     echo json_encode([
         'ok' => false,
         'error' => 'Este script debe ejecutarse mediante petición HTTP POST desde el navegador.'
     ]);
+    exit;
+}
+
+// Solo administradores
+if (!requireAdminSession()) {
+    http_response_code(403);
+    echo json_encode(['error' => 'No autorizado']);
     exit;
 }
 
@@ -38,6 +47,16 @@ $img = base64_decode($data);
 if ($img === false) {
     http_response_code(400);
     echo json_encode(['error' => 'Invalid base64 image data.']);
+    exit;
+}
+if (strlen($img) > 5 * 1024 * 1024) {
+    http_response_code(413);
+    echo json_encode(['error' => 'Image too large (max 5 MB).']);
+    exit;
+}
+if (substr($img, 0, 8) !== "\x89PNG\r\n\x1a\n") {
+    http_response_code(400);
+    echo json_encode(['error' => 'Solo se aceptan imágenes PNG.']);
     exit;
 }
 

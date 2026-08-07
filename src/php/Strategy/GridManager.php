@@ -256,7 +256,9 @@ class GridManager {
                 if (!$this->gridBuilt) $this->buildGrid($price);
                 elseif ($this->gridBuilt) {
                     $openCnt = dbx(function($d) {
-                        return (int)$d->query("SELECT COUNT(*) FROM grid_orders WHERE symbol='" . G_SYM . "' AND status='OPEN'")->fetchColumn();
+                        $stmt = $d->prepare("SELECT COUNT(*) FROM grid_orders WHERE symbol=? AND status='OPEN'");
+                        $stmt->execute([G_SYM]);
+                        return (int)$stmt->fetchColumn();
                     }) ?? 0;
                     if ($openCnt < (G_FIXED_LEVELS - 3)) {
                         lW("[MAIN] Solo $openCnt órdenes abiertas (mín " . (G_FIXED_LEVELS - 3) . ") → rebuild");
@@ -277,12 +279,20 @@ class GridManager {
     }
 
     private function loadConfig() {
-        $row = dbx(function($d) { return $d->query("SELECT * FROM grid_configs WHERE symbol='" . G_SYM . "' AND status='ACTIVE' LIMIT 1")->fetch(); });
+        $row = dbx(function($d) {
+            $stmt = $d->prepare("SELECT * FROM grid_configs WHERE symbol=? AND status='ACTIVE' LIMIT 1");
+            $stmt->execute([G_SYM]);
+            return $stmt->fetch();
+        });
         if (!$row) {
             dbx(function($d) { return $d->prepare("INSERT INTO grid_configs (symbol,direction,confidence,capital_usd,leverage,levels,spacing_pct,long_levels,short_levels,qty_per_level,pp,qp,mode) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE status='ACTIVE'")
                 ->execute([G_SYM, 'SIDEWAYS', 50, G_CAPITAL, G_LEVERAGE, G_FIXED_LEVELS,
                            G_BASE_SPACING, G_LONG_LEVELS, G_SHORT_LEVELS, 0, 2, 2, 'NORMAL']); });
-            $row = dbx(function($d) { return $d->query("SELECT * FROM grid_configs WHERE symbol='" . G_SYM . "' LIMIT 1")->fetch(); });
+            $row = dbx(function($d) {
+                $stmt = $d->prepare("SELECT * FROM grid_configs WHERE symbol=? LIMIT 1");
+                $stmt->execute([G_SYM]);
+                return $stmt->fetch();
+            });
         }
         $this->cfg = $row;
 
@@ -463,7 +473,11 @@ class GridManager {
             return $d->prepare("UPDATE grid_configs SET direction=?,confidence=?,ai_reason=?,last_ai_check=NOW(),levels=?,spacing_pct=?,long_levels=?,short_levels=?,qty_per_level=? WHERE symbol=?")
                 ->execute([$direction, $confidence, $reason, $levels, $spacing, $longLev, $shortLev, $qty, G_SYM]);
         });
-        $this->cfg = dbx(function($d) { return $d->query("SELECT * FROM grid_configs WHERE symbol='" . G_SYM . "' LIMIT 1")->fetch(); });
+        $this->cfg = dbx(function($d) {
+            $stmt = $d->prepare("SELECT * FROM grid_configs WHERE symbol=? LIMIT 1");
+            $stmt->execute([G_SYM]);
+            return $stmt->fetch();
+        });
         $this->lastAI = time();
         lI(sprintf("[AI-FALLBACK] %s conf=%d%% (sin velas, manteniendo última dir conocida)", $direction, $confidence));
         $this->appendConf($confidence, $direction);
@@ -619,7 +633,11 @@ class GridManager {
             return $d->prepare("UPDATE grid_configs SET direction=?,confidence=?,ai_reason=?,last_ai_check=NOW(),levels=?,spacing_pct=?,long_levels=?,short_levels=?,qty_per_level=?,pp=?,qp=?,ml_accuracy=? WHERE symbol=?")
                 ->execute([$direction, $confidence, $reason, $levels, $spacing, $longLev, $shortLev, $qty, $f['pp'], $f['qp'], $mlAcc, G_SYM]);
         });
-        $this->cfg = dbx(function($d) { return $d->query("SELECT * FROM grid_configs WHERE symbol='" . G_SYM . "' LIMIT 1")->fetch(); });
+        $this->cfg = dbx(function($d) {
+            $stmt = $d->prepare("SELECT * FROM grid_configs WHERE symbol=? LIMIT 1");
+            $stmt->execute([G_SYM]);
+            return $stmt->fetch();
+        });
         $this->lastAI = time();
         $this->appendConf($confidence, $direction);
         $this->last_vl_result = $vlResult;
@@ -638,7 +656,9 @@ class GridManager {
             $positions = $this->api->positions(G_SYM);
             $exitsByLevel = [];
             dbx(function($d) use (&$exitsByLevel) {
-                $rows = $d->query("SELECT grid_level, side FROM grid_orders WHERE symbol='" . G_SYM . "' AND status='OPEN' AND grid_role='EXIT'")->fetchAll();
+                $stmt = $d->prepare("SELECT grid_level, side FROM grid_orders WHERE symbol=? AND status='OPEN' AND grid_role='EXIT'");
+                $stmt->execute([G_SYM]);
+                $rows = $stmt->fetchAll();
                 foreach ($rows as $r) $exitsByLevel[$r['grid_level']] = $r['side'];
             });
             foreach ($positions as $pos) {
@@ -776,7 +796,9 @@ class GridManager {
     private function checkFills($price) {
         $openOrders = $this->api->getOpenOrders(G_SYM);
         $localOpens = dbx(function($d) {
-            return $d->query("SELECT * FROM grid_orders WHERE symbol='" . G_SYM . "' AND status='OPEN' AND order_id IS NOT NULL LIMIT 60")->fetchAll();
+            $stmt = $d->prepare("SELECT * FROM grid_orders WHERE symbol=? AND status='OPEN' AND order_id IS NOT NULL LIMIT 60");
+            $stmt->execute([G_SYM]);
+            return $stmt->fetchAll();
         }) ?? [];
         if (empty($localOpens)) return;
         $apiEmpty = empty($openOrders);
@@ -1054,7 +1076,9 @@ class GridManager {
         $deadline = time() + $maxWaitSec;
         while (time() < $deadline) {
             $pendingEntries = dbx(function($d) {
-                return $d->query("SELECT order_id FROM grid_orders WHERE symbol='" . G_SYM . "' AND grid_role='ENTRY' AND status='OPEN'")->fetchAll();
+                $stmt = $d->prepare("SELECT order_id FROM grid_orders WHERE symbol=? AND grid_role='ENTRY' AND status='OPEN'");
+                $stmt->execute([G_SYM]);
+                return $stmt->fetchAll();
             }) ?? [];
             if (empty($pendingEntries)) return;
             $openOrders = $this->api->getOpenOrders(G_SYM);
@@ -1158,13 +1182,17 @@ class GridManager {
     private function breakoutCheck($price) {
         if (!$this->gridBuilt) return;
         $r = dbx(function($d) {
-            return $d->query("SELECT MIN(price) mn,MAX(price) mx FROM grid_orders WHERE symbol='" . G_SYM . "' AND status='OPEN'")->fetch();
+            $stmt = $d->prepare("SELECT MIN(price) mn,MAX(price) mx FROM grid_orders WHERE symbol=? AND status='OPEN'");
+            $stmt->execute([G_SYM]);
+            return $stmt->fetch();
         });
         if (!$r || !$r['mn']) return;
         $range = (float)$r['mx'] - (float)$r['mn']; $margin = $range * 0.30;
         if ($price < (float)$r['mn'] - $margin || $price > (float)$r['mx'] + $margin) {
             $lastFill = dbx(function($d) {
-                return $d->query("SELECT MAX(filled_at) FROM grid_orders WHERE symbol='" . G_SYM . "' AND status='FILLED' AND filled_at IS NOT NULL")->fetchColumn();
+                $stmt = $d->prepare("SELECT MAX(filled_at) FROM grid_orders WHERE symbol=? AND status='FILLED' AND filled_at IS NOT NULL");
+                $stmt->execute([G_SYM]);
+                return $stmt->fetchColumn();
             });
             if ($lastFill && (time() - strtotime($lastFill)) < 90) {
                 lI(sprintf("[BREAKOUT] $%.2f fuera rango pero fill reciente (%ds), esperando...", $price, time() - strtotime($lastFill)));
@@ -1181,7 +1209,9 @@ class GridManager {
     private function getPnlToday() {
         try {
             $r = dbx(function($d) {
-                return $d->query("SELECT COALESCE(SUM(pnl_usd),0) AS p FROM grid_orders WHERE symbol='" . G_SYM . "' AND grid_role='EXIT' AND status='FILLED' AND DATE(filled_at)=CURDATE()")->fetch();
+                $stmt = $d->prepare("SELECT COALESCE(SUM(pnl_usd),0) AS p FROM grid_orders WHERE symbol=? AND grid_role='EXIT' AND status='FILLED' AND DATE(filled_at)=CURDATE()");
+                $stmt->execute([G_SYM]);
+                return $stmt->fetch();
             });
             $pnl = $r ? (float)$r['p'] : 0.0;
             foreach ($this->api->positions(G_SYM) as $pos) {
@@ -1193,8 +1223,16 @@ class GridManager {
 
     private function logCycleSummary($price) {
         $pnl = $this->getPnlToday();
-        $openCnt = dbx(function($d) { return $d->query("SELECT COUNT(*) FROM grid_orders WHERE symbol='" . G_SYM . "' AND status='OPEN'")->fetchColumn(); }) ?? 0;
-        $fillsCnt = dbx(function($d) { return $d->query("SELECT COUNT(*) FROM grid_orders WHERE symbol='" . G_SYM . "' AND grid_role='EXIT' AND status='FILLED' AND DATE(filled_at)=CURDATE()")->fetchColumn(); }) ?? 0;
+        $openCnt = dbx(function($d) {
+            $stmt = $d->prepare("SELECT COUNT(*) FROM grid_orders WHERE symbol=? AND status='OPEN'");
+            $stmt->execute([G_SYM]);
+            return $stmt->fetchColumn();
+        }) ?? 0;
+        $fillsCnt = dbx(function($d) {
+            $stmt = $d->prepare("SELECT COUNT(*) FROM grid_orders WHERE symbol=? AND grid_role='EXIT' AND status='FILLED' AND DATE(filled_at)=CURDATE()");
+            $stmt->execute([G_SYM]);
+            return $stmt->fetchColumn();
+        }) ?? 0;
         lI(sprintf("[CICLO #%d] $%.2f | PnL hoy=%.4f USDT | Abiertos=%d | Fills hoy=%d | Grid=%s | Dir=%s",
             $this->cycleN, $price, $pnl, $openCnt, $fillsCnt,
             $this->gridBuilt ? 'ON' : 'OFF', isset($this->cfg['direction']) ? $this->cfg['direction'] : '?'));
@@ -1264,10 +1302,14 @@ class GridManager {
         global $STATUS; $cfg = $this->cfg ?? []; $pnlTdy = $this->getPnlToday(); $positions = [];
         try { $positions = $this->api->positions(G_SYM); } catch (\Exception $e) {}
         $pnl1h = dbx(function($d) {
-            return $d->query("SELECT COALESCE(SUM(pnl_usd),0) p, COUNT(*) c FROM grid_orders WHERE symbol='" . G_SYM . "' AND grid_role='EXIT' AND status='FILLED' AND filled_at>=DATE_SUB(NOW(),INTERVAL 1 HOUR)")->fetch();
+            $stmt = $d->prepare("SELECT COALESCE(SUM(pnl_usd),0) p, COUNT(*) c FROM grid_orders WHERE symbol=? AND grid_role='EXIT' AND status='FILLED' AND filled_at>=DATE_SUB(NOW(),INTERVAL 1 HOUR)");
+            $stmt->execute([G_SYM]);
+            return $stmt->fetch();
         });
         $avgPnlPerFill = (float)(dbx(function($d) {
-            return $d->query("SELECT COALESCE(AVG(pnl_usd),0) FROM grid_orders WHERE symbol='" . G_SYM . "' AND grid_role='EXIT' AND status='FILLED' AND DATE(filled_at)=CURDATE()")->fetchColumn();
+            $stmt = $d->prepare("SELECT COALESCE(AVG(pnl_usd),0) FROM grid_orders WHERE symbol=? AND grid_role='EXIT' AND status='FILLED' AND DATE(filled_at)=CURDATE()");
+            $stmt->execute([G_SYM]);
+            return $stmt->fetchColumn();
         }) ?? 0);
         $mode   = (isset($cfg['recovery_active']) && $cfg['recovery_active']) ? 'RECOVERY' : 'NORMAL';
         $balance = $this->api->balance();

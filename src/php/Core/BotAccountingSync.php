@@ -10,13 +10,14 @@ class BotAccountingSync
     public static function sync(PDO $pdo, \BinanceBot\Exchange\BybitFutures $api, string $symbol = 'ETHUSDT'): array
     {
         // 1. Get bot's total realized PnL (all time, not just today)
-        $stmt = $pdo->query("
+        $stmt = $pdo->prepare("
             SELECT COALESCE(SUM(pnl_usd), 0) AS realized_pnl
             FROM grid_orders
-            WHERE symbol = '" . $symbol . "' 
-            AND grid_role = 'EXIT' 
+            WHERE symbol = ?
+            AND grid_role = 'EXIT'
             AND status = 'FILLED'
         ");
+        $stmt->execute([$symbol]);
         $realizedPnl = (float)($stmt->fetch()['realized_pnl'] ?? 0);
 
         // 2. Get unrealized PnL from open positions on Bybit

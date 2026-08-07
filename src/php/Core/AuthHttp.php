@@ -10,7 +10,8 @@ class AuthHttp
     public static function handle(PDO $pdo, array &$session, array $get, array $post, string $ip): array
     {
         $action = (string)($get['action'] ?? ($post['action'] ?? ''));
-        if (!Csrf::verify($session, isset($post['csrf']) ? (string)$post['csrf'] : null)) {
+        $isPost = $post !== [];
+        if ($isPost && !Csrf::verify($session, isset($post['csrf']) ? (string)$post['csrf'] : null)) {
             return ['redirect' => null, 'error' => 'Token CSRF inválido', 'view' => 'login'];
         }
         if ($action === 'register') {

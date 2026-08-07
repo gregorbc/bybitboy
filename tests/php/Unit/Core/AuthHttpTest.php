@@ -35,6 +35,14 @@ class AuthHttpTest extends TestCase
         $this->assertSame('Token CSRF inválido', $out['error']);
     }
 
+    public function testGetActionWithoutCsrfNotRejected(): void
+    {
+        $session = [];
+        $out = AuthHttp::handle($this->pdo, $session, ['action' => 'register'], [], '1.2.3.4');
+        $this->assertNotSame('Token CSRF inválido', $out['error']);
+        $this->assertSame('register', $out['view']);
+    }
+
     public function testLoginWrongCredentialsShowsError(): void
     {
         $session = [];

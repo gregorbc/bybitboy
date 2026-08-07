@@ -27,20 +27,25 @@ Schema::createTables($pdo);
 $error = null;
 $success = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    $username = trim((string)($_POST['username'] ?? ''));
     if (!Csrf::verify($_SESSION, $_POST['csrf'] ?? null)) {
         $error = 'Token CSRF inválido';
+    } elseif (!Auth::checkRateLimit($pdo, $ip, 'register', 3, 3600)) {
+        $error = 'Demasiados registros desde esta IP. Espera una hora.';
     } else {
-        $res = Auth::register($pdo, (string)($_POST['username'] ?? ''), (string)($_POST['email'] ?? ''), (string)($_POST['password'] ?? ''));
+        $res = Auth::register($pdo, $username, (string)($_POST['email'] ?? ''), (string)($_POST['password'] ?? ''));
         if ($res['ok']) {
             session_regenerate_id(true);
             $_SESSION['user_id'] = $res['user_id'];
-            $_SESSION['username'] = trim((string)($_POST['username'] ?? ''));
+            $_SESSION['username'] = $username;
             $_SESSION['role'] = 'investor';
             header('Location: panel.php');
             exit;
         }
         $error = $res['error'];
     }
+    Auth::recordAttempt($pdo, $ip, 'register', $username, ($_SESSION['user_id'] ?? null) !== null);
 }
 $csrf = Csrf::token($_SESSION);
 ?>
