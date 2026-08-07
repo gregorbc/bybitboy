@@ -63,6 +63,16 @@ $bybitBase   = match ($bybitEnv) {
 $pubBase     = $bybitBase;
 $requiredToken = $cfg['security_token'] ?? getenv('SECURITY_TOKEN') ?: '';
 
+// ─── Control de acceso: solo _landing_stats es público ───
+if (!isset($_GET['_landing_stats'])) {
+    if (!requireAdminSession()) {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'msg' => 'No autorizado']);
+        exit;
+    }
+    session_write_close();
+}
+
 // ═══════════════════════════════════════════════════════
 // 1. TICKER (sin token)
 // ═══════════════════════════════════════════════════════
@@ -386,6 +396,11 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_config') {
         exit;
     }
     session_write_close();
+    if (!checkToken($requiredToken)) {
+        http_response_code(401);
+        echo json_encode(['ok' => false, 'msg' => 'Token inválido']);
+        exit;
+    }
     $allowed = ['capital_usd', 'leverage', 'levels', 'long_levels', 'short_levels', 'spacing_pct'];
     $updates = [];
     foreach ($allowed as $k) {

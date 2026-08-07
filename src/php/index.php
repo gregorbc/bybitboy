@@ -1628,7 +1628,8 @@ async function applyConfig() {
     short_levels: document.getElementById('cfgShort').value,
     spacing_pct: (parseFloat(document.getElementById('cfgSpacing').value)/100).toFixed(6)
   });
-  const r = await fetch(API, {method:'POST', body: b}).then(x=>x.json());
+  const qs = CTRL_TOKEN ? '?token=' + encodeURIComponent(CTRL_TOKEN) : '';
+  const r = await fetch(API + qs, {method:'POST', body: b}).then(x=>x.json());
   toast('Configuración', r.msg || 'Aplicada', r.ok ? 'info' : 'error');
   closeConfig();
   if (r.ok) setTimeout(() => cmd('reset_grid'), 1000);
