@@ -26,10 +26,10 @@ class HelpersTest extends TestCase
         $this->assertEquals(20, strlen(sanitize(str_repeat('A', 30))));
     }
 
-    public function testCheckTokenEmptyAllows(): void
+    public function testCheckTokenEmptyRejects(): void
     {
         $_GET['token'] = 'wrong';
-        $this->assertTrue(checkToken(''));
+        $this->assertFalse(checkToken(''));
     }
 
     public function testCheckTokenValidMatches(): void

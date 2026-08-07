@@ -8,10 +8,82 @@ function sanitize(string $s): string {
     return substr(preg_replace('/[^A-Z0-9]/', '', strtoupper($s)), 0, 20);
 }
 
+function envLoadOnce(): void {
+    static $loaded = false;
+    if ($loaded) return;
+    $loaded = true;
+    foreach ([
+        dirname(__DIR__, 2) . '/.env',
+        dirname(__DIR__, 3) . '/.env',
+        __DIR__ . '/.env',
+    ] as $envFile) {
+        if (!is_file($envFile)) continue;
+        foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+            $line = trim($line);
+            if ($line === '' || $line[0] === '#' || !str_contains($line, '=')) continue;
+            [$k, $v] = explode('=', $line, 2);
+            $k = trim($k);
+            if (getenv($k) === false) putenv($k . '=' . trim($v, '"\' '));
+        }
+    }
+}
+
+function privateConfigPath(): string {
+    return dirname(__DIR__, 3) . '/private/config.json';
+}
+
+function botCfg(): array {
+    envLoadOnce();
+    $path = privateConfigPath();
+    if (!is_file($path)) $path = __DIR__ . '/config.json';
+    $cfg = [];
+    if (is_file($path)) {
+        $decoded = json_decode((string)file_get_contents($path), true);
+        if (is_array($decoded)) $cfg = $decoded;
+    }
+    $overrides = [
+        ['bybit.api_key',    'BYBIT_API_KEY'],
+        ['bybit.api_secret', 'BYBIT_API_SECRET'],
+        ['bybit.testnet',    'BYBIT_TESTNET'],
+        ['mysql.password',   'MYSQL_PASSWORD'],
+        ['security_token',   'SECURITY_TOKEN'],
+        ['ws_token',         'WS_TOKEN'],
+        ['nvidia.api_key',   'NVIDIA_API_KEY'],
+        ['nvidia.enabled',   'NVIDIA_ENABLED'],
+    ];
+    foreach ($overrides as [$pathKey, $envKey]) {
+        $val = getenv($envKey);
+        if ($val === false) continue;
+        $ref = &$cfg;
+        foreach (explode('.', $pathKey) as $part) {
+            if (!is_array($ref)) $ref = [];
+            $ref = &$ref[$part];
+        }
+        $ref = $val;
+    }
+    if (array_key_exists('testnet', $cfg['bybit'] ?? [])) {
+        $cfg['bybit']['testnet'] = filter_var($cfg['bybit']['testnet'], FILTER_VALIDATE_BOOLEAN);
+    }
+    return $cfg;
+}
+
 function checkToken(string $requiredToken): bool {
-    $clean = trim($requiredToken);
-    if ($clean === '') return true;
-    return hash_equals($clean, trim($_GET['token'] ?? ''));
+    $requiredToken = trim($requiredToken);
+    if ($requiredToken === '') return false;
+    return hash_equals($requiredToken, trim($_GET['token'] ?? ''));
+}
+
+function requireAdminSession(): bool {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_set_cookie_params([
+            'httponly' => true,
+            'secure' => true,
+            'samesite' => 'Lax',
+            'path' => '/',
+        ]);
+        session_start();
+    }
+    return isAdminSession($_SESSION);
 }
 
 function getUptime(string $pf): string {
