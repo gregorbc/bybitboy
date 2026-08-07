@@ -1,0 +1,11 @@
+# Web Security Hardening — Grid Bot
+Options -Indexes
+
+# Bloquear archivos sensibles (defensa en profundidad tras nginx)
+<FilesMatch "\.(json|bak|sql|log|env|conf|dist|lock|key|pem)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "^(install\.php|install_hestia\.php)$">
+    Require all denied
+</FilesMatch>
