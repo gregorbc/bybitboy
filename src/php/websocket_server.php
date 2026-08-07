@@ -480,7 +480,7 @@ class GridWebSocket implements MessageComponentInterface {
 $makerFee = (float)($cfg['fees']['maker'] ?? 0.0001);
 $takerFee = (float)($cfg['fees']['taker'] ?? 0.0006);
 $ws = new GridWebSocket($dbConfig, $wsToken, $bybitKey, $bybitSecret, $bybitBase, $logFile, $statusFile, $pidFile, $confHist, $makerFee, $takerFee);
-$server = IoServer::factory(new HttpServer(new WsServer($ws)), 8094);
+$server = IoServer::factory(new HttpServer(new WsServer($ws)), 8094, '127.0.0.1');
 echo "=== Grid Bot WebSocket Server v3.1 ===\nEscuchando en puerto 8094\n";
 if (!empty($wsToken)) echo "Autenticación por token activada\n";
 else echo "ADVERTENCIA: Sin token de seguridad (configurar 'ws_token' en config.json)\n";
