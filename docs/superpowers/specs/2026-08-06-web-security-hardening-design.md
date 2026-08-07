@@ -92,3 +92,9 @@
 - Historias git de backups con credenciales antiguas (se mueven fuera, no se purgan).
 - `index.php`/`index2.php` duplicados divergentes (se mantienen ambos con gate de login).
 - Sin prueba de frontend modular (huérfano) — sin cambios aquí.
+
+## Notas de mantenimiento
+
+- **Vhosts nginx:** `nginx.conf` y `nginx.ssl.conf` de `binance.gregorbritez.cat` fueron editados a mano (bloque deny de json/bak/sql/log/env). Si HestiaCP reconstruye el dominio, se pierden → re-aplicar el `location` de Task 6 del plan.
+- **Fuentes de verdad de secretos:** `public_html/.env` (web) y `/etc/grid_bot/.env` (services). Si se rota el password de MySQL u otra credencial, actualizar AMBOS archivos y reiniciar `grid-bot`, `grid-bot-ws` y `binance-scanner`.
+- **`SECURITY_TOKEN` y `WS_TOKEN` deben ser iguales** (el bot y el WebSocket comparten el mismo token).
