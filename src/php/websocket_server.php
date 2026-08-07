@@ -138,8 +138,9 @@ function botRunning($pidFile, $logFile): bool {
 function getUptime($pf): string {
     if (!file_exists($pf)) return '--';
     $pid = trim(file_get_contents($pf));
+    if ($pid === '' || !ctype_digit($pid)) return '--';
     $age = 0;
-    if ($pid && ctype_digit($pid) && file_exists("/proc/$pid/stat")) {
+    if (file_exists("/proc/$pid/stat")) {
         $up   = (float)explode(' ', (string)@file_get_contents('/proc/uptime'))[0];
         $stat = (string)@file_get_contents("/proc/$pid/stat");
         $rp   = strrpos($stat, ')');
@@ -151,7 +152,7 @@ function getUptime($pf): string {
     if ($age <= 0 && file_exists($pf)) {
         $age = max(0, time() - filemtime($pf));
     }
-    if ($age <= 0) return '1m';
+    if ($age <= 0) return '--';
     if ($age >= 3600) return intdiv($age, 3600) . 'h ' . intdiv($age % 3600, 60) . 'm';
     if ($age >= 60)   return intdiv($age, 60) . 'm ' . ($age % 60) . 's';
     return $age . 's';

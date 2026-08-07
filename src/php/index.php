@@ -647,13 +647,13 @@ body.stale #app {opacity:.6;transition:opacity .8s;}
         </div>
         <div class="tab-panel" id="tab-positions">
           <div class="pos-table-wrap">
-            <div class="tbl-wrap"><table><thead><tr><th>Lado</th><th>Qty</th><th>Entry $</th><th>uPnL</th><th>Liq $</th></tr></thead><tbody id="posBody"><tr><td colspan="5" class="no-data">Sin posición abierta</td></tr>
+            <div class="tbl-wrap"><table><thead><tr><th>Lado</th><th>Qty</th><th class="hide-mobile">Entry $</th><th>uPnL</th><th class="hide-mobile">Liq $</th></tr></thead><tbody id="posBody"><tr><td colspan="5" class="no-data">Sin posición abierta</td></tr>
 </tbody></table></div>
           </div>
         </div>
         <div class="tab-panel" id="tab-fills">
           <div class="fills-hd"><span>Últimos Fills</span><span class="fills-cnt" id="fillCnt">0</span></div>
-          <div class="tbl-wrap"><table><thead><tr><th>Hora</th><th>Lado</th><th>Rol</th><th class="tr">PnL</th><th>Price</th><th>R</th></tr></thead><tbody id="fillBody"><tr><td colspan="6" class="no-data">Sin historial</td></tr>
+          <div class="tbl-wrap"><table><thead><tr><th>Hora</th><th>Lado</th><th class="hide-mobile">Rol</th><th class="tr">PnL</th><th class="hide-mobile">Price</th><th class="hide-mobile">R</th></tr></thead><tbody id="fillBody"><tr><td colspan="6" class="no-data">Sin historial</td></tr>
 </tbody></table></div>
           <div class="fills-pg">
             <button class="btn" onclick="fillsPrev()">◀</button>
