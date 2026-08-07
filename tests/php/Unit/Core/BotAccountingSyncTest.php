@@ -54,7 +54,7 @@ class BotAccountingSyncTest extends TestCase
         $this->pdo->exec("INSERT INTO grid_orders (symbol, grid_role, status) VALUES ('ETHUSDT', 'ENTRY', 'OPEN')");
     }
 
-    public function testSyncWithNoPnlRecordsZeroAndInsertsSnapshot(): void
+    public function testSyncWithNoPnlKeepsNavAtOne(): void
     {
         Accounting::init($this->pdo, 100000.0);
         $this->api->balanceVal = 1000.0;
@@ -65,14 +65,31 @@ class BotAccountingSyncTest extends TestCase
         $this->assertSame(0.0, $result['realized_pnl']);
         $this->assertSame(0.0, $result['unrealized_pnl']);
         $this->assertSame(0.0, $result['bot_pnl_total']);
-        $this->assertSame(1000.0, $result['real_balance']);
+        $this->assertEqualsWithDelta(100000.0, $result['real_balance'], 0.000001);
         $this->assertSame(0.0, $result['wallet_held']);
-        $this->assertSame(0.01, $result['nav']); // 1000 / 100000 totalUnits
+        $this->assertEqualsWithDelta(1.0, $result['nav'], 0.000001); // 100000 / 100000 totalUnits
         $row = $this->pdo->query('SELECT * FROM nav_snapshots ORDER BY id DESC LIMIT 1')->fetch();
         $this->assertSame(0.0, (float)$row['bot_pnl_total']);
+        $this->assertEqualsWithDelta(100000.0, (float)$row['total_equity'], 0.000001);
     }
 
-    public function testSyncComputesRealizedUnrealizedAndBalance(): void
+    public function testIgnoredDespiteHugeAccountBalanceKeepsNavAtOne(): void
+    {
+        Accounting::init($this->pdo, 100000.0);
+        // El saldo de la cuenta demo (testnet) está inflado de forma virtual.
+        // El NAV no debe usar ese saldo: solo capital desplegado + PnL.
+        $this->api->balanceVal = 1673409.20;
+
+        $result = BotAccountingSync::sync($this->pdo, $this->api, 'ETHUSDT');
+
+        $this->assertEqualsWithDelta(100000.0, $result['real_balance'], 0.000001);
+        $this->assertEqualsWithDelta(1.0, $result['nav'], 0.000001);
+        $row = $this->pdo->query('SELECT * FROM nav_snapshots ORDER BY id DESC LIMIT 1')->fetch();
+        $this->assertEqualsWithDelta(100000.0, (float)$row['total_equity'], 0.000001);
+        $this->assertEqualsWithDelta(1.0, (float)$row['nav'], 0.000001);
+    }
+
+    public function testSyncComputesRealizedUnrealizedAndNavFromDeployedCapital(): void
     {
         Accounting::init($this->pdo, 100000.0);
         $this->seedExit('ETHUSDT', 10.1987);
@@ -90,11 +107,11 @@ class BotAccountingSyncTest extends TestCase
         $this->assertEqualsWithDelta(6.6987, $result['realized_pnl'], 0.000001);
         $this->assertSame(-0.7198, $result['unrealized_pnl']);
         $this->assertSame(5.9789, $result['bot_pnl_total']);
-        $this->assertSame(1673409.20, $result['real_balance']);
-        $this->assertEqualsWithDelta(16.734092, $result['nav'], 0.000001);
+        $this->assertEqualsWithDelta(100005.9789, $result['real_balance'], 0.000001);
+        $this->assertEqualsWithDelta(1.000059789, $result['nav'], 0.000001);
         $row = $this->pdo->query('SELECT * FROM nav_snapshots ORDER BY id DESC LIMIT 1')->fetch();
         $this->assertEqualsWithDelta(5.9789, (float)$row['bot_pnl_total'], 0.000001);
-        $this->assertEqualsWithDelta(16.734092, (float)$row['nav'], 0.000001);
+        $this->assertEqualsWithDelta(1.000059789, (float)$row['nav'], 0.000001);
     }
 
     public function testSyncIgnoresApiFailureForBalanceAndPositions(): void
@@ -116,25 +133,30 @@ class BotAccountingSyncTest extends TestCase
         $result = BotAccountingSync::sync($this->pdo, $throwing, 'ETHUSDT');
 
         $this->assertTrue($result['ok']);
-        $this->assertSame(0.0, $result['real_balance']);
+        $this->assertEqualsWithDelta(100000.0, $result['real_balance'], 0.000001);
         $this->assertSame(0.0, $result['unrealized_pnl']);
         $this->assertSame(0.0, $result['bot_pnl_total']);
         $row = $this->pdo->query('SELECT * FROM nav_snapshots ORDER BY id DESC LIMIT 1')->fetch();
         $this->assertNotFalse($row);
         $this->assertSame(0.0, (float)$row['bot_pnl_total']);
+        $this->assertEqualsWithDelta(1.0, (float)$row['nav'], 0.000001);
     }
 
-    public function testSyncRespectsWalletHeld(): void
+    public function testSyncCountsWalletHeldWithinEquityWithoutDoubleCounting(): void
     {
         Accounting::init($this->pdo, 100000.0);
+        // Depósito de 500 USDT: se emiten unidades (totalUnits 100500) y queda en wallet sin desplegar.
         $this->pdo->prepare("INSERT INTO deposits (user_id, network, token, tx_hash, block_number, amount, status, deployed)
             VALUES (1, 'eth', 'USDT', '0xaa', 1, 500.0, 'credited', 0)")
             ->execute();
+        $this->pdo->prepare('INSERT INTO shares (user_id, units) VALUES (1, 500.0)')->execute();
         $this->api->balanceVal = 900.0;
 
         $result = BotAccountingSync::sync($this->pdo, $this->api, 'ETHUSDT');
 
         $this->assertSame(500.0, $result['wallet_held']);
-        $this->assertEqualsWithDelta(0.014, $result['nav'], 0.000001); // (900+500)/100000
+        // Equity = totalUnits (100500) + PnL(0); el monto en wallet NO se suma otra vez.
+        $this->assertEqualsWithDelta(100500.0, $result['real_balance'], 0.000001);
+        $this->assertEqualsWithDelta(1.0, $result['nav'], 0.000001);
     }
 }

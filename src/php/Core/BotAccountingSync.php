@@ -25,34 +25,28 @@ class BotAccountingSync
         // 3. Total bot PnL
         $botPnlTotal = $realizedPnl + $unrealizedPnl;
 
-        // 4. Get real balance from Bybit (wallet balance for the trading symbol's quote currency)
-        $realBalance = self::getRealBalance($api);
-
         // 5. Get wallet held (credited but not deployed)
         $walletHeld = Accounting::walletHeld($pdo);
 
-        // 6. Update NAV
-        Accounting::updateNav($pdo, $realBalance, $walletHeld, $botPnlTotal);
+        // 6. Equity = capital desplegado (unidades) + PnL acumulado.
+        //    NO se usa el saldo total de la cuenta exchange: en demo/testnet puede
+        //    estar inflado con saldo virtual y dispararía el NAV a valores absurdos.
+        $deployedCapital = Accounting::totalUnits($pdo);
+        $equity = $deployedCapital + $botPnlTotal;
+
+        // 7. Update NAV. El monto en wallet ya está reconocido dentro de totalUnits
+        //    (se emiten unidades al acreditar el depósito), así que no se vuelve a sumar.
+        Accounting::updateNav($pdo, $equity, 0.0, $botPnlTotal);
 
         return [
             'ok' => true,
             'realized_pnl' => $realizedPnl,
             'unrealized_pnl' => $unrealizedPnl,
             'bot_pnl_total' => $botPnlTotal,
-            'real_balance' => $realBalance,
+            'real_balance' => $equity,
             'wallet_held' => $walletHeld,
             'nav' => Accounting::currentNav($pdo),
         ];
-    }
-
-    private static function getRealBalance(\BinanceBot\Exchange\BybitFutures $api): float
-    {
-        try {
-            return (float)$api->balance();
-        } catch (\Throwable $e) {
-            error_log('[BotAccountingSync] getRealBalance: ' . $e->getMessage());
-            return 0.0;
-        }
     }
 
     private static function getUnrealizedPnl(\BinanceBot\Exchange\BybitFutures $api, string $symbol): float
