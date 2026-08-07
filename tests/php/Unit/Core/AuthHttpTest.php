@@ -50,4 +50,26 @@ class AuthHttpTest extends TestCase
         $out = AuthHttp::handle($this->pdo, $session, [], $post, '1.2.3.4');
         $this->assertSame('Usuario o contraseña incorrectos', $out['error']);
     }
+
+    public function testAdminLoginRedirectsToDashboard(): void
+    {
+        $this->pdo->prepare("INSERT INTO users (username, email, password_hash, role, status) VALUES (?, ?, ?, 'admin', 'active')")
+            ->execute(['boss', 'boss@e.com', password_hash('secreto123', PASSWORD_BCRYPT)]);
+        $session = [];
+        $post = ['action' => 'login', 'username' => 'boss', 'password' => 'secreto123', 'csrf' => Csrf::token($session)];
+        $out = AuthHttp::handle($this->pdo, $session, [], $post, '1.2.3.4');
+        $this->assertSame('src/php/index.php', $out['redirect']);
+        $this->assertSame('admin', $session['role']);
+    }
+
+    public function testInvestorLoginRedirectsToPanel(): void
+    {
+        $this->pdo->prepare("INSERT INTO users (username, email, password_hash, role, status) VALUES (?, ?, ?, 'investor', 'active')")
+            ->execute(['inversor', 'inv@e.com', password_hash('secreto123', PASSWORD_BCRYPT)]);
+        $session = [];
+        $post = ['action' => 'login', 'username' => 'inversor', 'password' => 'secreto123', 'csrf' => Csrf::token($session)];
+        $out = AuthHttp::handle($this->pdo, $session, [], $post, '1.2.3.4');
+        $this->assertSame('panel.php', $out['redirect']);
+        $this->assertSame('investor', $session['role']);
+    }
 }

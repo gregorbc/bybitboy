@@ -35,7 +35,8 @@ class AuthHttp
                 $session['user_id'] = (int)$user['id'];
                 $session['username'] = (string)$user['username'];
                 $session['role'] = (string)$user['role'];
-                return ['redirect' => 'panel.php', 'view' => 'login', 'error' => null];
+                $redirect = ($user['role'] === 'admin') ? 'src/php/index.php' : 'panel.php';
+                return ['redirect' => $redirect, 'view' => 'login', 'error' => null];
             }
             return ['redirect' => null, 'error' => 'Usuario o contraseña incorrectos', 'view' => 'login'];
         }

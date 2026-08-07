@@ -40,7 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user_id'] = (int)$user['id'];
                 $_SESSION['username'] = (string)$user['username'];
                 $_SESSION['role'] = (string)$user['role'];
-                header('Location: panel.php');
+                $redirect = ($user['role'] === 'admin') ? 'index.php' : 'panel.php';
+                header('Location: ' . $redirect);
                 exit;
             }
             $error = 'Usuario o contraseña incorrectos';
