@@ -666,12 +666,15 @@ class GridManager {
         $balance = $knownBalance ?? $this->api->balance();
         if ($balance <= 0) $balance = G_CAPITAL;
         $effectiveCap = min($balance, G_CAPITAL) * G_MARGIN_SAFETY;
+        $spacing  = (float)(isset($this->cfg['spacing_pct']) ? $this->cfg['spacing_pct'] : G_BASE_SPACING);
+        $shortLev = (int)(isset($this->cfg['short_levels']) ? $this->cfg['short_levels'] : G_SHORT_LEVELS);
+        $budgetPrice = $price * (1 + $spacing * max(0, $shortLev));
         $marginPerLevel = $effectiveCap / max(1, $levels);
-        $qty = ($marginPerLevel * G_LEVERAGE) / $price;
+        $qty = ($marginPerLevel * G_LEVERAGE) / $budgetPrice;
         $maxQty = ($effectiveCap * 0.12 * G_LEVERAGE) / $price;
         if ($qty > $maxQty) $qty = $maxQty;
         
-        $qty = max($f['mn'], $f['step'], round($qty / $f['step']) * $f['step']);
+        $qty = max($f['mn'], $f['step'], floor($qty / $f['step']) * $f['step']);
         $notional = $qty * $price;
         if ($notional < G_MIN_NOTIONAL) {
             $qty = G_MIN_NOTIONAL / $price;

@@ -536,6 +536,42 @@ public function testCalcPnlBuyExit(): void
         $this->assertFalse($gridBuilt->getValue($manager), 'orders must be skipped when margin exceeds effectiveCap');
     }
 
+    public function testCalcQtyBudgetsWithHighestSellLevelPrice(): void
+    {
+        $api = \Mockery::mock(BybitFutures::class);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $ref = new \ReflectionClass(GridManager::class);
+        $cfgProp = $ref->getProperty('cfg');
+        $cfgProp->setAccessible(true);
+        $cfgProp->setValue($manager, [
+            'id' => 1, 'symbol' => 'ETHUSDT',
+            'spacing_pct' => 0.0018, 'short_levels' => 7,
+        ]);
+
+        $price = 1910.0;
+        $f = ['mn' => 0.01, 'step' => 0.01, 'pp' => 2];
+        $method = $ref->getMethod('calcQty');
+        $method->setAccessible(true);
+        $qty = $method->invoke($manager, $price, 14, $f, 100.0);
+
+        $effectiveCap = min(100.0, G_CAPITAL) * G_MARGIN_SAFETY;
+        $marginPerLevel = $effectiveCap / 14;
+        $budgetPrice = $price * (1 + 0.0018 * 7);
+        $maxQty = ($marginPerLevel * G_LEVERAGE) / $budgetPrice;
+
+        // The highest SELL level (L7) must fit within its per-level margin budget,
+        // otherwise buildGrid() skips it and the grid ends 13/14 (margen insuficiente).
+        $this->assertLessThanOrEqual($maxQty, $qty,
+            'qty must not exceed the margin budget of the highest SELL level');
+        $this->assertGreaterThanOrEqual($f['mn'], $qty, 'qty must respect the exchange minimum');
+        $steps = $qty / $f['step'];
+        $this->assertLessThanOrEqual(1e-6, abs($steps - round($steps)),
+            'qty must be a multiple of qtyStep');
+    }
+
     public function testComputeBlendWeightsBoostsHeuristicOnLowConfidence(): void
     {
         $api = new BybitFutures('test_key', 'test_secret', true);
@@ -605,6 +641,9 @@ namespace
     }
     if (!defined('G_MARGIN_SAFETY')) {
         define('G_MARGIN_SAFETY', 0.40);
+    }
+    if (!defined('G_MIN_NOTIONAL')) {
+        define('G_MIN_NOTIONAL', 5.0);
     }
     if (!defined('G_COMPOUND_THR')) {
         define('G_COMPOUND_THR', 1.5);
