@@ -22,6 +22,8 @@ CSS Grid con áreas con nombre + reestructura del DOM. Sin duplicar IDs (evita s
 
 - Nuevo contenedor `#heroCol` con las cards importantes (movidas del DOM actual, sin tocar su JS interno):
   - `kpi-grid`
+  - `upnl-float` (uPnL de posición)
+  - `grid-status-bar` (estado del grid y ciclo)
   - Card "Señal IA"
   - Card "Estrategia & Estatus" (añadida en el plan anterior)
   - Card "Wallet"

@@ -777,15 +777,15 @@ Note: `toggleSpeed` is local polling speed (no server call) so it stays public. 
 
 - [ ] **Step 3: Make `cmd()` send the token**
 
-In `src/php/index.php`, replace the `cmd()` function:
+In `src/php/index.php`, replace the `cmd()` function (note: `checkToken` in `Helpers.php` reads `$_GET['token']`, so the token goes in the query string, not the POST body):
 
 ```js
 function cmd(action){
   const labels={stop:'¿Detener el bot?',force_ai:'¿Forzar evaluación IA?',reset_grid:'¿Reconstruir grilla?'};
   if(!confirm(labels[action]||'¿Confirmar?')) return;
   const fd=new FormData();fd.append('_control','1');fd.append('action',action);
-  fd.append('token','<?= $CTRL_TOKEN ?>');
-  fetch(API,{method:'POST',body:fd}).then(r=>r.json()).then(d=>{if(d.ok)toast('Comando enviado',action,'info');else alert(d.msg);}).catch(()=>alert('Error'));
+  const qs = '<?= $CTRL_TOKEN ?>' ? '?token=' + encodeURIComponent('<?= $CTRL_TOKEN ?>') : '';
+  fetch(API + qs,{method:'POST',body:fd}).then(r=>r.json()).then(d=>{if(d.ok)toast('Comando enviado',action,'info');else alert(d.msg);}).catch(()=>alert('Error'));
 }
 ```
 
