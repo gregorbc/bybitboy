@@ -72,14 +72,16 @@ footer strong { color: var(--neon); }
   #hold .cell, #next .cell { width: 12px; height: 12px; }
   .side.controls { display: none; }
 
-  /* Tablero 2:1 (20 rows / 10 cols) que cabe sin scroll vertical (fallback vh antes de dvh) */
+  /* Tablero 2:1 (20 rows / 10 cols). Tamano de celda: reserva 400px de
+     chrome fijo (titulo + HUD + botones tactiles + footer) y divide el
+     resto entre las 20 filas para que todo entre en pantalla sin scroll. */
   .board-wrap { border-width: 2px; }
   #board .cell { width: 9vw; height: 9vw; max-width: 30px; max-height: 30px; }
   @supports (width: clamp(1px, 1vw, 100px)) {
-    #board .cell { width: clamp(16px, min(9vw, 4.2vh), 30px); height: clamp(16px, min(9vw, 4.2vh), 30px); }
+    #board .cell { width: clamp(12px, min(9vw, calc((100vh - 400px) / 20)), 30px); height: clamp(12px, min(9vw, calc((100vh - 400px) / 20)), 30px); }
   }
   @supports (width: clamp(1px, 1vw, 100px)) and (height: 1dvh) {
-    #board .cell { width: clamp(16px, min(9vw, 4.2dvh), 30px); height: clamp(16px, min(9vw, 4.2dvh), 30px); }
+    #board .cell { width: clamp(12px, min(9vw, calc((100dvh - 400px) / 20)), 30px); height: clamp(12px, min(9vw, calc((100dvh - 400px) / 20)), 30px); }
   }
   .touch-controls {
     display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 94vw;
@@ -87,7 +89,7 @@ footer strong { color: var(--neon); }
   }
   .touch-row { display: flex; gap: 6px; }
   .tc-btn {
-    flex: 1; padding: 14px 6px; font-size: 1rem; cursor: pointer; color: var(--text);
+    flex: 1; padding: 12px 6px; font-size: 1rem; cursor: pointer; color: var(--text);
     background: #1c2548; border: 1px solid var(--neon); border-radius: 8px;
     letter-spacing: 0.04em; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   }
