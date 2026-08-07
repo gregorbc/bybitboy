@@ -7,6 +7,8 @@
  * – Historial de entrenamientos
  */
 error_reporting(0); ini_set('display_errors', '0');
+require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+envLoadOnce();
 define('PUBHTML',  __DIR__);
 define('WEIGHTS',  PUBHTML . '/ml_weights_v2.json');
 define('VOL_WEIGHTS', PUBHTML . '/volatility_weights_ridge.json');
@@ -15,7 +17,7 @@ define('TRAIN_VOL_PY', PUBHTML . '/train_volatility_ridge.py');
 define('TRAIN_LOG', PUBHTML . '/trainer_history.json');
 define('PID_FILE', PUBHTML . '/trainer.pid');
 define('OUT_FILE', PUBHTML . '/trainer_out.txt');
-define('EXPORT_TOKEN', getenv('SECURITY_TOKEN') ?: 'g273f123');
+define('EXPORT_TOKEN', getenv('SECURITY_TOKEN') ?: '');
 
 /* ── Helpers de sanitización ── */
 function sanitizeInput($input, $type = 'string') {

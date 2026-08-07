@@ -14,33 +14,41 @@
  */
 error_reporting(0);
 ini_set('display_errors', '0');
-header('Access-Control-Allow-Origin: *');
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-cache, no-store, must-revalidate');
 header('X-Bot-Version: 15.4');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 
-// Cargar configuración: private/ primero (fuera de HTTP), luego public_html/
-$_cfgOpts = [dirname(__DIR__) . '/private/config.json', __DIR__ . '/config.json'];
-$configPath = null;
-foreach ($_cfgOpts as $_opt) { if (@file_exists($_opt)) { $configPath = $_opt; break; } }
-if (!$configPath) {
-    http_response_code(500);
-    echo json_encode(['error' => 'config.json no encontrado. Buscado en: ' . implode(', ', $_cfgOpts)]);
-    exit;
+// ─── Autoload (loads Helpers.php via composer files directive) ───
+$autoloadPaths = [
+    dirname(__DIR__, 2) . '/vendor/autoload.php',
+    __DIR__ . '/../../../vendor/autoload.php',
+];
+foreach ($autoloadPaths as $_al) {
+    if (file_exists($_al)) { require_once $_al; break; }
 }
 
-$cfg = json_decode(file_get_contents($configPath), true);
-if (!is_array($cfg)) $cfg = [];
+// ─── Helpers (standalone fallback when autoloader unavailable) ───
+if (!function_exists('sanitize')) {
+    require_once __DIR__ . '/Helpers.php';
+}
+
+// Cargar configuración: private/ primero (fuera de HTTP), luego public_html/
+if (!file_exists(privateConfigPath())) {
+    http_response_code(500);
+    echo json_encode(['error' => 'config.json no encontrado. Buscado en: ' . privateConfigPath()]);
+    exit;
+}
+$cfg = botCfg();
 
 // Rutas y credenciales
 $mc          = $cfg['mysql']  ?? [];
 $logFile     = $cfg['paths']['log'] ?? __DIR__ . '/bot.log';
-$pidFile     = $cfg['paths']['pid'] ?? (dirname($configPath) . '/grid_bot.pid');
-$ctrlFile    = $cfg['paths']['ctrl'] ?? (dirname($configPath) . '/grid_control.json');
-$confHist    = $cfg['paths']['conf_hist'] ?? (dirname($configPath) . '/grid_confidence.json');
-$statusFile  = $cfg['paths']['status'] ?? (dirname($configPath) . '/grid_status.json');
+$pidFile     = $cfg['paths']['pid'] ?? (dirname(privateConfigPath()) . '/grid_bot.pid');
+$ctrlFile    = $cfg['paths']['ctrl'] ?? (dirname(privateConfigPath()) . '/grid_control.json');
+$confHist    = $cfg['paths']['conf_hist'] ?? (dirname(privateConfigPath()) . '/grid_confidence.json');
+$statusFile  = $cfg['paths']['status'] ?? (dirname(privateConfigPath()) . '/grid_status.json');
 $mlWeightsFile = $cfg['ml']['weights_file'] ?? (__DIR__ . '/ml_weights_v2.json');
 $bybitKey    = $cfg['bybit']['api_key']    ?? getenv('BYBIT_API_KEY') ?: '';
 $bybitSecret = $cfg['bybit']['api_secret'] ?? getenv('BYBIT_API_SECRET') ?: '';
@@ -54,20 +62,6 @@ $bybitBase   = match ($bybitEnv) {
 };
 $pubBase     = $bybitBase;
 $requiredToken = $cfg['security_token'] ?? getenv('SECURITY_TOKEN') ?: '';
-
-// ─── Autoload (loads Helpers.php via composer files directive) ───
-$autoloadPaths = [
-    __DIR__ . '/../../../vendor/autoload.php',
-    dirname(__DIR__, 2) . '/vendor/autoload.php',
-];
-foreach ($autoloadPaths as $_al) {
-    if (file_exists($_al)) { require_once $_al; break; }
-}
-
-// ─── Helpers (standalone fallback when autoloader unavailable) ───
-if (!function_exists('sanitize')) {
-    require_once __DIR__ . '/Helpers.php';
-}
 
 // ═══════════════════════════════════════════════════════
 // 1. TICKER (sin token)

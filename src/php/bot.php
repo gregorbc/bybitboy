@@ -35,6 +35,7 @@ ini_set('display_errors', '0');
 // 1. CONFIGURACIÓN
 // ════════════════════════════════════════════════════════
 $_cfgPaths = [
+    privateConfigPath(),
     dirname(__DIR__) . '/private/config.json',
     __DIR__ . '/config.json',
     '/home/erika/config/config.json',
@@ -45,7 +46,10 @@ if (!$cfgFile) {
     fwrite(STDERR, "ERROR: config.json no encontrado.\nBuscado en:\n  " . implode("\n  ", $_cfgPaths) . "\n");
     exit(1);
 }
-$cfg = json_decode(file_get_contents($cfgFile), true);
+$cfg = botCfg();
+if (empty($cfg) && $cfgFile && $cfgFile !== privateConfigPath()) {
+    $cfg = json_decode(file_get_contents($cfgFile), true) ?: [];
+}
 if (!is_array($cfg)) { fwrite(STDERR, "ERROR: config.json inválido\n"); exit(1); }
 
 function cv($c, $k, $d = null) {

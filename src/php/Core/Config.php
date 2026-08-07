@@ -36,7 +36,7 @@ class Config
         $this->loadEnv();
 
         $paths = [
-            dirname(__DIR__, 2) . '/private/config.json',
+            dirname(__DIR__, 4) . '/private/config.json',
             dirname(__DIR__) . '/config.json',
             '/home/erika/config/config.json',
         ];

@@ -26,7 +26,7 @@ class ConfigLoader {
      * Carga variables de entorno desde archivo .env si existe
      */
     private function loadEnv() {
-        $envFile = dirname(__DIR__) . '/.env';
+        $envFile = dirname(__DIR__, 2) . '/.env';
         
         if (file_exists($envFile)) {
             $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -63,7 +63,7 @@ class ConfigLoader {
      * Las variables de entorno tienen prioridad
      */
     private function loadConfig() {
-        $configFile = dirname(__DIR__) . '/config.json';
+        $configFile = dirname(__DIR__, 3) . '/private/config.json';
         
         if (file_exists($configFile)) {
             $this->config = json_decode(file_get_contents($configFile), true);

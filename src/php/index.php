@@ -10,11 +10,8 @@
  *  - Fills: caché WebSocket, carga inicial, paginación corregida
  */
 error_reporting(0); ini_set('display_errors', '0');
-// Buscar config.json: primero en private/ (fuera de HTTP), luego en public_html/
-$_cfgOpts = [dirname(__DIR__) . '/private/config.json', __DIR__ . '/config.json'];
-$cfgFile = null;
-foreach ($_cfgOpts as $_opt) { if (@file_exists($_opt)) { $cfgFile = $_opt; break; } }
-$cfg = ($cfgFile && file_exists($cfgFile)) ? json_decode(file_get_contents($cfgFile), true) : [];
+require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+$cfg = botCfg();
 function trimRecursive(array $arr): array {
     $out = [];
     foreach ($arr as $k => $v) {

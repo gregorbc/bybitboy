@@ -18,7 +18,18 @@ use Ratchet\Http\HttpServer;
 use Ratchet\WebSocket\WsServer;
 require __DIR__ . '/vendor/autoload.php';
 
-$cfgFile = '/home/erika/config/config.json';
+foreach ([dirname(__DIR__, 2) . '/.env', dirname(__DIR__, 3) . '/.env'] as $envFile) {
+    if (!is_file($envFile)) continue;
+    foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#' || !str_contains($line, '=')) continue;
+        [$k, $v] = explode('=', $line, 2);
+        $k = trim($k);
+        if (getenv($k) === false) putenv($k . '=' . trim($v, '"\' '));
+    }
+}
+
+$cfgFile = dirname(__DIR__, 3) . '/private/config.json';
 if (!file_exists($cfgFile)) $cfgFile = __DIR__ . '/config.json';
 if (!file_exists($cfgFile)) { fwrite(STDERR, "ERROR: config.json no encontrado.\n"); exit(1); }
 $cfg = json_decode(file_get_contents($cfgFile), true);
@@ -30,9 +41,10 @@ $statusFile = $cfg['paths']['status'] ?? (dirname($cfgFile) . '/grid_status.json
 $pidFile    = $cfg['paths']['pid'] ?? (dirname($cfgFile) . '/grid_bot.pid');
 $confHist   = $cfg['paths']['conf_hist'] ?? (dirname($cfgFile) . '/grid_confidence.json');
 $dbConfig   = $cfg['mysql'] ?? [];
-$wsToken    = $cfg['ws_token'] ?? '';
-$bybitKey    = $cfg['bybit']['api_key']    ?? '';
-$bybitSecret = $cfg['bybit']['api_secret'] ?? '';
+$dbConfig['password'] = getenv('MYSQL_PASSWORD') ?: ($dbConfig['password'] ?? '');
+$wsToken    = getenv('WS_TOKEN') ?: ($cfg['ws_token'] ?? '');
+$bybitKey    = getenv('BYBIT_API_KEY')    ?: ($cfg['bybit']['api_key']    ?? '');
+$bybitSecret = getenv('BYBIT_API_SECRET') ?: ($cfg['bybit']['api_secret'] ?? '');
 $bybitTest   = (bool)($cfg['bybit']['testnet'] ?? false);
 $bybitEnv    = (string)($cfg['bybit']['environment'] ?? ($bybitTest ? 'demo' : 'mainnet'));
 $bybitBase   = match ($bybitEnv) {
