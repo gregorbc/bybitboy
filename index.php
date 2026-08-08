@@ -44,7 +44,9 @@ a{color:var(--accent);text-decoration:none}
 .btn-outline:hover{border-color:var(--accent);color:var(--accent)}
 .stats-dash{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px}
 .stats-dash h3{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px}
-.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:767px){.stats-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.stats-grid{grid-template-columns:1fr}}
 .stat{border-top:2px solid var(--border)}
 .stat-lbl{font-size:11px;color:var(--muted);margin:8px 0 4px}
 .stat-val{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600}
@@ -108,6 +110,7 @@ a{color:var(--accent);text-decoration:none}
     <div id="ldChg" class="price-chg-up">--</div>
     <div class="stats-grid" style="margin-top:18px">
       <div class="stat"><div class="stat-lbl">PnL de hoy</div><div class="stat-val" id="ldPnl">--</div></div>
+      <div class="stat"><div class="stat-lbl">PnL total</div><div class="stat-val" id="ldPnlTotal">--</div></div>
       <div class="stat"><div class="stat-lbl">Win rate</div><div class="stat-val accent" id="ldWin">--</div></div>
       <div class="stat"><div class="stat-lbl">Fills totales</div><div class="stat-val" id="ldFills">--</div></div>
       <div class="stat"><div class="stat-lbl">Órdenes abiertas</div><div class="stat-val" id="ldOpen">--</div></div>
@@ -162,6 +165,7 @@ async function loadStats(){
     if(!d || !d.ok) throw new Error('bad response');
     const price = parseFloat(d.price||0);
     const pnl = parseFloat(d.pnl_today||0);
+    const pnlTotal = parseFloat(d.pnl_total||0);
     document.getElementById('ldPriceVal').textContent = fmt2(price);
     const chgEl = document.getElementById('ldChg');
     chgEl.textContent = 'ETH/USDT · Bybit';
@@ -169,6 +173,9 @@ async function loadStats(){
     const pnlEl = document.getElementById('ldPnl');
     pnlEl.textContent = (pnl>=0?'+':'')+fmt2(pnl)+' $';
     pnlEl.className = 'stat-val '+(pnl>=0?'up':'down');
+    const pnlTotalEl = document.getElementById('ldPnlTotal');
+    pnlTotalEl.textContent = (pnlTotal>=0?'+':'')+fmt2(pnlTotal)+' $';
+    pnlTotalEl.className = 'stat-val '+(pnlTotal>=0?'up':'down');
     document.getElementById('ldWin').textContent = fmt(d.win_rate)+'%';
     document.getElementById('ldFills').textContent = fmt(d.fills_total);
     document.getElementById('ldOpen').textContent = fmt(d.open_orders);
