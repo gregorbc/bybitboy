@@ -141,6 +141,7 @@ PHP;
         $this->assertTrue($data['ok']);
         $this->assertArrayHasKey('price', $data);
         $this->assertArrayHasKey('pnl_today', $data);
+        $this->assertArrayHasKey('pnl_total', $data);
         $this->assertArrayHasKey('win_rate', $data);
         $this->assertArrayHasKey('fills_total', $data);
         $this->assertArrayHasKey('open_orders', $data);
@@ -155,6 +156,12 @@ PHP;
         $this->assertIsFloat($data['win_rate']);
         $this->assertIsInt($data['fills_total']);
         $this->assertIsInt($data['open_orders']);
+    }
+
+    public function testLandingStatsPnlTotalIsNumeric(): void
+    {
+        $data = $this->executeEndpoint(['_landing_stats' => '1']);
+        $this->assertIsFloat($data['pnl_total']);
     }
 
     public function testDataEndpointsRejectAnonymous(): void
