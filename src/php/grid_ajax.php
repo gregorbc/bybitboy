@@ -127,6 +127,7 @@ if (isset($_GET['_status'])) {
 
             $data['pnl_daily']  = $db->query("SELECT DATE(filled_at) d, ROUND(SUM(pnl_usd),6) p FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED' AND filled_at>=DATE_SUB(NOW(),INTERVAL 14 DAY) GROUP BY DATE(filled_at) ORDER BY d ASC")->fetchAll();
             $data['pnl_hourly'] = $db->query("SELECT DATE(filled_at) d,HOUR(filled_at) h,ROUND(SUM(pnl_usd),6) p FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED' AND filled_at>=DATE_SUB(NOW(),INTERVAL 48 HOUR) GROUP BY DATE(filled_at),HOUR(filled_at) ORDER BY d,h")->fetchAll();
+            $proj = projection30d($db, 'ETHUSDT');
 
             // Win rate (evitar división por cero)
             $totalFills = (int)($r2['c'] ?? 0);
@@ -151,6 +152,8 @@ if (isset($_GET['_status'])) {
                 'pnl_today'      => round((float)($r1['p'] ?? 0), 6),
                 'fills_total'    => (int)($r2['c'] ?? 0),
                 'pnl_total'      => round((float)($r2['p'] ?? 0), 6),
+                'pnl_proj_30d'   => (float)($proj['proj_30d'] ?? 0),
+                'pnl_proj_days'  => (int)($proj['days'] ?? 0),
                 'peak_pnl'       => (float)($pj['peak_pnl'] ?? 0),
                 'recovery_active'=> (bool)($pj['recovery_active'] ?? $cfgRow['recovery_active'] ?? false),
                 'ml_accuracy'    => (float)($st['ml_accuracy'] ?? $cfgRow['ml_accuracy'] ?? 0),
@@ -607,7 +610,8 @@ if (isset($_GET['_health'])) {
 if (isset($_GET['_landing_stats'])) {
     $db = getDB($mc);
     $data = ['ok' => true, 'price' => 0.0, 'pnl_today' => 0.0, 'pnl_total' => 0.0, 'win_rate' => 0.0,
-             'fills_total' => 0, 'open_orders' => 0, 'updated_at' => date('Y-m-d H:i:s')];
+             'fills_total' => 0, 'open_orders' => 0, 'pnl_proj_30d' => 0.0, 'pnl_proj_days' => 0,
+             'updated_at' => date('Y-m-d H:i:s')];
     $st = file_exists($statusFile) ? json_decode(file_get_contents($statusFile), true) : null;
     if ($st && isset($st['pairs']['ETHUSDT']['price'])) {
         $data['price'] = (float)$st['pairs']['ETHUSDT']['price'];
@@ -624,6 +628,10 @@ if (isset($_GET['_landing_stats'])) {
             $data['fills_total'] = $totalFills;
             $data['win_rate']    = $totalFills > 0 ? round(($wins / $totalFills) * 100, 1) : 0.0;
             $data['open_orders'] = (int)$db->query("SELECT COUNT(*) FROM grid_orders WHERE symbol='ETHUSDT' AND status='OPEN'")->fetchColumn();
+
+            $proj = projection30d($db, 'ETHUSDT');
+            $data['pnl_proj_30d'] = $proj['proj_30d'];
+            $data['pnl_proj_days'] = $proj['days'];
         } catch (Exception $e) {}
     }
     header('Content-Type: application/json');

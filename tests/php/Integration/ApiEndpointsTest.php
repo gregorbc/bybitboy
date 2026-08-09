@@ -142,6 +142,8 @@ PHP;
         $this->assertArrayHasKey('price', $data);
         $this->assertArrayHasKey('pnl_today', $data);
         $this->assertArrayHasKey('pnl_total', $data);
+        $this->assertArrayHasKey('pnl_proj_30d', $data);
+        $this->assertArrayHasKey('pnl_proj_days', $data);
         $this->assertArrayHasKey('win_rate', $data);
         $this->assertArrayHasKey('fills_total', $data);
         $this->assertArrayHasKey('open_orders', $data);
@@ -156,12 +158,26 @@ PHP;
         $this->assertIsFloat($data['win_rate']);
         $this->assertIsInt($data['fills_total']);
         $this->assertIsInt($data['open_orders']);
+        $this->assertIsFloat($data['pnl_proj_30d']);
+        $this->assertIsInt($data['pnl_proj_days']);
     }
 
     public function testLandingStatsPnlTotalIsNumeric(): void
     {
         $data = $this->executeEndpoint(['_landing_stats' => '1']);
         $this->assertIsFloat($data['pnl_total']);
+    }
+
+    public function testStatusPairIncludesProjectionFields(): void
+    {
+        $data = $this->executeEndpointAsAdmin(['_status' => '1']);
+        $this->assertIsArray($data);
+        $pair = $data['pairs']['ETHUSDT'] ?? null;
+        $this->assertIsArray($pair);
+        $this->assertArrayHasKey('pnl_proj_30d', $pair);
+        $this->assertArrayHasKey('pnl_proj_days', $pair);
+        $this->assertIsFloat($pair['pnl_proj_30d']);
+        $this->assertIsInt($pair['pnl_proj_days']);
     }
 
     public function testDataEndpointsRejectAnonymous(): void
