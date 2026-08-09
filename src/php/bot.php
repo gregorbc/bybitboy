@@ -34,12 +34,13 @@ ini_set('display_errors', '0');
 // ════════════════════════════════════════════════════════
 // 1. CONFIGURACIÓN
 // ════════════════════════════════════════════════════════
+$_homeCfg = getenv('HOME') ? getenv('HOME') . '/config/config.json' : null;
 $_cfgPaths = [
     privateConfigPath(),
     dirname(__DIR__) . '/private/config.json',
     __DIR__ . '/config.json',
-    '/home/erika/config/config.json',
 ];
+if ($_homeCfg) { $_cfgPaths[] = $_homeCfg; }
 $cfgFile = null;
 foreach ($_cfgPaths as $_p) { if (@file_exists($_p)) { $cfgFile = $_p; break; } }
 if (!$cfgFile) {

@@ -150,6 +150,6 @@
     "conf_hist": "/home/erika/web/binance.gregorbritez.cat/private/grid_confidence.json",
     "ctrl": "/home/erika/web/binance.gregorbritez.cat/private/grid_control.json"
   },
-  "security_token": "g273f123",
-  "ws_token": "g273f123"
+  "security_token": "USE_ENV_VAR",
+  "ws_token": "USE_ENV_VAR"
 }

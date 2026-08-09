@@ -145,9 +145,8 @@ class BybitFutures implements ExchangeInterface
                 $ch = curl_init($src['url']);
                 curl_setopt_array($ch, [
                     CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 12,
-                    CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => 0,
+                    CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2,
                     CURLOPT_USERAGENT      => 'EthGridBot/15.4',
-                    CURLOPT_FOLLOWLOCATION => true,
                     CURLOPT_HTTPHEADER     => ['Accept: application/json'],
                 ]);
                 $resp = curl_exec($ch); $curlErr = curl_error($ch); curl_close($ch);

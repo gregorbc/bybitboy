@@ -43,7 +43,7 @@ $LEVERAGE = (int)($cfg['bot']['leverage']        ?? 100);
 
 if (isset($_GET['export_pnl'])) {
     if (!$IS_ADMIN) { http_response_code(403); exit("Acceso denegado"); }
-    if (!isset($_GET['token']) || $_GET['token'] !== EXPORT_TOKEN) { http_response_code(403); exit("Acceso denegado"); }
+    if (!isset($_GET['token']) || !hash_equals(EXPORT_TOKEN, (string)$_GET['token'])) { http_response_code(403); exit("Acceso denegado"); }
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="pnl_diario_ethusdt_' . date('Y-m-d') . '.csv"');
     header('Cache-Control: no-cache, no-store, must-revalidate');

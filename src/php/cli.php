@@ -2,6 +2,12 @@
 <?php
 declare(strict_types=1);
 
+// Herramienta CLI: rechazar acceso web
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit(1);
+}
+
 require __DIR__ . '/../../vendor/autoload.php';
 
 use BinanceBot\Core\Cli;

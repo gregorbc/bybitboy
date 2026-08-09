@@ -11,6 +11,13 @@
  *  - Conexiones DB persistentes
  *  - Rate limiting de logs y fills
  */
+
+// Daemon CLI: rechazar acceso web (sin autenticación ni side effects)
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit(1);
+}
+
 use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
 use Ratchet\Server\IoServer;
@@ -36,7 +43,7 @@ $cfg = json_decode(file_get_contents($cfgFile), true);
 if (!is_array($cfg)) $cfg = [];
 
 $symbol    = 'ETHUSDT';
-$logFile   = $cfg['paths']['log'] ?? '/home/erika/config/bot.log';
+$logFile   = $cfg['paths']['log'] ?? (dirname($cfgFile) . '/bot.log');
 $statusFile = $cfg['paths']['status'] ?? (dirname($cfgFile) . '/grid_status.json');
 $pidFile    = $cfg['paths']['pid'] ?? (dirname($cfgFile) . '/grid_bot.pid');
 $confHist   = $cfg['paths']['conf_hist'] ?? (dirname($cfgFile) . '/grid_confidence.json');
@@ -219,8 +226,9 @@ class GridWebSocket implements MessageComponentInterface {
         $queryString = $conn->httpRequest->getUri()->getQuery();
         parse_str($queryString, $params);
         $providedToken = $params['token'] ?? '';
-        if (!empty($this->wsToken) && $providedToken !== $this->wsToken) {
-            echo "Conexión rechazada (token inválido): {$conn->resourceId}\n";
+        // Fail-closed: sin token configurado no se aceptan conexiones
+        if ($this->wsToken === '' || !hash_equals($this->wsToken, (string)$providedToken)) {
+            echo "Conexión rechazada (token inválido o no configurado): {$conn->resourceId}\n";
             $conn->close();
             return;
         }

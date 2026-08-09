@@ -35,11 +35,12 @@ class Config
     {
         $this->loadEnv();
 
+        $homeCfg = getenv('HOME') ? getenv('HOME') . '/config/config.json' : null;
         $paths = [
             dirname(__DIR__, 4) . '/private/config.json',
             dirname(__DIR__) . '/config.json',
-            '/home/erika/config/config.json',
         ];
+        if ($homeCfg) { $paths[] = $homeCfg; }
 
         foreach ($paths as $path) {
             if (file_exists($path)) {

@@ -54,7 +54,7 @@ if (!isAdminSession($_SESSION)) {
 
 /* ── Security token (fail-closed) ── */
 $token = $_GET['token'] ?? $_POST['token'] ?? '';
-if ($token !== EXPORT_TOKEN) {
+if (!hash_equals(EXPORT_TOKEN, (string)$token)) {
     http_response_code(403); exit('Acceso denegado');
 }
 

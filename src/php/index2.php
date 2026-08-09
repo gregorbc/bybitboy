@@ -23,6 +23,8 @@ error_reporting(0); ini_set('display_errors', '0');
 
 require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
 
+use BinanceBot\Core\Csrf;
+
 // Cargar configuración desde private/ (fuera del web root) + env
 $cfg = botCfg();
 
@@ -55,7 +57,7 @@ if (!isAdminSession($_SESSION)) {
 
 // Export PnL CSV
 if (isset($_GET['export_pnl'])) {
-    if (!isset($_GET['token']) || $_GET['token'] !== EXPORT_TOKEN) { http_response_code(403); exit("Acceso denegado"); }
+    if (!isset($_GET['token']) || !hash_equals(EXPORT_TOKEN, (string)$_GET['token'])) { http_response_code(403); exit("Acceso denegado"); }
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="pnl_diario_' . $SYMBOL . '_' . date('Y-m-d') . '.csv"');
     header('Cache-Control: no-cache, no-store, must-revalidate');
@@ -94,7 +96,7 @@ if (isset($_GET['export_pnl'])) {
 
 // Export trades CSV
 if (isset($_GET['export_trades'])) {
-    if (!isset($_GET['token']) || $_GET['token'] !== EXPORT_TOKEN) { http_response_code(403); exit("Acceso denegado"); }
+    if (!isset($_GET['token']) || !hash_equals(EXPORT_TOKEN, (string)$_GET['token'])) { http_response_code(403); exit("Acceso denegado"); }
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="trades_' . $SYMBOL . '_' . date('Y-m-d') . '.csv"');
     if (!empty($mc['host'])) {
@@ -118,7 +120,7 @@ if (isset($_GET['export_trades'])) {
 
 // Export config JSON
 if (isset($_GET['export_config'])) {
-    if (!isset($_GET['token']) || $_GET['token'] !== EXPORT_TOKEN) { http_response_code(403); exit("Acceso denegado"); }
+    if (!isset($_GET['token']) || !hash_equals(EXPORT_TOKEN, (string)$_GET['token'])) { http_response_code(403); exit("Acceso denegado"); }
     header('Content-Type: application/json; charset=utf-8');
     header('Content-Disposition: attachment; filename="config_' . $SYMBOL . '_' . date('Y-m-d_H-i-s') . '.json"');
     echo json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -140,13 +142,18 @@ if (isset($_GET['action'])) {
                 echo json_encode($row ?: []);
             } elseif ($action === 'config_update' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 $input = json_decode(file_get_contents('php://input'), true);
-                if ($input) {
+                if ($input && Csrf::verify($_SESSION, $input['csrf'] ?? null)) {
                     $sets = []; $vals = [];
-                    foreach ($input as $k => $v) { $sets[] = "`$k`=?"; $vals[] = $v; }
-                    $vals[] = $SYMBOL;
-                    $db->prepare("UPDATE grid_configs SET " . implode(',', $sets) . " WHERE symbol=?")->execute($vals);
+                    foreach ($input as $k => $v) {
+                        if ($k === 'csrf' || !preg_match('/^[a-z][a-z0-9_]*$/i', (string)$k)) continue;
+                        $sets[] = "`$k`=?"; $vals[] = $v;
+                    }
+                    if ($sets) {
+                        $vals[] = $SYMBOL;
+                        $db->prepare("UPDATE grid_configs SET " . implode(',', $sets) . " WHERE symbol=?")->execute($vals);
+                    }
                     echo json_encode(['ok' => true]);
-                } else { echo json_encode(['ok' => false, 'msg' => 'Invalid JSON']); }
+                } else { echo json_encode(['ok' => false, 'msg' => 'Invalid JSON o CSRF inválido']); }
             } elseif ($action === 'fills') {
                 $offset = (int)($_GET['offset'] ?? 0);
                 $limit = (int)($_GET['limit'] ?? 40);
@@ -183,7 +190,7 @@ if (isset($_GET['action'])) {
                 echo json_encode($rows ?: [$SYMBOL]);
             } elseif ($action === 'switch_symbol' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 $input = json_decode(file_get_contents('php://input'), true);
-                if ($input && isset($input['symbol'])) {
+                if ($input && isset($input['symbol']) && Csrf::verify($_SESSION, $input['csrf'] ?? null)) {
                     $_SESSION['symbol'] = $input['symbol'];
                     echo json_encode(['ok' => true, 'symbol' => $input['symbol']]);
                 } else { echo json_encode(['ok' => false]); }
@@ -206,6 +213,10 @@ if (isset($_GET['action'])) {
                 // Trigger backtest (async)
                 $input = json_decode(file_get_contents('php://input'), true);
                 // In real implementation, this would queue a job
+                if (!Csrf::verify($_SESSION, $input['csrf'] ?? null)) {
+                    echo json_encode(['ok' => false, 'msg' => 'CSRF inválido']);
+                    exit;
+                }
                 echo json_encode(['ok' => true, 'msg' => 'Backtest queued', 'job_id' => uniqid('bt_')]);
             } else {
                 echo json_encode(['error' => 'Unknown action: ' . $action]);
@@ -912,6 +923,7 @@ setInterval(()=>{
 function connectWebSocket() {
     window.dispatchEvent(new CustomEvent('ws:connecting'));
     const token = '<?= EXPORT_TOKEN ?>';
+    const csrfToken = '<?= Csrf::token($_SESSION) ?>';
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${proto}//${location.host}/ws/?token=${token}`;
     ws = new WebSocket(wsUrl);
@@ -1255,6 +1267,7 @@ function saveConfig() {
     const inputs = body.querySelectorAll('input');
     const data = {};
     inputs.forEach(i => { data[i.name] = i.type === 'checkbox' ? i.checked : (i.type === 'number' ? parseFloat(i.value) : i.value); });
+    data.csrf = csrfToken;
     fetch(API + '?action=config_update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) })
         .then(r => r.json()).then(d => {
             if (d?.ok) { showToast('Config guardada', 'success'); closeConfig(); }
@@ -1449,6 +1462,7 @@ function saveConfig() {
     const inputs = body.querySelectorAll('input');
     const data = {};
     inputs.forEach(i => { data[i.name] = i.type === 'checkbox' ? i.checked : (i.type === 'number' ? parseFloat(i.value) : i.value); });
+    data.csrf = csrfToken;
     fetch(API + '?action=config_update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) })
         .then(r => r.json()).then(d => {
             if (d?.ok) { showToast('Config guardada', 'success'); closeConfig(); }
