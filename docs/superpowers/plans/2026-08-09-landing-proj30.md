@@ -65,13 +65,13 @@ public function testProjection30dIgnoresTodayAndSumsCompletedDays(): void
     $today = date('Y-m-d');
     $ins = $pdo->prepare("INSERT INTO grid_orders (symbol, grid_role, status, pnl_usd, filled_at) VALUES (?, 'EXIT', 'FILLED', ?, ?)");
     $ins->execute(['ETHUSDT', 1.0, $yesterday . ' 10:00:00']);
+    $ins->execute(['ETHUSDT', 2.0, $yesterday . ' 11:00:00']);   // segundo fill mismo día: suma al día, no crea día nuevo
     $ins->execute(['ETHUSDT', 3.0, $twoDaysAgo . ' 10:00:00']);
-    $ins->execute(['ETHUSDT', 99.0, $today . ' 10:00:00']);       // hoy: excluido
-    $ins->execute(['BTCUSDT', 99.0, $yesterday . ' 10:00:00']);   // otro símbolo: excluido
-    $ins->execute(['ETHUSDT', 99.0, $yesterday . ' 11:00:00']);   // rol distinto: excluido
+    $ins->execute(['ETHUSDT', 99.0, $today . ' 10:00:00']);      // hoy: excluido
+    $ins->execute(['BTCUSDT', 99.0, $yesterday . ' 10:00:00']);  // otro símbolo: excluido
     $r = projection30d($pdo, 'ETHUSDT');
     $this->assertSame(2, $r['days']);
-    $this->assertSame(round((1.0 + 3.0) / 2 * 30, 2), $r['proj_30d']);
+    $this->assertSame(round((1.0 + 2.0 + 3.0) / 2 * 30, 2), $r['proj_30d']); // = 90.0
 }
 
 public function testProjection30dSingleCompletedDay(): void
@@ -118,7 +118,7 @@ function projection30d(PDO $db, string $symbol): array {
 - [ ] **Step 4: Ejecutar los tests para que pasen**
 
 Run: `vendor/bin/phpunit -c phpunit.xml.dist --filter Projection30d tests/php/Unit/HelpersTest.php`
-Expected: PASS (3 tests, 9 assertions)
+Expected: PASS (3 tests, 6 assertions)
 
 - [ ] **Step 5: Lint y suite completa**
 
