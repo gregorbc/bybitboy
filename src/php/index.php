@@ -473,6 +473,11 @@ body.stale #app {opacity:.6;transition:opacity .8s;}
           <div class="kpi-sub" id="kFillsT">-- fills</div>
         </div>
         <div class="kpi neu">
+          <div class="kpi-lbl">Proyección 30d</div>
+          <div class="kpi-val" id="kProj">--</div>
+          <div class="kpi-sub" id="kProjD">--</div>
+        </div>
+        <div class="kpi neu">
           <div class="kpi-lbl">Win Rate</div>
           <div class="kpi-val c-neu" id="kWin">--%</div>
           <div class="kpi-sub" id="kFillsH">-- fills hoy</div>
@@ -854,7 +859,8 @@ function updateUIFromWebSocket(data) {
       $('wRoiT').textContent = (roiT >= 0 ? '+' : '') + roiT.toFixed(2) + '%';
       const daysRunning = Math.max(1, (Date.now() - startTs) / 86400000);
       const avgDaily = daysRunning > 0 ? pnlT / daysRunning : pnlD;
-      $('wProj').innerHTML = fM(avgDaily * 30);
+      const projSrv = parseFloat(data.pair.pnl_proj_30d);
+      $('wProj').innerHTML = fM(!isNaN(projSrv) ? projSrv : (avgDaily * 30));
       const fillsCount = parseInt(($('stFills') || {}).textContent || '0');
       const makerFee = data.makerFee || 0.0001;
       const takerFee = data.takerFee || 0.0006;
@@ -1399,6 +1405,20 @@ function updatePairNumbers(pair){
     if(kpiEl) kpiEl.className='kpi '+(pair.pnl_today>=0?'pos':'neg');
   }
   if(pair.pnl_total!==undefined) $('kPnlT').innerHTML=fM(pair.pnl_total);
+  const projEl = document.getElementById('kProj');
+  const projDEl = document.getElementById('kProjD');
+  if(pair.pnl_proj_30d!==undefined){
+    const proj = parseFloat(pair.pnl_proj_30d)||0;
+    const pd = parseInt(pair.pnl_proj_days||0,10);
+    if(pd>0){
+      projEl.textContent = fM(proj);
+      projEl.className = 'kpi-val '+(proj>=0?'c-pos':'c-neg');
+      projDEl.textContent = 'est. '+pd+' día'+(pd!==1?'s':'');
+    }else{
+      projEl.textContent = '--';
+      projDEl.textContent = 'sin historial';
+    }
+  }
   if(pair.fills_total!==undefined){$('kFillsT').textContent=pair.fills_total+' fills';$('stFills').textContent=pair.fills_total;}
   if($('stOpen')) $('stOpen').textContent=(pair.open_entries||0)+(pair.open_exits||0);
   if($('kOpenO')) $('kOpenO').textContent=((pair.open_entries||0)+(pair.open_exits||0))+' órd. abiertas';
@@ -1420,7 +1440,8 @@ function updatePairNumbers(pair){
       $('wRoiT').textContent = (roiT >= 0 ? '+' : '') + roiT.toFixed(2) + '%';
       const daysRunning = Math.max(1, (Date.now() - startTs) / 86400000);
       const avgDaily = daysRunning > 0 ? pnlT / daysRunning : pnlD;
-      $('wProj').innerHTML = fM(avgDaily * 30);
+      const projSrv = parseFloat(pair.pnl_proj_30d);
+      $('wProj').innerHTML = fM(!isNaN(projSrv) ? projSrv : (avgDaily * 30));
       const fillsCount = parseInt(($('stFills') || {}).textContent || '0');
       const avgNotional = 115;
       const fees = fillsCount * avgNotional * 0.0004;
