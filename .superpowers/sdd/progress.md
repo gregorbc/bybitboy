@@ -148,3 +148,22 @@ FINAL REVIEW (whole branch ec5467c..5f770d6): "With fixes" — 0 Critical, 2 Imp
 FIX SUBAGENT: commit 5f770d6 fix(panel): tab hash persistence, empty-states, user chip. php -l clean; phpunit 225/915 green (baseline working tree 225/915 con BotAccountingSyncTest dirty pre-existente; 1 deprecacion PHPUnit pre-existente; 5 flaky de BotAccountingSyncTest en 1ra corrida por bot live reescribiendo state files, verde en re-run — no regresion).
 PLAN COMPLETO (panels design-system). Tasks 1-2 + fix final review. Commits: f1398e9 (panel.php), 9c5c4b5 (admin.php), 5f770d6 (final fixes) sobre base ec5467c.
 PENDIENTE: E2E admin en browser (login admin live, send directo, gas estimate, approve/reject/deploy/suspend) — requiere credencial admin; sugerir al usuario probarlo manualmente o aportar credencial.
+
+# Landing PnL total plan (2026-08-08) — subagent-driven, master branch
+Task 1: complete (commits 72b3b63..30ec07d, review clean). Minor: pnl_total numeric test duplicates pattern from existing test (brief-mandated, acceptable).
+Task 2: complete (commits 30ec07d..c5a86d3, review clean). Minor: test count 237 vs brief's 236 (Task 1's merged test), pre-existing warning noted.
+Task 3 (whole-branch review): complete (commits 72b3b63..c5a86d3, 2 commits, review clean — Ready to merge: Yes). Minor non-blocking: `>=0` sign on zero (pre-existing ldPnl pattern, plan-mandated), plan checkboxes still `- [ ]`, optional renderPnl helper.
+
+# Landing proj30 plan (2026-08-09) — subagent-driven, master branch
+Base: 396eb82. Plan: docs/superpowers/plans/2026-08-09-landing-proj30.md
+Task 1: complete (commits 396eb82..93e6d35, review clean). Minor: projection30d sin guard function_exists (plan-mandated verbatim; analyzeChartWithVL lo usa — para whole-branch triage).
+Task 2: complete (commits 93e6d35..afe0172, review clean). Minor: type-cast asymmetry (_landing_stats uncast vs _status (float)/(int) casts; projection30d ya retorna tipos correctos — no bug); report GREEN 4/25 con deprecación pre-existente no declarada en la linea corta.
+Task 3: complete (commits afe0172..19e3f2f, review clean). Minor: warning/deprecación pre-existentes confirmados; `+0,00 $`/up en cero (plan-mandated, consistente con ldPnl/ldPnlTotal).
+Task 4: complete (commits 19e3f2f..cd0782c, review clean). Minor: warning+deprecación de suite pre-existentes (baseline de sesiones previas, no regresión); projEl/projDEl sin null-guard (plan-mandated, card añadida en el mismo commit).
+FINAL WHOLE-BRANCH REVIEW (base 396eb82..cd0782c, 4 commits): Ready to merge Yes (1 Important tracked).
+- Important #1: wProj flip-flop. websocket_server.php getStatus() (fuera de alcance, constraint del plan) construye el payload pair como whitelist SIN pnl_proj_30d/pnl_proj_days. El dashboard recibe por 2 canales intercalados: poll fetchStatus->_status (incluye campos, wProj=valor servidor) y WS updateUIFromWebSocket (sin campos, projSrv=NaN -> fallback avgDaily*30). Resultado: wProj alterna entre dos valores cada pocos segundos. Causa raiz en el codigo exacto mandado por el plan (Task 4 Step 3 fallback) + constraint global "no tocar websocket_server.php".
+- DECISIÓN HUMANA (plan-mandated + constraint): "Fallback client-side cacheado (Recommended)" -> FIX sin tocar websocket_server.php.
+- Fix subagente + commit 3689803 fix(dashboard): wProj usa valor servidor cacheado como fallback WS. 3 cambios en src/php/index.php: (1) `let lastProjSrv = null;` module-scope (linea 713); (2) cache `lastProjSrv = proj;` en el bloque kProj de updatePairNumbers cuando pnl_proj_30d está definido (corre en cada poll); (3) ambos sitios wProj (linea 863 en updateUIFromWebSocket y linea 1444 en updatePairNumbers — esta segunda TAMBIÉN se ejecuta desde el path WS via linea 811) pasan a `fM(!isNaN(projSrv) ? projSrv : (lastProjSrv !== null ? lastProjSrv : (avgDaily * 30)))`. Tras el primer poll, WS usa el valor servidor cacheado; primer paint sin poll sigue usando avgDaily*30 (graceful).
+- Verificación: php -l clean; phpunit 241/993 PASS (warning+deprecación pre-existentes baseline); websocket_server.php untouched.
+- PUSHED a origin/master: c5a86d3..3689803 (5 commits: 93e6d35 afe0172 19e3f2f cd0782c 3689803).
+- Minors de review para triage (no bloquean): projEl/projDEl sin null-guard; type-cast asymmetry endpoints; `+0,00 $` en cero (plan-mandated, consistente con ldPnl); projection30d sin function_exists guard; warning PHPUnit deprecación pre-existente.
