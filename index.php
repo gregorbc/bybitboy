@@ -111,6 +111,10 @@ a{color:var(--accent);text-decoration:none}
     <div class="stats-grid" style="margin-top:18px">
       <div class="stat"><div class="stat-lbl">PnL de hoy</div><div class="stat-val" id="ldPnl">--</div></div>
       <div class="stat"><div class="stat-lbl">PnL total</div><div class="stat-val" id="ldPnlTotal">--</div></div>
+      <div class="stat"><div class="stat-lbl">Est. 30 días</div>
+        <div class="stat-val accent" id="ldProj">--</div>
+        <div style="font-size:10px;color:var(--dim)" id="ldProjDays">--</div>
+      </div>
       <div class="stat"><div class="stat-lbl">Win rate</div><div class="stat-val accent" id="ldWin">--</div></div>
       <div class="stat"><div class="stat-lbl">Fills totales</div><div class="stat-val" id="ldFills">--</div></div>
       <div class="stat"><div class="stat-lbl">Órdenes abiertas</div><div class="stat-val" id="ldOpen">--</div></div>
@@ -176,6 +180,18 @@ async function loadStats(){
     const pnlTotalEl = document.getElementById('ldPnlTotal');
     pnlTotalEl.textContent = (pnlTotal>=0?'+':'')+fmt2(pnlTotal)+' $';
     pnlTotalEl.className = 'stat-val '+(pnlTotal>=0?'up':'down');
+    const proj = parseFloat(d.pnl_proj_30d||0);
+    const projDays = parseInt(d.pnl_proj_days||0, 10);
+    const projEl = document.getElementById('ldProj');
+    if(projDays>0){
+      projEl.textContent = (proj>=0?'+':'')+fmt2(proj)+' $';
+      projEl.className = 'stat-val '+(proj>=0?'up':'down');
+      document.getElementById('ldProjDays').textContent = 'basado en '+projDays+' día'+(projDays!==1?'s':'');
+    }else{
+      projEl.textContent = '--';
+      projEl.className = 'stat-val accent';
+      document.getElementById('ldProjDays').textContent = 'sin historial aún';
+    }
     document.getElementById('ldWin').textContent = fmt(d.win_rate)+'%';
     document.getElementById('ldFills').textContent = fmt(d.fills_total);
     document.getElementById('ldOpen').textContent = fmt(d.open_orders);
