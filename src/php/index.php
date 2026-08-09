@@ -1413,12 +1413,12 @@ function updatePairNumbers(pair){
     const pd = parseInt(pair.pnl_proj_days||0,10);
     lastProjSrv = proj;
     if(pd>0){
-      projEl.textContent = fM(proj);
-      projEl.className = 'kpi-val '+(proj>=0?'c-pos':'c-neg');
-      projDEl.textContent = 'est. '+pd+' día'+(pd!==1?'s':'');
+      if(projEl) projEl.textContent = fM(proj);
+      if(projEl) projEl.className = 'kpi-val '+(proj>=0?'c-pos':'c-neg');
+      if(projDEl) projDEl.textContent = 'est. '+pd+' día'+(pd!==1?'s':'');
     }else{
-      projEl.textContent = '--';
-      projDEl.textContent = 'sin historial';
+      if(projEl) projEl.textContent = '--';
+      if(projDEl) projDEl.textContent = 'sin historial';
     }
   }
   if(pair.fills_total!==undefined){$('kFillsT').textContent=pair.fills_total+' fills';$('stFills').textContent=pair.fills_total;}

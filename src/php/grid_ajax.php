@@ -630,8 +630,8 @@ if (isset($_GET['_landing_stats'])) {
             $data['open_orders'] = (int)$db->query("SELECT COUNT(*) FROM grid_orders WHERE symbol='ETHUSDT' AND status='OPEN'")->fetchColumn();
 
             $proj = projection30d($db, 'ETHUSDT');
-            $data['pnl_proj_30d'] = $proj['proj_30d'];
-            $data['pnl_proj_days'] = $proj['days'];
+            $data['pnl_proj_30d'] = (float)($proj['proj_30d'] ?? 0);
+            $data['pnl_proj_days'] = (int)($proj['days'] ?? 0);
         } catch (Exception $e) {}
     }
     header('Content-Type: application/json');

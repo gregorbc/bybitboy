@@ -279,17 +279,19 @@ function isAdminSession(array $session): bool {
     return ($session['role'] ?? '') === 'admin';
 }
 
-function projection30d(PDO $db, string $symbol): array {
-    $cutoff = date('Y-m-d');
-    $row = $db->prepare(
-        "SELECT COALESCE(SUM(pnl_usd),0) p, COUNT(DISTINCT DATE(filled_at)) d
-         FROM grid_orders
-         WHERE symbol=? AND grid_role='EXIT' AND status='FILLED'
-           AND filled_at < ?"
-    );
-    $row->execute([$symbol, $cutoff]);
-    $r = $row->fetch();
-    $days = (int)($r['d'] ?? 0);
-    $proj = $days > 0 ? round(((float)($r['p'] ?? 0) / $days) * 30, 2) : 0.0;
-    return ['proj_30d' => $proj, 'days' => $days];
+if (!function_exists('projection30d')) {
+    function projection30d(PDO $db, string $symbol): array {
+        $cutoff = date('Y-m-d');
+        $row = $db->prepare(
+            "SELECT COALESCE(SUM(pnl_usd),0) p, COUNT(DISTINCT DATE(filled_at)) d
+             FROM grid_orders
+             WHERE symbol=? AND grid_role='EXIT' AND status='FILLED'
+               AND filled_at < ?"
+        );
+        $row->execute([$symbol, $cutoff]);
+        $r = $row->fetch();
+        $days = (int)($r['d'] ?? 0);
+        $proj = $days > 0 ? round(((float)($r['p'] ?? 0) / $days) * 30, 2) : 0.0;
+        return ['proj_30d' => $proj, 'days' => $days];
+    }
 }
