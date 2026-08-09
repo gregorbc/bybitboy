@@ -27,8 +27,18 @@ a{color:var(--accent);text-decoration:none}
 .nav-links{display:flex;align-items:center;gap:20px}
 .nav-links a{font-size:13px;color:var(--muted)}
 .nav-links a:hover{color:var(--text)}
+.menu-btn{display:none;background:none;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:20px;width:40px;height:40px;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0}
+.menu-btn:hover{border-color:var(--accent);color:var(--accent)}
 .hero{display:grid;grid-template-columns:1.2fr .8fr;gap:40px;max-width:1100px;margin:0 auto;padding:80px 24px 60px;align-items:center}
 @media(max-width:767px){.hero{grid-template-columns:1fr;padding:48px 24px 40px}}
+@media(max-width:767px){
+  .menu-btn{display:flex}
+  .nav-links{display:none;flex-direction:column;align-items:stretch;gap:0;position:absolute;top:60px;left:0;right:0;background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 24px 16px;box-shadow:0 12px 24px rgba(0,0,0,.4)}
+  .nav-links.open{display:flex}
+  .nav-links a{padding:12px 0;width:100%;border-bottom:1px solid var(--border)}
+  .nav-links a:last-child{border-bottom:none}
+  .nav-links .btn.btn-primary{margin-top:12px;justify-content:center}
+}
 .hero h1{font-size:clamp(28px,4.5vw,46px);line-height:1.15;margin-bottom:16px}
 .hero h1 .grad{background:linear-gradient(90deg,var(--accent),#7c3aed);-webkit-background-clip:text;background-clip:text;color:transparent}
 .hero p.lead{color:var(--muted);font-size:17px;max-width:520px;margin-bottom:28px}
@@ -86,6 +96,7 @@ a{color:var(--accent);text-decoration:none}
       <div class="brand-sub">ETH/USDT · BYBIT · 24/7</div>
     </div>
   </div>
+  <button class="menu-btn" aria-label="Menú">☰</button>
   <div class="nav-links">
     <a href="#demo">Demo</a>
     <a href="#como-funciona">Cómo funciona</a>
@@ -202,6 +213,11 @@ async function loadStats(){
 }
 loadStats();
 setInterval(loadStats, 10000);
+const _mb = document.querySelector('.menu-btn'), _nl = document.querySelector('.nav-links');
+if(_mb && _nl){
+  _mb.addEventListener('click', () => _nl.classList.toggle('open'));
+  _nl.querySelectorAll('a').forEach(a => a.addEventListener('click', () => _nl.classList.remove('open')));
+}
 </script>
 </body>
 </html>
