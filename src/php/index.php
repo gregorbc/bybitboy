@@ -710,6 +710,7 @@ let CAPITAL = CAPITAL_CFG;
 let startTs = Date.now();
 let tickerTimer, statusTimer, logTimer, mktTimer, upnlTimer, scalpTimer;
 let lastFillIds=new Set(), allLogLines=[], logFilter='';
+let lastProjSrv = null;
 let lwChart=null, lwSeries=null, lastCandleTime=0, lastOhlc=[];
 let orderPriceLines=[], markPriceLine=null;
 let fillsOffset=0, fillsTotal=0, fillsLimit=40;
@@ -860,7 +861,7 @@ function updateUIFromWebSocket(data) {
       const daysRunning = Math.max(1, (Date.now() - startTs) / 86400000);
       const avgDaily = daysRunning > 0 ? pnlT / daysRunning : pnlD;
       const projSrv = parseFloat(data.pair.pnl_proj_30d);
-      $('wProj').innerHTML = fM(!isNaN(projSrv) ? projSrv : (avgDaily * 30));
+      $('wProj').innerHTML = fM(!isNaN(projSrv) ? projSrv : (lastProjSrv !== null ? lastProjSrv : (avgDaily * 30)));
       const fillsCount = parseInt(($('stFills') || {}).textContent || '0');
       const makerFee = data.makerFee || 0.0001;
       const takerFee = data.takerFee || 0.0006;
@@ -1410,6 +1411,7 @@ function updatePairNumbers(pair){
   if(pair.pnl_proj_30d!==undefined){
     const proj = parseFloat(pair.pnl_proj_30d)||0;
     const pd = parseInt(pair.pnl_proj_days||0,10);
+    lastProjSrv = proj;
     if(pd>0){
       projEl.textContent = fM(proj);
       projEl.className = 'kpi-val '+(proj>=0?'c-pos':'c-neg');
@@ -1441,7 +1443,7 @@ function updatePairNumbers(pair){
       const daysRunning = Math.max(1, (Date.now() - startTs) / 86400000);
       const avgDaily = daysRunning > 0 ? pnlT / daysRunning : pnlD;
       const projSrv = parseFloat(pair.pnl_proj_30d);
-      $('wProj').innerHTML = fM(!isNaN(projSrv) ? projSrv : (avgDaily * 30));
+      $('wProj').innerHTML = fM(!isNaN(projSrv) ? projSrv : (lastProjSrv !== null ? lastProjSrv : (avgDaily * 30)));
       const fillsCount = parseInt(($('stFills') || {}).textContent || '0');
       const avgNotional = 115;
       const fees = fillsCount * avgNotional * 0.0004;
