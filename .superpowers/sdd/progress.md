@@ -179,3 +179,4 @@ Task 2 (verificación empírica): complete (no commits de código; report: .supe
 - Regresión 390: login/register/panel todos hScroll=False (panel sin sesión -> 302 auth.php, sin overflow).
 - Dashboard/admin: PENDIENTE (sin credencial admin documentada ni en env; mismo pendiente previo de proj30 y panels design-system). Su CSS responsive es del plan julio-2026; sin evidencia de rotura.
 - No se tocó ningún source file (solo .superpowers/sdd/progress.md committeado; vendor/ working-tree ajeno intacto).
+Task 2: complete (commits 811a17a..a5cb4d8, review clean — Spec ✅, Approved). Verificado: hScroll=False en 320/360/390/414/480 (offenders []), toggle 5/5 a 390, regresión login/register/panel OK, screenshots PNG válidos 780x1688. Dashboard/admin PENDIENTE (sin credencial admin). Reviewer re-verificó screenshots y ledger independientemente.
