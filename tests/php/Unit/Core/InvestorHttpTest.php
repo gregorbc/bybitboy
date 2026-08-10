@@ -52,4 +52,44 @@ class InvestorHttpTest extends TestCase
         $row = $this->pdo->query('SELECT * FROM withdrawals')->fetch();
         $this->assertSame('pending', $row['status']);
     }
+
+    public function testChangePasswordWrongCurrentFails(): void
+    {
+        $this->pdo->prepare("UPDATE users SET password_hash = ? WHERE id = 1")
+            ->execute([password_hash('vieja-pass', PASSWORD_BCRYPT)]);
+        $session = ['user_id' => 1, 'role' => 'investor'];
+        $post = ['action' => 'change_password', 'current_password' => 'mal', 'new_password' => 'nueva-pass', 'csrf' => Csrf::token($session)];
+        $out = InvestorHttp::handle($this->pdo, $session, [], $post, self::SECRET);
+        $this->assertStringContainsString('Contraseña actual incorrecta', $out['data']['error'] ?? '');
+    }
+
+    public function testChangePasswordOk(): void
+    {
+        $this->pdo->prepare("UPDATE users SET password_hash = ? WHERE id = 1")
+            ->execute([password_hash('vieja-pass', PASSWORD_BCRYPT)]);
+        $session = ['user_id' => 1, 'role' => 'investor'];
+        $post = ['action' => 'change_password', 'current_password' => 'vieja-pass', 'new_password' => 'nueva-pass', 'csrf' => Csrf::token($session)];
+        $out = InvestorHttp::handle($this->pdo, $session, [], $post, self::SECRET);
+        $this->assertNull($out['data']['error']);
+        $hash = $this->pdo->query('SELECT password_hash FROM users WHERE id = 1')->fetch()['password_hash'];
+        $this->assertTrue(password_verify('nueva-pass', $hash));
+    }
+
+    public function testUpdateProfileChangesEmail(): void
+    {
+        $session = ['user_id' => 1, 'role' => 'investor'];
+        $post = ['action' => 'update_profile', 'email' => 'nuevo@e.com', 'csrf' => Csrf::token($session)];
+        $out = InvestorHttp::handle($this->pdo, $session, [], $post, self::SECRET);
+        $this->assertNull($out['data']['error']);
+        $this->assertSame('nuevo@e.com', $this->pdo->query('SELECT email FROM users WHERE id = 1')->fetch()['email']);
+    }
+
+    public function testPanelIncludesGrowthData(): void
+    {
+        $session = ['user_id' => 1, 'role' => 'investor'];
+        $out = InvestorHttp::handle($this->pdo, $session, [], [], self::SECRET);
+        $this->assertArrayHasKey('growth_pct', $out['data']);
+        $this->assertArrayHasKey('equity_history', $out['data']);
+        $this->assertArrayHasKey('email', $out['data']);
+    }
 }
