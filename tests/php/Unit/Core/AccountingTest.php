@@ -103,4 +103,23 @@ class AccountingTest extends TestCase
         $this->seedDeposit(1, 700.0, 'pending');
         $this->assertSame(800.0, Accounting::walletHeld($this->pdo));
     }
+
+    public function testAdjustUnitsCreditsSharesAndMovement(): void
+    {
+        $this->pdo->exec("INSERT INTO users (id, username, email, password_hash, role) VALUES (2, 'inv2', 'i2@e.com', 'x', 'investor')");
+        Accounting::init($this->pdo, 100000.0);
+        $ok = Accounting::adjustUnits($this->pdo, 2, 500.0, 'deposit', 'depósito manual verificado');
+        $this->assertTrue($ok);
+        $units = $this->pdo->query('SELECT units FROM shares WHERE user_id = 2')->fetch()['units'];
+        $this->assertSame(500.0, (float)$units);
+        $mov = $this->pdo->query('SELECT * FROM movements WHERE user_id = 2')->fetch();
+        $this->assertSame('adjust', $mov['type']);
+        $this->assertSame('depósito manual verificado', $mov['note']);
+    }
+
+    public function testAdjustUnitsRejectsNonPositive(): void
+    {
+        Accounting::init($this->pdo, 100000.0);
+        $this->assertFalse(Accounting::adjustUnits($this->pdo, 1, 0.0, 'deposit', 'x'));
+    }
 }

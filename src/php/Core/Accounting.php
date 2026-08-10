@@ -139,6 +139,27 @@ class Accounting
         $pdo->prepare('UPDATE deposits SET deployed = 1 WHERE id = ?')->execute([$depositId]);
     }
 
+    public static function adjustUnits(PDO $pdo, int $userId, float $amountUsd, string $type, string $reason = ''): bool
+    {
+        $nav = self::currentNav($pdo);
+        $units = round($amountUsd / $nav, 8);
+        if ($units <= 0) {
+            return false;
+        }
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare('INSERT INTO shares (user_id, units) VALUES (?, ?)')->execute([$userId, $units]);
+            self::addMovement($pdo, $userId, 'adjust', $amountUsd, $units, $nav, $reason);
+            $pdo->commit();
+            return true;
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            return false;
+        }
+    }
+
     public static function updateNav(PDO $pdo, float $realBalance, float $walletHeld, float $botPnlTotal): void
     {
         $pdo->beginTransaction();
@@ -167,11 +188,11 @@ class Accounting
         return $stmt->fetchAll();
     }
 
-    private static function addMovement(PDO $pdo, int $userId, string $type, float $amount, float $units, float $nav): void
+    private static function addMovement(PDO $pdo, int $userId, string $type, float $amount, float $units, float $nav, string $note = ''): void
     {
         $balanceAfter = round(self::userUnits($pdo, $userId) * $nav, 8);
-        $stmt = $pdo->prepare('INSERT INTO movements (user_id, type, amount, units, nav, balance_after) VALUES (?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$userId, $type, $amount, $units, $nav, $balanceAfter]);
+        $stmt = $pdo->prepare('INSERT INTO movements (user_id, type, amount, units, nav, balance_after, note) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        $stmt->execute([$userId, $type, $amount, $units, $nav, $balanceAfter, $note]);
     }
 
     private static function snapshot(PDO $pdo, float $equity, float $units, float $nav, float $pnl): void
