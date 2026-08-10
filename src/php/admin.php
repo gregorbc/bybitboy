@@ -112,6 +112,7 @@ $navHistory = array_reverse($d['nav_history']);
         <div class="panel-tab" data-tab="fondo">Fondo</div>
         <div class="panel-tab" data-tab="usuarios">Usuarios</div>
         <div class="panel-tab" data-tab="auditoria">Auditoría</div>
+        <div class="panel-tab" data-tab="alertas">Alertas</div>
         <div class="panel-tab" data-tab="ajustes">Ajustes</div>
     </div>
 
@@ -437,6 +438,72 @@ $navHistory = array_reverse($d['nav_history']);
                     <button type="submit" class="btn btn-primary" style="margin-top: var(--space-md);">Desactivar</button>
                 </form>
             <?php endif; ?>
+        </div>
+    </div>
+
+    <div id="tab-alertas" class="panel-content">
+        <div class="card">
+            <div class="card-header"><span class="card-title">Alertas del bot</span></div>
+            <p style="font-size:0.85rem;color:var(--muted, #94a3b8);">El bot evalúa cada ciclo las alertas habilitadas contra el estado en vivo y notifica cuando el valor supera el umbral.</p>
+            <p style="font-size:0.85rem;color:var(--muted, #94a3b8);">
+                Token Telegram:
+                <?= !empty($d['telegram_token']) ? 'configurado' : 'no configurado' ?>
+            </p>
+            <?php if (empty($d['alertas'])): ?>
+                <p style="font-size:0.85rem;color:var(--muted, #94a3b8);">Aún no hay alertas configuradas.</p>
+            <?php else: ?>
+                <?php foreach ($d['alertas'] as $alerta): ?>
+                <form method="post" class="alert-row" style="display:flex;gap:var(--space-sm);align-items:center;flex-wrap:wrap;margin:var(--space-sm) 0;">
+                    <input type="hidden" name="action" value="alerta_save">
+                    <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                    <input type="hidden" name="tipo" value="<?= htmlspecialchars($alerta['tipo']) ?>">
+                    <code style="min-width:190px;"><?= htmlspecialchars($alerta['tipo']) ?></code>
+                    <input class="cfg-input" type="number" step="0.01" min="0.01" name="umbral" value="<?= htmlspecialchars((string)$alerta['umbral']) ?>" style="width:90px;" title="Umbral">
+                    <input class="cfg-input" name="telegram_chat_id" placeholder="chat_id Telegram" value="<?= htmlspecialchars((string)($alerta['telegram_chat_id'] ?? '')) ?>" style="width:150px;">
+                    <input class="cfg-input" type="number" min="1" name="intervalo_min" value="<?= (int)($alerta['intervalo_min'] ?? 30) ?>" style="width:70px;" title="Intervalo mínimo (min)">
+                    <label style="font-size:0.8rem;"><input type="checkbox" name="habilitado" value="1" <?= (int)($alerta['habilitado'] ?? 1) === 1 ? 'checked' : '' ?>> activa</label>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </form>
+                <form method="post" style="margin:0;">
+                    <input type="hidden" name="action" value="alerta_delete">
+                    <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                    <input type="hidden" name="id" value="<?= (int)$alerta['id'] ?>">
+                    <button type="submit" class="btn btn-danger" style="margin:0 0 var(--space-md) var(--space-sm);" onclick="return confirm('Eliminar esta alerta?');">Eliminar</button>
+                </form>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+        <div class="card" style="margin-top:var(--space-md);">
+            <div class="card-header"><span class="card-title">Añadir alerta</span></div>
+            <form method="post" style="display:flex;gap:var(--space-sm);flex-wrap:wrap;align-items:center;">
+                <input type="hidden" name="action" value="alerta_save">
+                <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                <select class="cfg-input" name="tipo">
+                    <option value="drawdown_pct">Drawdown desde pico (%)</option>
+                    <option value="daily_loss_pct">Pérdida diaria (%)</option>
+                    <option value="distancia_liquidacion_pct">Distancia a liquidación (%)</option>
+                    <option value="saldo_min_usd">Saldo mínimo (USDT)</option>
+                </select>
+                <input class="cfg-input" type="number" step="0.01" min="0.01" name="umbral" placeholder="Umbral" required style="width:100px;">
+                <input class="cfg-input" name="telegram_chat_id" placeholder="chat_id Telegram" style="width:150px;">
+                <input class="cfg-input" type="number" min="1" name="intervalo_min" value="30" style="width:70px;" title="Intervalo mínimo (min)">
+                <button type="submit" class="btn btn-primary">Crear</button>
+            </form>
+        </div>
+        <div class="card" style="margin-top:var(--space-md);">
+            <div class="card-header"><span class="card-title">Token de Telegram</span></div>
+            <form method="post" style="display:flex;gap:var(--space-sm);flex-wrap:wrap;align-items:center;">
+                <input type="hidden" name="action" value="set_telegram_token">
+                <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                <input class="cfg-input" type="password" name="token" placeholder="Bot token (123456:ABC...)" style="min-width:260px;">
+                <button type="submit" class="btn btn-primary">Guardar token</button>
+            </form>
+            <form method="post" style="margin-top:var(--space-md);">
+                <input type="hidden" name="action" value="test_telegram">
+                <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                <input class="cfg-input" name="chat_id" placeholder="chat_id de prueba" style="width:150px;">
+                <button type="submit" class="btn">Probar envío</button>
+            </form>
         </div>
     </div>
 </div>

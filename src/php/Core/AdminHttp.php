@@ -72,6 +72,60 @@ class AdminHttp
         } elseif ($action === 'deploy') {
             Accounting::markDeployed($pdo, (int)($post['id'] ?? 0));
             self::audit($pdo, $session, 'deploy_deposit', 'depósito #' . (int)($post['id'] ?? 0), $ip);
+        } elseif ($action === 'alerta_save') {
+            $tipos = ['drawdown_pct', 'daily_loss_pct', 'distancia_liquidacion_pct', 'saldo_min_usd'];
+            $tipo = (string)($post['tipo'] ?? '');
+            if (!in_array($tipo, $tipos, true)) {
+                $error = 'Tipo de alerta no válido';
+            } else {
+                $umbral = (float)($post['umbral'] ?? 0);
+                $habilitado = isset($post['habilitado']) && (int)$post['habilitado'] === 1 ? 1 : 0;
+                $chatId = mb_substr((string)($post['telegram_chat_id'] ?? ''), 0, 50);
+                $intervalo = max(1, (int)($post['intervalo_min'] ?? 30));
+                $adminId = (int)$session['user_id'];
+                $exists = $pdo->prepare('SELECT COUNT(*) FROM alertas_config WHERE tipo = ?');
+                $exists->execute([$tipo]);
+                if ((int)$exists->fetchColumn() > 0) {
+                    $pdo->prepare('UPDATE alertas_config SET umbral=?, habilitado=?, telegram_chat_id=?, intervalo_min=?, actualizado_por=? WHERE tipo=?')
+                        ->execute([$umbral, $habilitado, $chatId, $intervalo, $adminId, $tipo]);
+                } else {
+                    $pdo->prepare('INSERT INTO alertas_config (tipo, umbral, habilitado, telegram_chat_id, intervalo_min, actualizado_por) VALUES (?, ?, ?, ?, ?, ?)')
+                        ->execute([$tipo, $umbral, $habilitado, $chatId, $intervalo, $adminId]);
+                }
+                $session['flash'] = 'Alerta guardada';
+            }
+        } elseif ($action === 'alerta_delete') {
+            $pdo->prepare('DELETE FROM alertas_config WHERE id = ?')->execute([(int)($post['id'] ?? 0)]);
+            $session['flash'] = 'Alerta eliminada';
+        } elseif ($action === 'set_telegram_token') {
+            $token = mb_substr((string)($post['token'] ?? ''), 0, 200);
+            if ($token === '') {
+                $error = 'Token vacío';
+            } else {
+                $now = date('Y-m-d H:i:s');
+                try {
+                    $pdo->prepare('INSERT INTO bot_meta (meta_key, meta_value, updated_at) VALUES (?, ?, ?)')
+                        ->execute(['telegram_bot_token', $token, $now]);
+                } catch (\Throwable $e) {
+                    $pdo->prepare('UPDATE bot_meta SET meta_value = ?, updated_at = ? WHERE meta_key = ?')
+                        ->execute([$token, $now, 'telegram_bot_token']);
+                }
+                $session['flash'] = 'Token Telegram guardado';
+            }
+        } elseif ($action === 'test_telegram') {
+            $token = self::botMeta($pdo, 'telegram_bot_token');
+            $chatId = (string)($post['chat_id'] ?? '');
+            $ok = false;
+            try {
+                $ok = Notification::sendTelegram($token, $chatId, 'Prueba de alerta desde el panel de Grid Bot');
+            } catch (\Throwable $e) {
+                $ok = false;
+            }
+            if ($ok) {
+                $session['flash'] = 'Mensaje de prueba enviado';
+            } else {
+                $error = 'No se pudo enviar el mensaje de prueba';
+            }
         } elseif ($action === 'adjust_user') {
             $targetUserId = (int)($post['user_id'] ?? 0);
             $adjustType = (string)($post['adjust_type'] ?? '');
@@ -177,6 +231,8 @@ class AdminHttp
             'nav_history' => $pdo->query('SELECT snapshot_at, nav, total_equity FROM nav_snapshots ORDER BY id DESC LIMIT 90')->fetchAll(),
             'audit_logs' => $pdo->query('SELECT a.* FROM admin_audit a ORDER BY a.id DESC LIMIT 500')->fetchAll(),
             'fills' => [],
+            'alertas' => $pdo->query('SELECT * FROM alertas_config ORDER BY tipo')->fetchAll(),
+            'telegram_token' => self::botMeta($pdo, 'telegram_bot_token'),
             'error' => $error,
             'flash' => $session['flash'] ?? null,
             '2fa_enabled' => 0,
@@ -198,6 +254,13 @@ class AdminHttp
         }
         unset($session['flash']);
         return ['view' => 'overview', 'data' => $data];
+    }
+
+    private static function botMeta(PDO $pdo, string $metaKey): string
+    {
+        $stmt = $pdo->prepare('SELECT meta_value FROM bot_meta WHERE meta_key = ?');
+        $stmt->execute([$metaKey]);
+        return (string)($stmt->fetchColumn() ?: '');
     }
 
     private static function audit(PDO $pdo, array $session, string $action, string $detail, string $ip): void
