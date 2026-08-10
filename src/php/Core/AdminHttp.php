@@ -20,9 +20,39 @@ class AdminHttp
         $action = (string)($post['action'] ?? '');
         $error = null;
         $ip = (string)($_SERVER['REMOTE_ADDR'] ?? '');
+        $twoFactorData = null;
 
         if ($action !== '' && !Csrf::verify($session, isset($post['csrf']) ? (string)$post['csrf'] : null)) {
             $error = 'Token CSRF inválido';
+        } elseif ($action === 'enable_2fa') {
+            $secret = TwoFactor::generateSecret();
+            $session['pending_2fa_secret'] = $secret;
+            $uri = TwoFactor::otpauthUri($secret, (string)($session['username'] ?? ''), 'Grid Bot');
+            $twoFactorData = [
+                'secret' => $secret,
+                'qr' => 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' . rawurlencode($uri),
+            ];
+        } elseif ($action === 'confirm_2fa') {
+            $secret = (string)($session['pending_2fa_secret'] ?? '');
+            if ($secret === '' || !TwoFactor::verify((string)($post['code'] ?? ''), $secret)) {
+                $error = 'Código incorrecto';
+            } else {
+                $stmt = $pdo->prepare('UPDATE users SET totp_secret = ?, totp_enabled = 1 WHERE id = ?');
+                $stmt->execute([$secret, (int)$session['user_id']]);
+                unset($session['pending_2fa_secret']);
+                $session['flash'] = '2FA activada correctamente';
+            }
+        } elseif ($action === 'disable_2fa') {
+            $stmt = $pdo->prepare('SELECT totp_secret FROM users WHERE id = ?');
+            $stmt->execute([(int)$session['user_id']]);
+            $dbSecret = (string)($stmt->fetchColumn() ?: '');
+            if (!TwoFactor::verify((string)($post['code'] ?? ''), $dbSecret)) {
+                $error = 'Código incorrecto';
+            } else {
+                $stmt = $pdo->prepare('UPDATE users SET totp_secret = NULL, totp_enabled = 0 WHERE id = ?');
+                $stmt->execute([(int)$session['user_id']]);
+                $session['flash'] = '2FA desactivada';
+            }
         } elseif ($action === 'approve') {
             Accounting::approveWithdrawal($pdo, (int)($post['id'] ?? 0));
             self::audit($pdo, $session, 'approve_withdrawal', 'retiro #' . (int)($post['id'] ?? 0), $ip);
@@ -149,11 +179,22 @@ class AdminHttp
             'fills' => [],
             'error' => $error,
             'flash' => $session['flash'] ?? null,
+            '2fa_enabled' => 0,
         ];
+        if ($twoFactorData !== null) {
+            $data['two_factor'] = $twoFactorData;
+        }
         try {
             $data['fills'] = $pdo->query("SELECT id, side, grid_role, price, qty, pnl_usd, status, is_recovery, filled_at FROM grid_orders WHERE symbol='ETHUSDT' AND status='FILLED' ORDER BY filled_at DESC LIMIT 200")->fetchAll();
         } catch (\Throwable $e) {
             $data['fills'] = [];
+        }
+        try {
+            $stmt = $pdo->prepare('SELECT totp_enabled FROM users WHERE id = ?');
+            $stmt->execute([(int)$session['user_id']]);
+            $data['2fa_enabled'] = (int)($stmt->fetchColumn() ?: 0) === 1 ? 1 : 0;
+        } catch (\Throwable $e) {
+            $data['2fa_enabled'] = 0;
         }
         unset($session['flash']);
         return ['view' => 'overview', 'data' => $data];

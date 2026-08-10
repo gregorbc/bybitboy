@@ -112,6 +112,7 @@ $navHistory = array_reverse($d['nav_history']);
         <div class="panel-tab" data-tab="fondo">Fondo</div>
         <div class="panel-tab" data-tab="usuarios">Usuarios</div>
         <div class="panel-tab" data-tab="auditoria">Auditoría</div>
+        <div class="panel-tab" data-tab="ajustes">Ajustes</div>
     </div>
 
     <div id="tab-resumen" class="panel-content active">
@@ -397,6 +398,45 @@ $navHistory = array_reverse($d['nav_history']);
                 <?php endforeach; ?>
             </table>
             <?php if (empty($d['audit_logs'])): ?><div class="empty-state">Sin acciones registradas.</div><?php endif; ?>
+        </div>
+    </div>
+
+    <div id="tab-ajustes" class="panel-content">
+        <div class="card">
+            <div class="card-header"><span class="card-title">Autenticación de dos factores</span></div>
+            <?php if (empty($d['2fa_enabled'])): ?>
+                <p>Obligatoria para el panel de administración. Escanea el código QR con Google Authenticator (o añade el secreto manualmente) y verifica un código para activarla.</p>
+                <?php if (isset($d['two_factor'])): ?>
+                    <img src="<?= htmlspecialchars($d['two_factor']['qr']) ?>" width="220" height="220" alt="QR 2FA" style="display:block;margin:var(--space-md) 0;">
+                    <p><code><?= htmlspecialchars($d['two_factor']['secret']) ?></code></p>
+                    <form method="post" style="margin-top: var(--space-md);">
+                        <input type="hidden" name="action" value="confirm_2fa">
+                        <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                        <div class="cfg-field">
+                            <label for="ad2faCode">Código de 6 dígitos</label>
+                            <input class="cfg-input" id="ad2faCode" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="margin-top: var(--space-md);">Activar</button>
+                    </form>
+                <?php else: ?>
+                    <form method="post" style="margin-top: var(--space-md);">
+                        <input type="hidden" name="action" value="enable_2fa">
+                        <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                        <button type="submit" class="btn btn-primary">Activar 2FA</button>
+                    </form>
+                <?php endif; ?>
+            <?php else: ?>
+                <p>Activa. Para desactivarla verifica un código.</p>
+                <form method="post" style="margin-top: var(--space-md);">
+                    <input type="hidden" name="action" value="disable_2fa">
+                    <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                    <div class="cfg-field">
+                        <label for="ad2faCodeDisable">Código de 6 dígitos</label>
+                        <input class="cfg-input" id="ad2faCodeDisable" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="margin-top: var(--space-md);">Desactivar</button>
+                </form>
+            <?php endif; ?>
         </div>
     </div>
 </div>

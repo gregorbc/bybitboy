@@ -271,6 +271,45 @@ $networks = [
                 <button type="submit" class="btn btn-primary" style="margin-top: var(--space-lg);">Cambiar contraseña</button>
             </form>
         </div>
+        <?php if (empty($d['2fa_enabled'])): ?>
+        <div class="card" style="margin-top: var(--space-md);">
+            <div class="card-header"><span class="card-title">Autenticación de dos factores</span></div>
+            <p>Escanea el código QR con Google Authenticator (o añade el secreto manualmente) y verifica un código para activarlo.</p>
+            <?php if (isset($d['two_factor'])): ?>
+                <img src="<?= htmlspecialchars($d['two_factor']['qr']) ?>" width="220" height="220" alt="QR 2FA" style="display:block;margin:var(--space-md) 0;">
+                <p><code><?= htmlspecialchars($d['two_factor']['secret']) ?></code></p>
+                <form method="post" style="margin-top: var(--space-md);">
+                    <input type="hidden" name="action" value="confirm_2fa">
+                    <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                    <div class="cfg-field">
+                        <label for="pf2faCode">Código de 6 dígitos</label>
+                        <input class="cfg-input" id="pf2faCode" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="margin-top: var(--space-md);">Activar</button>
+                </form>
+            <?php else: ?>
+                <form method="post" style="margin-top: var(--space-md);">
+                    <input type="hidden" name="action" value="enable_2fa">
+                    <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                    <button type="submit" class="btn btn-primary">Activar 2FA</button>
+                </form>
+            <?php endif; ?>
+        </div>
+        <?php else: ?>
+        <div class="card" style="margin-top: var(--space-md);">
+            <div class="card-header"><span class="card-title">Autenticación de dos factores</span></div>
+            <p>Activa. Para desactivarla verifica un código.</p>
+            <form method="post" style="margin-top: var(--space-md);">
+                <input type="hidden" name="action" value="disable_2fa">
+                <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                <div class="cfg-field">
+                    <label for="pf2faCodeDisable">Código de 6 dígitos</label>
+                    <input class="cfg-input" id="pf2faCodeDisable" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: var(--space-md);">Desactivar</button>
+            </form>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
 <script>

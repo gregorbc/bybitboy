@@ -92,4 +92,53 @@ class InvestorHttpTest extends TestCase
         $this->assertArrayHasKey('equity_history', $out['data']);
         $this->assertArrayHasKey('email', $out['data']);
     }
+
+    public function testEnableTwoFactorReturnsSecretAndQr(): void
+    {
+        $session = ['user_id' => 1, 'role' => 'investor', 'username' => 'juan'];
+        $session['csrf'] = Csrf::token($session);
+        $out = InvestorHttp::handle($this->pdo, $session, [], ['action' => 'enable_2fa', 'csrf' => $session['csrf']], self::SECRET);
+        $this->assertArrayHasKey('two_factor', $out['data']);
+        $this->assertMatchesRegularExpression('/^[A-Z2-7]+$/', $out['data']['two_factor']['secret']);
+        $this->assertStringContainsString('api.qrserver.com', $out['data']['two_factor']['qr']);
+        $this->assertSame($out['data']['two_factor']['secret'], $session['pending_2fa_secret']);
+    }
+
+    public function testConfirmTwoFactorActivatesIt(): void
+    {
+        $session = ['user_id' => 1, 'role' => 'investor', 'username' => 'juan'];
+        $session['csrf'] = Csrf::token($session);
+        InvestorHttp::handle($this->pdo, $session, [], ['action' => 'enable_2fa', 'csrf' => $session['csrf']], self::SECRET);
+        $secret = $session['pending_2fa_secret'];
+        $code = \OTPHP\TOTP::create($secret)->now();
+        $out2 = InvestorHttp::handle($this->pdo, $session, [], ['action' => 'confirm_2fa', 'code' => $code, 'csrf' => $session['csrf']], self::SECRET);
+        $this->assertSame('2FA activada correctamente', $out2['data']['flash'] ?? $out2['flash'] ?? '');
+        $row = $this->pdo->query('SELECT totp_enabled, totp_secret FROM users WHERE id = 1')->fetch();
+        $this->assertSame(1, (int)$row['totp_enabled']);
+        $this->assertSame($secret, $row['totp_secret']);
+        $this->assertArrayNotHasKey('pending_2fa_secret', $session);
+    }
+
+    public function testConfirmTwoFactorWrongCodeDoesNotActivate(): void
+    {
+        $session = ['user_id' => 1, 'role' => 'investor', 'username' => 'juan'];
+        $session['csrf'] = Csrf::token($session);
+        InvestorHttp::handle($this->pdo, $session, [], ['action' => 'enable_2fa', 'csrf' => $session['csrf']], self::SECRET);
+        $out2 = InvestorHttp::handle($this->pdo, $session, [], ['action' => 'confirm_2fa', 'code' => '000000', 'csrf' => $session['csrf']], self::SECRET);
+        $this->assertSame('Código incorrecto', $out2['data']['error'] ?? $out2['error'] ?? '');
+        $row = $this->pdo->query('SELECT totp_enabled FROM users WHERE id = 1')->fetch();
+        $this->assertSame(0, (int)$row['totp_enabled']);
+    }
+
+    public function testDisableTwoFactorRequiresCode(): void
+    {
+        $this->pdo->exec('UPDATE users SET totp_enabled = 1, totp_secret = "ABCDEFGHIJKLMNOP" WHERE id = 1');
+        $session = ['user_id' => 1, 'role' => 'investor', 'username' => 'juan'];
+        $session['csrf'] = Csrf::token($session);
+        $code = \OTPHP\TOTP::create('ABCDEFGHIJKLMNOP')->now();
+        $out = InvestorHttp::handle($this->pdo, $session, [], ['action' => 'disable_2fa', 'code' => $code, 'csrf' => $session['csrf']], self::SECRET);
+        $this->assertSame('2FA desactivada', $out['data']['flash'] ?? $out['flash'] ?? '');
+        $row = $this->pdo->query('SELECT totp_enabled FROM users WHERE id = 1')->fetch();
+        $this->assertSame(0, (int)$row['totp_enabled']);
+    }
 }

@@ -17,7 +17,54 @@ class InvestorHttp
         $error = null;
         $withdrawalId = null;
 
-        if ($action === 'withdraw') {
+        if ($action === 'enable_2fa') {
+            if (!Csrf::verify($session, isset($post['csrf']) ? (string)$post['csrf'] : null)) {
+                $error = 'Token CSRF inválido';
+            } else {
+                $secret = TwoFactor::generateSecret();
+                $session['pending_2fa_secret'] = $secret;
+                $uri = TwoFactor::otpauthUri($secret, (string)($session['username'] ?? ''), 'Grid Bot');
+                $data = [
+                    'two_factor' => [
+                        'secret' => $secret,
+                        'qr' => 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' . rawurlencode($uri),
+                    ],
+                    'error' => null,
+                    'flash' => null,
+                    'networks' => array_keys(Networks::all()),
+                ];
+                return ['view' => 'panel', 'data' => $data];
+            }
+        } elseif ($action === 'confirm_2fa') {
+            if (!Csrf::verify($session, isset($post['csrf']) ? (string)$post['csrf'] : null)) {
+                $error = 'Token CSRF inválido';
+            } else {
+                $secret = (string)($session['pending_2fa_secret'] ?? '');
+                if ($secret === '' || !TwoFactor::verify((string)($post['code'] ?? ''), $secret)) {
+                    $error = 'Código incorrecto';
+                } else {
+                    $stmt = $pdo->prepare('UPDATE users SET totp_secret = ?, totp_enabled = 1 WHERE id = ?');
+                    $stmt->execute([$secret, $userId]);
+                    unset($session['pending_2fa_secret']);
+                    $session['flash'] = '2FA activada correctamente';
+                }
+            }
+        } elseif ($action === 'disable_2fa') {
+            if (!Csrf::verify($session, isset($post['csrf']) ? (string)$post['csrf'] : null)) {
+                $error = 'Token CSRF inválido';
+            } else {
+                $stmt = $pdo->prepare('SELECT totp_secret FROM users WHERE id = ?');
+                $stmt->execute([$userId]);
+                $dbSecret = (string)($stmt->fetchColumn() ?: '');
+                if (!TwoFactor::verify((string)($post['code'] ?? ''), $dbSecret)) {
+                    $error = 'Código incorrecto';
+                } else {
+                    $stmt = $pdo->prepare('UPDATE users SET totp_secret = NULL, totp_enabled = 0 WHERE id = ?');
+                    $stmt->execute([$userId]);
+                    $session['flash'] = '2FA desactivada';
+                }
+            }
+        } elseif ($action === 'withdraw') {
             $network = (string)($post['network'] ?? '');
             $token = strtoupper((string)($post['token'] ?? ''));
             $amount = (float)($post['amount'] ?? 0);
@@ -111,9 +158,10 @@ class InvestorHttp
         $totalDeposited = (float)$stmt->fetch()['t'];
         $growthPct = $totalDeposited > 0 ? round(($equity - $totalDeposited) / $totalDeposited * 100, 2) : 0.0;
 
-        $stmt = $pdo->prepare('SELECT email FROM users WHERE id = ?');
+        $stmt = $pdo->prepare('SELECT email, totp_enabled FROM users WHERE id = ?');
         $stmt->execute([$userId]);
-        $email = $stmt->fetch()['email'] ?? '';
+        $userRow = $stmt->fetch();
+        $email = $userRow['email'] ?? '';
 
         $data = [
             'equity' => $equity,
@@ -129,6 +177,7 @@ class InvestorHttp
             'error' => $error,
             'flash' => $session['flash'] ?? null,
             'networks' => array_keys(Networks::all()),
+            '2fa_enabled' => (int)($userRow['totp_enabled'] ?? 0) === 1,
         ];
         if ($withdrawalId !== null) {
             $data['withdrawal_id'] = $withdrawalId;
