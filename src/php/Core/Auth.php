@@ -50,6 +50,14 @@ class Auth
         return strlen($password) >= 8;
     }
 
+    public static function getUserById(PDO $pdo, int $id): ?array
+    {
+        $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ?');
+        $stmt->execute([$id]);
+        $user = $stmt->fetch();
+        return $user ?: null;
+    }
+
     public static function checkRateLimit(PDO $pdo, string $ip, string $action, int $max, int $windowSec): bool
     {
         $cutoff = date('Y-m-d H:i:s', time() - $windowSec);

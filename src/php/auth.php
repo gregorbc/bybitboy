@@ -34,7 +34,11 @@ if ($result['redirect']) {
 }
 
 $csrf = Csrf::token($_SESSION);
-$view = $result['view'] === 'register' ? 'register' : 'login';
+$view = match ($result['view']) {
+    'register' => 'register',
+    '2fa' => '2fa',
+    default => 'login',
+};
 $error = $result['error'];
 ?>
 <!DOCTYPE html>
@@ -71,6 +75,14 @@ a{color:#58a6ff}
         <button type="submit">Crear cuenta</button>
     </form>
     <div class="alt">¿Ya tienes cuenta? <a href="auth.php?view=login">Ingresar</a></div>
+    <?php elseif ($view === '2fa'): ?>
+    <form method="post">
+        <input type="hidden" name="action" value="verify_2fa">
+        <input type="hidden" name="csrf" value="<?= $csrf ?>">
+        <label>Código de verificación (6 dígitos)</label>
+        <input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code" autofocus>
+        <button type="submit">Verificar</button>
+    </form>
     <?php else: ?>
     <form method="post">
         <input type="hidden" name="action" value="login">
