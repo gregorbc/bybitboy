@@ -57,8 +57,7 @@ class AdminDirectSendTest extends TestCase
         $result = AdminHttp::handle($this->pdo, $session, $post, null, $fakeRpc);
 
         $this->assertSame('overview', $result['view']);
-        $this->assertArrayHasKey('flash', $session);
-        $this->assertStringContainsString('0xabcdef1234567890', $session['flash'] ?? '');
+        $this->assertStringContainsString('0xabcdef1234567890', $result['data']['flash'] ?? '');
 
         $row = $this->pdo->query("SELECT * FROM admin_sends")->fetch();
         $this->assertSame('bsc', $row['network']);

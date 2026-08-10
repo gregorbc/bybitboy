@@ -190,4 +190,66 @@ class AdminHttpTest extends TestCase
         $this->assertFalse($result['ok']);
         $this->assertStringContainsString('soportado', strtolower($result['error']));
     }
+
+    public function testAdjustUserCreditsSharesAndAudits(): void
+    {
+        $session = ['user_id' => 1, 'role' => 'admin', 'username' => 'admin'];
+        $session['csrf'] = Csrf::token($session);
+        $post = [
+            'action' => 'adjust_user',
+            'user_id' => '2',
+            'adjust_type' => 'deposit',
+            'amount' => '250.00',
+            'reason' => 'depósito manual verificado',
+            'csrf' => $session['csrf'],
+        ];
+        $out = AdminHttp::handle($this->pdo, $session, $post);
+        $this->assertSame('overview', $out['view']);
+        $units = $this->pdo->query('SELECT units FROM shares WHERE user_id = 2')->fetch();
+        $this->assertSame(250.0, (float)$units['units']);
+        $mov = $this->pdo->query('SELECT * FROM movements WHERE user_id = 2 AND type = "adjust"')->fetch();
+        $this->assertSame('depósito manual verificado', $mov['note']);
+        $audit = $this->pdo->query('SELECT * FROM admin_audit WHERE action = "adjust_user"')->fetch();
+        $this->assertSame(1, (int)$audit['admin_id']);
+        $this->assertSame('admin', $audit['username']);
+    }
+
+    public function testAdjustUserRejectsInvalidAmount(): void
+    {
+        $session = ['user_id' => 1, 'role' => 'admin'];
+        $session['csrf'] = Csrf::token($session);
+        $post = ['action' => 'adjust_user', 'user_id' => '2', 'adjust_type' => 'refund', 'amount' => 'abc', 'reason' => 'x', 'csrf' => $session['csrf']];
+        $out = AdminHttp::handle($this->pdo, $session, $post);
+        $this->assertStringContainsString('Monto inválido', $out['data']['error'] ?? '');
+        $this->assertFalse($this->pdo->query('SELECT id FROM admin_audit')->fetch());
+    }
+
+    public function testAdjustUserRejectsBadCsrf(): void
+    {
+        $session = ['user_id' => 1, 'role' => 'admin'];
+        $post = ['action' => 'adjust_user', 'user_id' => '2', 'adjust_type' => 'deposit', 'amount' => '10', 'reason' => 'x', 'csrf' => 'wrong'];
+        AdminHttp::handle($this->pdo, $session, $post);
+        $this->assertFalse($this->pdo->query('SELECT id FROM admin_audit')->fetch());
+    }
+
+    public function testApproveWithdrawalWritesAudit(): void
+    {
+        $session = ['user_id' => 1, 'role' => 'admin'];
+        $this->pdo->exec("INSERT INTO withdrawals (user_id, network, token, amount, units_to_burn, destination_address) VALUES (2, 'eth', 'USDT', 100, 100, '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B')");
+        $wdId = (int)$this->pdo->query('SELECT id FROM withdrawals')->fetch()['id'];
+        $post = ['action' => 'approve', 'id' => (string)$wdId, 'csrf' => Csrf::token($session)];
+        AdminHttp::handle($this->pdo, $session, $post);
+        $audit = $this->pdo->query('SELECT * FROM admin_audit WHERE action = "approve_withdrawal"')->fetch();
+        $this->assertStringContainsString((string)$wdId, (string)$audit['detail']);
+    }
+
+    public function testOverviewIncludesNewDataKeys(): void
+    {
+        $session = ['user_id' => 1, 'role' => 'admin'];
+        $out = AdminHttp::handle($this->pdo, $session, []);
+        $this->assertArrayHasKey('nav_history', $out['data']);
+        $this->assertArrayHasKey('audit_logs', $out['data']);
+        $this->assertArrayHasKey('fills', $out['data']);
+        $this->assertIsArray($out['data']['fills']);
+    }
 }
