@@ -191,6 +191,15 @@ PHP;
         }
     }
 
+    public function testPnlCumulativeEndpointReturnsStructure(): void
+    {
+        $data = $this->executeEndpointAsAdmin(['_pnl_cumulative' => '1']);
+        $this->assertIsArray($data);
+        $this->assertTrue($data['ok'] ?? false);
+        $this->assertArrayHasKey('points', $data);
+        $this->assertIsArray($data['points']);
+    }
+
     public function testControlWithoutAdminSessionRejected(): void
     {
         $script = <<<PHP

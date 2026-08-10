@@ -176,6 +176,20 @@ if (isset($_GET['_status'])) {
 }
 
 // ═══════════════════════════════════════════════════════
+// 2b. PNL ACUMULADO (requiere sesión admin)
+// ═══════════════════════════════════════════════════════
+if (isset($_GET['_pnl_cumulative'])) {
+    $db = getDB($mc);
+    if (!$db) {
+        echo json_encode(['ok' => false, 'msg' => 'MySQL no disponible']);
+        exit;
+    }
+    $points = $db->query("SELECT DATE(filled_at) d, ROUND(SUM(pnl_usd),6) p FROM grid_orders WHERE symbol='ETHUSDT' AND grid_role='EXIT' AND status='FILLED' GROUP BY DATE(filled_at) ORDER BY d ASC")->fetchAll();
+    echo json_encode(['ok' => true, 'points' => $points]);
+    exit;
+}
+
+// ═══════════════════════════════════════════════════════
 // 3. MARKET DATA (sin token)
 // ═══════════════════════════════════════════════════════
 if (isset($_GET['_market'])) {
