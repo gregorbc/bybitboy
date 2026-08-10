@@ -160,6 +160,39 @@ cd src/python
 python test_ml_models.py
 ```
 
+## 🔐 Gap de paneles (seguridad · bot · visibilidad)
+
+Cierra el hueco real entre el bot y los paneles web: 2FA, alertas a Telegram, riesgo en vivo, reconciliación y logs.
+
+### Características
+- **2FA TOTP**: obligatoria para el admin, opcional para inversores (Perfil). Códigos RFC 6238 (`otphp`). Accesos registrados en `logs_acceso`.
+- **Alertas del bot**: umbrales de drawdown, pérdida diaria, distancia a liquidación y saldo mínimo; notificaciones a Telegram desde `Core/Notification`.
+- **Riesgo editable en vivo**: `max_daily_loss` / `recovery_loss_pct` editables en el panel Bot y aplicados en cada ciclo por `GridManager`.
+- **Reconciliación**: ledger (NAV × unidades) vs saldo real Bybit (wallet + uPnL), umbral 0.50 USDT.
+- **Modelos ML**: vista de solo lectura de `data/models/*`, historial del entrenador y pesos de volatilidad.
+- **Logs IA / acceso**: paginados (25/página) en el panel de administración.
+
+### Migración (idempotente)
+```bash
+# Backup antes de nada
+mysqldump -u erika_bot -p binance_erika_bot > backup_pre_gap_$(date +%Y%m%d).sql
+
+# Aplicar esquema nuevo (re-ejecutable)
+mysql -u erika_bot -p binance_erika_bot < scripts/migracion_gap.sql
+
+# Rollback disponible
+mysql -u erika_bot -p binance_erika_bot < scripts/rollback_gap.sql
+```
+El esquema también se aplica automáticamente al arrancar el bot (`Schema::createTables`).
+
+### Despliegue del código nuevo
+```bash
+git checkout feature/paneles-gap-real
+composer install --no-dev
+kill $(cat data/bot.pid) && (nohup php src/php/bot.php > data/logs/bot.log 2>&1 &)
+```
+Tras reiniciar, configurar en el panel: activación de 2FA del admin y el token de Telegram en el tab **Alertas**.
+
 ## 📊 Arquitectura
 
 ```
