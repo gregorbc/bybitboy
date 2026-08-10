@@ -113,6 +113,10 @@ $navHistory = array_reverse($d['nav_history']);
         <div class="panel-tab" data-tab="usuarios">Usuarios</div>
         <div class="panel-tab" data-tab="auditoria">Auditoría</div>
         <div class="panel-tab" data-tab="alertas">Alertas</div>
+        <div class="panel-tab" data-tab="reconciliacion">Reconciliación</div>
+        <div class="panel-tab" data-tab="modelos">Modelos ML</div>
+        <div class="panel-tab" data-tab="logs-ia">Logs IA</div>
+        <div class="panel-tab" data-tab="logs-acceso">Logs acceso</div>
         <div class="panel-tab" data-tab="ajustes">Ajustes</div>
     </div>
 
@@ -504,6 +508,129 @@ $navHistory = array_reverse($d['nav_history']);
                 <input class="cfg-input" name="chat_id" placeholder="chat_id de prueba" style="width:150px;">
                 <button type="submit" class="btn">Probar envío</button>
             </form>
+        </div>
+    </div>
+
+    <div id="tab-reconciliacion" class="panel-content">
+        <div class="card">
+            <div class="card-header"><span class="card-title">Reconciliación ledger vs Bybit</span></div>
+            <p style="font-size:0.85rem;color:var(--muted, #94a3b8);">Compara el patrimonio contable (NAV × unidades) contra el saldo real del exchange (wallet + PnL no realizado). Diferencia menor a 0.50 USDT = OK.</p>
+            <form method="post" style="margin-top:var(--space-md);">
+                <input type="hidden" name="action" value="reconciliar">
+                <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                <button type="submit" class="btn btn-primary">Ejecutar reconciliación</button>
+            </form>
+            <?php if (!empty($d['reconciliacion'])): ?>
+            <?php $rec = $d['reconciliacion']; ?>
+            <table class="data-table" style="margin-top:var(--space-md);">
+                <tr><th>Concepto</th><th>Valor</th></tr>
+                <tr><td>Ledger (NAV × unidades)</td><td class="num"><?= number_format((float)$rec['ledger_total'], 2) ?> USDT</td></tr>
+                <tr><td>Exchange (wallet + uPnL)</td><td class="num"><?= number_format((float)$rec['exchange_total'], 2) ?> USDT</td></tr>
+                <tr><td>Diferencia</td><td class="num" style="color: <?= (float)$rec['diferencia'] >= 0 ? 'var(--green)' : 'var(--red)' ?>;"><?= number_format((float)$rec['diferencia'], 2) ?> USDT</td></tr>
+                <tr><td>Resultado</td><td><span class="badge" style="background: <?= $rec['ok'] ? 'var(--green)' : 'var(--red)' ?>;"><?= $rec['ok'] ? 'OK' : 'DESCUADRE' ?></span></td></tr>
+            </table>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <div id="tab-modelos" class="panel-content">
+        <div class="card">
+            <div class="card-header"><span class="card-title">Modelos ML (solo lectura)</span></div>
+            <p style="font-size:0.85rem;color:var(--muted, #94a3b8);">No se ejecuta ni entrena nada desde este panel.</p>
+            <form method="post" style="margin-top:var(--space-md);">
+                <input type="hidden" name="action" value="modelos_list">
+                <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                <button type="submit" class="btn">Cargar modelos</button>
+            </form>
+            <?php if (!empty($d['modelos'])): ?>
+            <table class="data-table" style="margin-top:var(--space-md);">
+                <tr><th>Archivo</th><th>Tamaño</th><th>Modificado</th></tr>
+                <?php foreach ($d['modelos']['modelos'] as $m): ?>
+                <tr>
+                    <td style="font-family:var(--font-mono);"><?= htmlspecialchars($m['archivo']) ?></td>
+                    <td class="num"><?= number_format((float)$m['tamano']) ?> B</td>
+                    <td><?= htmlspecialchars($m['modificado']) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+            <?php if (empty($d['modelos']['modelos'])): ?><div class="empty-state">Sin archivos en data/models/.</div><?php endif; ?>
+            <div class="card-header" style="margin-top:var(--space-md);"><span class="card-title">Historial del entrenador</span></div>
+            <pre style="max-height:220px;overflow:auto;background:rgba(0,0,0,.3);border-radius:var(--radius-md);padding:var(--space-md);font-family:var(--font-mono);font-size:.75rem;"><?= htmlspecialchars((string)($d['modelos']['historial'] ?? '')) ?></pre>
+            <div class="card-header" style="margin-top:var(--space-md);"><span class="card-title">Pesos de volatilidad</span></div>
+            <pre style="max-height:220px;overflow:auto;background:rgba(0,0,0,.3);border-radius:var(--radius-md);padding:var(--space-md);font-family:var(--font-mono);font-size:.75rem;"><?= htmlspecialchars(json_encode($d['modelos']['precision'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></pre>
+            <p style="font-size:0.85rem;color:var(--muted, #94a3b8);">ml_accuracy configurado: <strong><?= htmlspecialchars((string)($d['modelos']['ml_accuracy'] ?? '')) ?></strong></p>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <div id="tab-logs-ia" class="panel-content">
+        <div class="card">
+            <div class="card-header"><span class="card-title">Logs de decisiones IA</span></div>
+            <form method="post" style="display:flex;gap:var(--space-sm);align-items:center;flex-wrap:wrap;margin:var(--space-sm) 0;">
+                <input type="hidden" name="action" value="logs_ia">
+                <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                <label style="font-size:0.85rem;">Página
+                    <input class="cfg-input" type="number" min="1" name="pagina" value="<?= max(1, (int)($d['pagina'] ?? 1)) ?>" style="width:70px;">
+                </label>
+                <label style="font-size:0.85rem;">Por página
+                    <input class="cfg-input" type="number" min="10" max="100" step="5" name="por_pagina" value="<?= max(10, (int)($d['paginas'] ?? 25)) ?>" style="width:70px;">
+                </label>
+                <button type="submit" class="btn">Ver</button>
+            </form>
+            <?php if (($d['log_view'] ?? null) === 'logs_ia'): ?>
+            <table class="data-table">
+                <tr><th>Fecha</th><th>Señal</th><th>Confianza</th><th>Razón</th><th>Acción</th><th>Precio</th></tr>
+                <?php foreach ($d['filas'] as $row): ?>
+                <tr>
+                    <td style="font-family:var(--font-mono);white-space:nowrap;"><?= htmlspecialchars($row['fecha'] ?? '') ?></td>
+                    <td><span class="badge" style="background: <?= ($row['senal'] ?? '') === 'LONG' ? 'var(--green)' : (($row['senal'] ?? '') === 'SHORT' ? 'var(--red)' : 'var(--muted, #94a3b8)') ?>;"><?= htmlspecialchars($row['senal'] ?? '') ?></span></td>
+                    <td class="num"><?= number_format((float)($row['confianza'] ?? 0), 2) ?></td>
+                    <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<?= htmlspecialchars((string)($row['razon'] ?? '')) ?>"><?= htmlspecialchars((string)($row['razon'] ?? '')) ?></td>
+                    <td><?= htmlspecialchars($row['accion_tomada'] ?? '') ?></td>
+                    <td class="num"><?= number_format((float)($row['precio'] ?? 0), 2) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+            <?php if (empty($d['filas'])): ?><div class="empty-state">Sin registros de IA.</div><?php endif; ?>
+            <p style="font-size:0.85rem;color:var(--muted, #94a3b8);">Página <?= (int)$d['pagina'] ?> de <?= (int)$d['paginas'] ?> · <?= (int)$d['total'] ?> registros</p>
+            <?php else: ?>
+            <div class="empty-state">Pulsa «Ver» para cargar los logs de IA.</div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <div id="tab-logs-acceso" class="panel-content">
+        <div class="card">
+            <div class="card-header"><span class="card-title">Logs de acceso</span></div>
+            <form method="post" style="display:flex;gap:var(--space-sm);align-items:center;flex-wrap:wrap;margin:var(--space-sm) 0;">
+                <input type="hidden" name="action" value="logs_acceso">
+                <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                <label style="font-size:0.85rem;">Página
+                    <input class="cfg-input" type="number" min="1" name="pagina" value="<?= max(1, (int)($d['pagina'] ?? 1)) ?>" style="width:70px;">
+                </label>
+                <label style="font-size:0.85rem;">Por página
+                    <input class="cfg-input" type="number" min="10" max="100" step="5" name="por_pagina" value="<?= max(10, (int)($d['paginas'] ?? 25)) ?>" style="width:70px;">
+                </label>
+                <button type="submit" class="btn">Ver</button>
+            </form>
+            <?php if (($d['log_view'] ?? null) === 'logs_acceso'): ?>
+            <table class="data-table">
+                <tr><th>Fecha</th><th>Usuario</th><th>IP</th><th>User agent</th><th>Resultado</th></tr>
+                <?php foreach ($d['filas'] as $row): ?>
+                <tr>
+                    <td style="font-family:var(--font-mono);white-space:nowrap;"><?= htmlspecialchars($row['fecha'] ?? '') ?></td>
+                    <td><?= htmlspecialchars($row['username'] ?? '') ?></td>
+                    <td style="font-family:var(--font-mono);"><?= htmlspecialchars($row['ip'] ?? '') ?></td>
+                    <td class="hide-mobile" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<?= htmlspecialchars((string)($row['user_agent'] ?? '')) ?>"><?= htmlspecialchars((string)($row['user_agent'] ?? '')) ?></td>
+                    <td><span class="badge" style="background: <?= ($row['resultado'] ?? '') === 'exitoso' ? 'var(--green)' : 'var(--red)' ?>;"><?= htmlspecialchars($row['resultado'] ?? '') ?></span></td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+            <?php if (empty($d['filas'])): ?><div class="empty-state">Sin registros de acceso.</div><?php endif; ?>
+            <p style="font-size:0.85rem;color:var(--muted, #94a3b8);">Página <?= (int)$d['pagina'] ?> de <?= (int)$d['paginas'] ?> · <?= (int)$d['total'] ?> registros</p>
+            <?php else: ?>
+            <div class="empty-state">Pulsa «Ver» para cargar los logs de acceso.</div>
+            <?php endif; ?>
         </div>
     </div>
 </div>

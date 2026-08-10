@@ -10,6 +10,7 @@ use BinanceBot\Core\AdminHttp;
 use BinanceBot\Core\Csrf;
 use BinanceBot\Core\RpcClient;
 use BinanceBot\Core\Wallet;
+use BinanceBot\Exchange\BybitFutures;
 use Tests\Support\SqliteSchema;
 
 class AdminHttpTest extends TestCase
@@ -298,5 +299,47 @@ class AdminHttpTest extends TestCase
         $this->assertSame('2FA desactivada', $out['data']['flash'] ?? $out['flash'] ?? '');
         $row = $this->pdo->query('SELECT totp_enabled FROM users WHERE id = 1')->fetch();
         $this->assertSame(0, (int)$row['totp_enabled']);
+    }
+
+    public function testLogsIaPaginated(): void
+    {
+        for ($i = 0; $i < 30; $i++) {
+            $this->pdo->exec("INSERT INTO logs_ia (senal, confianza) VALUES ('LONG', 0.5)");
+        }
+        $session = ['user_id' => 1, 'role' => 'admin'];
+        $session['csrf'] = Csrf::token($session);
+        $post = ['action' => 'logs_ia', 'pagina' => '2', 'por_pagina' => '25', 'csrf' => $session['csrf']];
+        $out = AdminHttp::handle($this->pdo, $session, $post);
+        $this->assertSame(30, $out['data']['total']);
+        $this->assertSame(2, $out['data']['paginas']);
+        $this->assertCount(5, $out['data']['filas']);
+        $this->assertSame(2, $out['data']['pagina']);
+    }
+
+    public function testLogsAccesoPaginated(): void
+    {
+        for ($i = 0; $i < 10; $i++) {
+            $this->pdo->exec("INSERT INTO logs_acceso (username, ip, resultado) VALUES ('u$i', '1.1.1.1', 'fallido')");
+        }
+        $session = ['user_id' => 1, 'role' => 'admin'];
+        $session['csrf'] = Csrf::token($session);
+        $post = ['action' => 'logs_acceso', 'csrf' => $session['csrf']];
+        $out = AdminHttp::handle($this->pdo, $session, $post);
+        $this->assertSame(10, $out['data']['total']);
+        $this->assertCount(10, $out['data']['filas']);
+    }
+
+    public function testReconciliarActionReturnsResult(): void
+    {
+        $ledger = Accounting::currentNav($this->pdo) * Accounting::totalUnits($this->pdo);
+        $session = ['user_id' => 1, 'role' => 'admin'];
+        $session['csrf'] = Csrf::token($session);
+        $client = $this->createMock(BybitFutures::class);
+        $client->method('balance')->willReturn($ledger);
+        $client->method('positions')->willReturn([]);
+        $out = AdminHttp::handle($this->pdo, $session, ['action' => 'reconciliar', 'csrf' => $session['csrf']], null, null, $client);
+        $this->assertSame('overview', $out['view']);
+        $this->assertArrayHasKey('reconciliacion', $out['data']);
+        $this->assertTrue($out['data']['reconciliacion']['ok']);
     }
 }

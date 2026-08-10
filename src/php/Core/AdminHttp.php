@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace BinanceBot\Core;
 
 use PDO;
+use BinanceBot\Exchange\BybitFutures;
 
 class AdminHttp
 {
@@ -12,7 +13,7 @@ class AdminHttp
         return Wallet::estimateGas($pdo, $secret, $network, $token, $destination, $amount, $rpc);
     }
 
-    public static function handle(PDO $pdo, array &$session, array $post, ?callable $sendDirect = null, ?RpcClient $rpc = null): array
+    public static function handle(PDO $pdo, array &$session, array $post, ?callable $sendDirect = null, ?RpcClient $rpc = null, ?BybitFutures $client = null): array
     {
         if (empty($session['user_id']) || ($session['role'] ?? '') !== 'admin') {
             return ['view' => 'forbidden', 'data' => []];
@@ -21,6 +22,9 @@ class AdminHttp
         $error = null;
         $ip = (string)($_SERVER['REMOTE_ADDR'] ?? '');
         $twoFactorData = null;
+        $reconciliacion = null;
+        $modelos = null;
+        $logsView = null;
 
         if ($action !== '' && !Csrf::verify($session, isset($post['csrf']) ? (string)$post['csrf'] : null)) {
             $error = 'Token CSRF inválido';
@@ -217,6 +221,51 @@ class AdminHttp
                     }
                 }
             }
+        } elseif ($action === 'reconciliar') {
+            try {
+                $cfg = Config::getInstance();
+                $client = $client ?? new BybitFutures(
+                    (string)$cfg->get('bybit.api_key', ''),
+                    (string)$cfg->get('bybit.api_secret', ''),
+                    (bool)$cfg->get('bybit.testnet', false),
+                    (string)$cfg->get('bybit.environment', '') ?: null
+                );
+                $reconciliacion = Reconciliation::reconcile($pdo, $client, (string)$cfg->get('bot.symbol', 'ETHUSDT'));
+            } catch (\Throwable $e) {
+                $error = 'No se pudo reconciliar con el exchange: ' . $e->getMessage();
+            }
+        } elseif ($action === 'modelos_list') {
+            $modelosArchivos = [];
+            $dir = dirname(__DIR__, 3) . '/data/models';
+            if (is_dir($dir)) {
+                foreach (glob($dir . '/*') as $f) {
+                    $modelosArchivos[] = [
+                        'archivo' => basename($f),
+                        'tamano' => (int)@filesize($f),
+                        'modificado' => date('Y-m-d H:i:s', (int)@filemtime($f)),
+                    ];
+                }
+            }
+            $historial = '';
+            $hfile = dirname(__DIR__, 3) . '/config/trainer_history.json';
+            if (is_file($hfile)) {
+                $historial = (string)file_get_contents($hfile);
+            }
+            $precision = null;
+            $pfile = dirname(__DIR__, 3) . '/config/volatility_weights.json';
+            if (is_file($pfile)) {
+                $precision = json_decode((string)file_get_contents($pfile), true);
+            }
+            $modelos = [
+                'modelos' => $modelosArchivos,
+                'historial' => $historial,
+                'precision' => $precision,
+                'ml_accuracy' => Config::getInstance()->get('ml.min_accuracy'),
+            ];
+        } elseif ($action === 'logs_ia') {
+            $logsView = self::paginate($pdo, 'logs_ia', $post);
+        } elseif ($action === 'logs_acceso') {
+            $logsView = self::paginate($pdo, 'logs_acceso', $post);
         }
 
         $data = [
@@ -233,6 +282,13 @@ class AdminHttp
             'fills' => [],
             'alertas' => $pdo->query('SELECT * FROM alertas_config ORDER BY tipo')->fetchAll(),
             'telegram_token' => self::botMeta($pdo, 'telegram_bot_token'),
+            'filas' => $logsView['filas'] ?? [],
+            'total' => $logsView['total'] ?? 0,
+            'paginas' => $logsView['paginas'] ?? 1,
+            'pagina' => $logsView['pagina'] ?? 1,
+            'log_view' => $logsView['view'] ?? null,
+            'reconciliacion' => $reconciliacion,
+            'modelos' => $modelos,
             'error' => $error,
             'flash' => $session['flash'] ?? null,
             '2fa_enabled' => 0,
@@ -254,6 +310,24 @@ class AdminHttp
         }
         unset($session['flash']);
         return ['view' => 'overview', 'data' => $data];
+    }
+
+    private static function paginate(PDO $pdo, string $table, array $post): array
+    {
+        $pagina = max(1, (int)($post['pagina'] ?? 1));
+        $por = min(100, max(10, (int)($post['por_pagina'] ?? 25)));
+        $total = (int)$pdo->query("SELECT COUNT(*) FROM {$table}")->fetchColumn();
+        $paginas = max(1, (int)ceil($total / $por));
+        $off = ($pagina - 1) * $por;
+        $stmt = $pdo->prepare("SELECT * FROM {$table} ORDER BY fecha DESC LIMIT ? OFFSET ?");
+        $stmt->execute([$por, $off]);
+        return [
+            'view' => $table,
+            'filas' => $stmt->fetchAll(),
+            'total' => $total,
+            'paginas' => $paginas,
+            'pagina' => $pagina,
+        ];
     }
 
     private static function botMeta(PDO $pdo, string $metaKey): string
