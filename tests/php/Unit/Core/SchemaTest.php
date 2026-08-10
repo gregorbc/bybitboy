@@ -32,7 +32,7 @@ class SchemaTest extends TestCase
     {
         $pdo = \Mockery::mock(\PDO::class);
         $n = count(Schema::ddl());
-        $pdo->shouldReceive('exec')->times($n)->andReturn(true);
+        $pdo->shouldReceive('exec')->times($n + 1)->andReturn(true);
         Schema::createTables($pdo);
         $this->addToAssertionCount(1);
         \Mockery::close();
@@ -49,5 +49,17 @@ class SchemaTest extends TestCase
         $ddl = implode("\n", Schema::ddl());
         $this->assertStringContainsString('INDEX idx_admin (admin_id)', $ddl);
         $this->assertStringContainsString('INDEX idx_status (status)', $ddl);
+    }
+
+    public function testAdminAuditTableExists(): void
+    {
+        $ddl = implode("\n", Schema::ddl());
+        $this->assertStringContainsString("CREATE TABLE IF NOT EXISTS admin_audit", $ddl, "falta tabla admin_audit");
+    }
+
+    public function testMovementsHasNoteColumn(): void
+    {
+        $ddl = implode("\n", Schema::ddl());
+        $this->assertMatchesRegularExpression('/CREATE TABLE IF NOT EXISTS movements \(.*?note VARCHAR\(255\) NOT NULL DEFAULT/s', $ddl, "falta columna note en movements");
     }
 }

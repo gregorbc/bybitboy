@@ -79,6 +79,7 @@ class Schema
                 units DECIMAL(20,8) NOT NULL DEFAULT 0,
                 nav DECIMAL(20,8) NOT NULL DEFAULT 0,
                 balance_after DECIMAL(20,8) NOT NULL DEFAULT 0,
+                note VARCHAR(255) NOT NULL DEFAULT '',
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_user (user_id, created_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
@@ -129,6 +130,17 @@ class Schema
                 INDEX idx_admin (admin_id),
                 INDEX idx_status (status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            "CREATE TABLE IF NOT EXISTS admin_audit (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                admin_id INT NOT NULL,
+                username VARCHAR(50) NOT NULL DEFAULT '',
+                action VARCHAR(50) NOT NULL,
+                detail VARCHAR(500) NOT NULL DEFAULT '',
+                ip VARCHAR(45) NOT NULL DEFAULT '',
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_admin (admin_id, created_at),
+                INDEX idx_action (action)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         ];
     }
 
@@ -136,6 +148,11 @@ class Schema
     {
         foreach (self::ddl() as $sql) {
             $pdo->exec($sql);
+        }
+        try {
+            $pdo->exec("ALTER TABLE movements ADD COLUMN note VARCHAR(255) NOT NULL DEFAULT ''");
+        } catch (\Throwable $e) {
+            // columna ya existe en BD existentes
         }
     }
 }
