@@ -58,6 +58,10 @@ $networks = [
 <link rel="stylesheet" href="assets/css/design-system.css">
 <link rel="stylesheet" href="assets/css/layout.css">
 <link rel="stylesheet" href="assets/css/components.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+    .row-hidden { display: none; }
+</style>
 </head>
 <body>
 <nav class="navbar">
@@ -88,6 +92,10 @@ $networks = [
             <div class="kpi-card-label">Equidad</div>
         </div>
         <div class="card">
+            <div class="kpi-card-value <?= ($d['growth_pct'] ?? 0) >= 0 ? 'green' : 'red' ?>"><?= ($d['growth_pct'] ?? 0) >= 0 ? '+' : '' ?><?= number_format($d['growth_pct'] ?? 0, 2) ?>%</div>
+            <div class="kpi-card-label">Crecimiento</div>
+        </div>
+        <div class="card">
             <div class="kpi-card-value accent"><?= number_format($d['units'], 8) ?></div>
             <div class="kpi-card-label">Unidades</div>
         </div>
@@ -107,6 +115,8 @@ $networks = [
         <div class="panel-tab" data-tab="depositos">Depósitos</div>
         <div class="panel-tab" data-tab="retiros">Retiros</div>
         <div class="panel-tab" data-tab="movimientos">Movimientos</div>
+        <div class="panel-tab" data-tab="crecimiento">Crecimiento</div>
+        <div class="panel-tab" data-tab="perfil">Perfil</div>
     </div>
 
     <div id="tab-resumen" class="panel-content active">
@@ -150,7 +160,7 @@ $networks = [
     <div id="tab-depositos" class="panel-content">
         <div class="card">
             <div class="card-header"><span class="card-title">Depósitos</span></div>
-            <table class="data-table">
+            <table class="data-table" id="depTb">
                 <tr><th>Estado</th><th>Red</th><th>Token</th><th>Monto</th><th class="hide-mobile">Tx</th></tr>
                 <?php foreach ($d['deposits'] as $dep): ?>
                 <tr>
@@ -169,13 +179,14 @@ $networks = [
             <?php if (empty($d['deposits'])): ?>
             <div class="empty-state">Sin registros.</div>
             <?php endif; ?>
+            <div class="empty-state" id="depMoreBtn" style="cursor:pointer; margin-top: var(--space-md);">▼ Ver más depósitos</div>
         </div>
     </div>
 
     <div id="tab-retiros" class="panel-content">
         <div class="card">
             <div class="card-header"><span class="card-title">Mis retiros</span></div>
-            <table class="data-table">
+            <table class="data-table" id="wdTb">
                 <tr><th>Estado</th><th>Red</th><th>Monto</th><th class="hide-mobile">Tx</th></tr>
                 <?php foreach ($d['withdrawals'] as $w): ?>
                 <tr>
@@ -193,13 +204,14 @@ $networks = [
             <?php if (empty($d['withdrawals'])): ?>
             <div class="empty-state">Sin registros.</div>
             <?php endif; ?>
+            <div class="empty-state" id="wdMoreBtn" style="cursor:pointer; margin-top: var(--space-md);">▼ Ver más retiros</div>
         </div>
     </div>
 
     <div id="tab-movimientos" class="panel-content">
         <div class="card">
             <div class="card-header"><span class="card-title">Movimientos</span></div>
-            <table class="data-table">
+            <table class="data-table" id="movTb">
                 <tr><th>Fecha</th><th>Tipo</th><th>Monto</th><th class="hide-mobile">Unidades</th><th class="hide-mobile">NAV</th><th class="hide-mobile">Saldo posterior</th></tr>
                 <?php foreach ($d['movements'] as $m): ?>
                 <tr>
@@ -219,6 +231,45 @@ $networks = [
             <?php if (empty($d['movements'])): ?>
             <div class="empty-state">Sin movimientos todavía.</div>
             <?php endif; ?>
+            <div class="empty-state" id="movMoreBtn" style="cursor:pointer; margin-top: var(--space-md);">▼ Ver más movimientos</div>
+        </div>
+    </div>
+
+    <div id="tab-crecimiento" class="panel-content">
+        <div class="card">
+            <div class="card-header"><span class="card-title">Crecimiento de tu inversión</span></div>
+            <div style="height: 260px;"><canvas id="growthChart"></canvas></div>
+        </div>
+    </div>
+
+    <div id="tab-perfil" class="panel-content">
+        <div class="card">
+            <div class="card-header"><span class="card-title">Datos de perfil</span></div>
+            <form method="post">
+                <input type="hidden" name="action" value="update_profile">
+                <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                <div class="cfg-field">
+                    <label for="pfEmail">Email</label>
+                    <input class="cfg-input" id="pfEmail" name="email" type="email" value="<?= htmlspecialchars($d['email'] ?? '') ?>" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: var(--space-lg);">Guardar perfil</button>
+            </form>
+        </div>
+        <div class="card" style="margin-top: var(--space-md);">
+            <div class="card-header"><span class="card-title">Cambiar contraseña</span></div>
+            <form method="post">
+                <input type="hidden" name="action" value="change_password">
+                <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                <div class="cfg-field">
+                    <label for="pwCurrent">Contraseña actual</label>
+                    <input class="cfg-input" id="pwCurrent" name="current_password" type="password" required>
+                </div>
+                <div class="cfg-field" style="margin-top: var(--space-md);">
+                    <label for="pwNew">Nueva contraseña (mín. 8)</label>
+                    <input class="cfg-input" id="pwNew" name="new_password" type="password" minlength="8" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: var(--space-lg);">Cambiar contraseña</button>
+            </form>
         </div>
     </div>
 </div>
@@ -238,6 +289,38 @@ if (savedTab) {
     var savedEl = document.querySelector('.panel-tab[data-tab="' + savedTab + '"]');
     if (savedEl) activatePanelTab(savedEl);
 }
+
+const EQUITY_DATA = <?= json_encode($d['equity_history']) ?>;
+
+function renderGrowthChart() {
+    if (typeof Chart === 'undefined' || !document.getElementById('growthChart')) return;
+    new Chart(document.getElementById('growthChart'), {
+        type: 'line',
+        data: {
+            labels: EQUITY_DATA.map(r => (r.created_at || '').slice(0, 10)),
+            datasets: [{ label: 'Equidad', data: EQUITY_DATA.map(r => Number(r.balance_after)), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.12)', fill: true, tension: .2, pointRadius: 0 }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { grid: { color: '#1e3a5f' } }, y: { grid: { color: '#1e3a5f' } } } }
+    });
+}
+
+function setupPagination(tableId, btnId, perPage) {
+    const tb = document.getElementById(tableId);
+    const btn = document.getElementById(btnId);
+    if (!tb) return;
+    const rows = Array.prototype.slice.call(tb.rows);
+    if (rows.length <= perPage) { if (btn) btn.style.display = 'none'; return; }
+    rows.forEach(function (r, i) { if (i >= perPage) r.classList.add('row-hidden'); });
+    if (btn) btn.addEventListener('click', function () {
+        rows.forEach(function (r) { r.classList.remove('row-hidden'); });
+        btn.style.display = 'none';
+    });
+}
+
+renderGrowthChart();
+setupPagination('movTb', 'movMoreBtn', 20);
+setupPagination('depTb', 'depMoreBtn', 20);
+setupPagination('wdTb', 'wdMoreBtn', 20);
 </script>
 </body>
 </html>
