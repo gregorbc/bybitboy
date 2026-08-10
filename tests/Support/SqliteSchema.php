@@ -25,5 +25,11 @@ class SqliteSchema
         $pdo->exec('CREATE TABLE IF NOT EXISTS grid_orders (id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT, grid_role TEXT, status TEXT, pnl_usd REAL, filled_at TEXT, order_id TEXT)');
         $pdo->exec('CREATE TABLE admin_sends (id INTEGER PRIMARY KEY AUTOINCREMENT, admin_id INTEGER NOT NULL, network TEXT NOT NULL, token TEXT NOT NULL, amount REAL NOT NULL, destination_address TEXT NOT NULL, tx_hash TEXT DEFAULT "", status TEXT DEFAULT "pending", error_message TEXT DEFAULT "", gas_used INTEGER DEFAULT 0, gas_price INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, sent_at TEXT)');
         $pdo->exec('CREATE TABLE admin_audit (id INTEGER PRIMARY KEY AUTOINCREMENT, admin_id INTEGER NOT NULL, username TEXT DEFAULT "", action TEXT, detail TEXT DEFAULT "", ip TEXT DEFAULT "", created_at TEXT DEFAULT CURRENT_TIMESTAMP)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS grid_configs (id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT UNIQUE, status TEXT DEFAULT "ACTIVE", max_daily_loss REAL, recovery_loss_pct REAL, fee_floor_mode TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS logs_ia (id INTEGER PRIMARY KEY AUTOINCREMENT, fecha TEXT DEFAULT CURRENT_TIMESTAMP, senal TEXT, confianza REAL DEFAULT 0, razon TEXT DEFAULT "", accion_tomada TEXT DEFAULT "", precio REAL DEFAULT 0)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS logs_acceso (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario_id INTEGER, username TEXT, ip TEXT, user_agent TEXT DEFAULT "", resultado TEXT, fecha TEXT DEFAULT CURRENT_TIMESTAMP)');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS alertas_config (id INTEGER PRIMARY KEY AUTOINCREMENT, tipo TEXT UNIQUE, umbral REAL NOT NULL, habilitado INTEGER DEFAULT 1, telegram_chat_id TEXT DEFAULT "", ultima_notificacion TEXT, intervalo_min INTEGER DEFAULT 30, actualizado_por INTEGER, updated_at TEXT)');
+        $pdo->exec('ALTER TABLE users ADD COLUMN totp_secret TEXT');
+        $pdo->exec('ALTER TABLE users ADD COLUMN totp_enabled INTEGER DEFAULT 0');
     }
 }

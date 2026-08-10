@@ -32,7 +32,7 @@ class SchemaTest extends TestCase
     {
         $pdo = \Mockery::mock(\PDO::class);
         $n = count(Schema::ddl());
-        $pdo->shouldReceive('exec')->times($n + 1)->andReturn(true);
+        $pdo->shouldReceive('exec')->times($n + 5)->andReturn(true); // ddl + movements.note + 4 ALTERs gap
         Schema::createTables($pdo);
         $this->addToAssertionCount(1);
         \Mockery::close();
