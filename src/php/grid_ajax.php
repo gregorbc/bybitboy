@@ -418,10 +418,22 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_config') {
         echo json_encode(['ok' => false, 'msg' => 'Token inválido']);
         exit;
     }
-    $allowed = ['capital_usd', 'leverage', 'levels', 'long_levels', 'short_levels', 'spacing_pct'];
+    $allowed = ['capital_usd', 'leverage', 'levels', 'long_levels', 'short_levels', 'spacing_pct',
+                'recovery_active', 'max_daily_loss', 'recovery_loss_pct'];
     $updates = [];
     foreach ($allowed as $k) {
         if (isset($_POST[$k])) $updates[$k] = $_POST[$k];
+    }
+    if (isset($updates['recovery_active'])) $updates['recovery_active'] = $updates['recovery_active'] ? 1 : 0;
+    foreach (['max_daily_loss', 'recovery_loss_pct'] as $k) {
+        if (isset($updates[$k]) && $updates[$k] !== '' && $updates[$k] !== null) {
+            $v = (float)$updates[$k];
+            if ($v < 0.5 || $v > 50) {
+                echo json_encode(['ok' => false, 'msg' => "$k fuera de rango [0.5, 50]"]);
+                exit;
+            }
+            $updates[$k] = $v;
+        }
     }
     if (!empty($updates)) {
         $current = file_exists($ctrlFile) ? json_decode(file_get_contents($ctrlFile), true) : [];

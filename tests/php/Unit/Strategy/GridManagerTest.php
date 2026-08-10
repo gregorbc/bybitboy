@@ -13,11 +13,15 @@ namespace Tests\Unit\Strategy
     {
         public static array $dbxCalls = [];
         public static mixed $dbxFetchResult = false;
+        public static array $dbxFetchAllResult = [];
+        public static mixed $dbxFetchColumnResult = 0;
 
         protected function setUp(): void
         {
             self::$dbxCalls = [];
             self::$dbxFetchResult = false;
+            self::$dbxFetchAllResult = [];
+            self::$dbxFetchColumnResult = 0;
         }
 
         protected function tearDown(): void
@@ -30,8 +34,8 @@ namespace Tests\Unit\Strategy
             $stmt = \Mockery::mock(\PDOStatement::class);
             $stmt->shouldReceive('execute')->andReturn(true);
             $stmt->shouldReceive('fetch')->andReturn(self::$dbxFetchResult);
-            $stmt->shouldReceive('fetchAll')->andReturn([]);
-            $stmt->shouldReceive('fetchColumn')->andReturn(0);
+            $stmt->shouldReceive('fetchAll')->andReturn(self::$dbxFetchAllResult);
+            $stmt->shouldReceive('fetchColumn')->andReturn(self::$dbxFetchColumnResult);
             $stmt->shouldReceive('fetchObject')->andReturn(false);
             $pdo = \Mockery::mock(\PDO::class);
             $pdo->shouldReceive('prepare')->andReturnUsing(
@@ -590,6 +594,185 @@ public function testCalcPnlBuyExit(): void
         $this->assertEqualsWithDelta(0.70, $low['ml'], 0.0001);
         $this->assertEqualsWithDelta(0.30, $low['heur'], 0.0001);
     }
+
+    public function testApplyRiskConfigUsesDbValueWhenNotNull(): void
+    {
+        $api = \Mockery::mock(BybitFutures::class);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $ref = new \ReflectionClass(GridManager::class);
+        $cfgProp = $ref->getProperty('cfg');
+        $cfgProp->setAccessible(true);
+        $cfgProp->setValue($manager, [
+            'id' => 1, 'symbol' => 'ETHUSDT',
+            'max_daily_loss' => '12.5', 'recovery_loss_pct' => '4.0',
+        ]);
+
+        $manager->applyRiskConfig();
+        $this->assertSame(12.5, $manager->getRiskMaxDailyLoss());
+        $this->assertSame(4.0, $manager->getRiskRecoveryLossPct());
+    }
+
+    public function testApplyRiskConfigUsesConstantsWhenNull(): void
+    {
+        $api = \Mockery::mock(BybitFutures::class);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $ref = new \ReflectionClass(GridManager::class);
+        $cfgProp = $ref->getProperty('cfg');
+        $cfgProp->setAccessible(true);
+        $cfgProp->setValue($manager, [
+            'id' => 1, 'symbol' => 'ETHUSDT',
+            'max_daily_loss' => null, 'recovery_loss_pct' => null,
+        ]);
+
+        $manager->applyRiskConfig();
+        $this->assertSame(G_MAX_DAILY_LOSS, $manager->getRiskMaxDailyLoss());
+        $this->assertSame(G_RECOVERY_LOSS_PCT, $manager->getRiskRecoveryLossPct());
+    }
+
+    public function testPersistAiDecisionInsertsLog(): void
+    {
+        $api = \Mockery::mock(BybitFutures::class);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $manager->persistAiDecision([
+            'senal' => 'LONG', 'confianza' => 0.81, 'razon' => 'Tendencia alcista',
+            'accion_tomada' => 'enter', 'precio' => 3200.5,
+        ]);
+
+        $found = false;
+        foreach (self::$dbxCalls as $sql) {
+            if (str_contains($sql, 'INSERT INTO logs_ia')) $found = true;
+        }
+        $this->assertTrue($found, 'persistAiDecision debe insertar en logs_ia');
+    }
+
+    public function testNotifyIfAlertSkipsWhenBelowThreshold(): void
+    {
+        $api = \Mockery::mock(BybitFutures::class);
+        $api->shouldReceive('positions')->andReturn([]);
+        $api->shouldReceive('balance')->andReturn(100.0);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $ref = new \ReflectionClass(GridManager::class);
+        $peakProp = $ref->getProperty('peakPnl');
+        $peakProp->setAccessible(true);
+        $peakProp->setValue($manager, 10.0);
+
+        self::$dbxFetchResult = ['p' => '9.5']; // pnl hoy 9.5 con peak 10 -> drawdown 5%
+        self::$dbxFetchAllResult = [[
+            'id' => 1, 'tipo' => 'drawdown_pct', 'umbral' => 30.0, 'habilitado' => 1,
+            'telegram_chat_id' => '777', 'ultima_notificacion' => null, 'intervalo_min' => 30,
+        ]];
+
+        $called = 0;
+        $spy = function () use (&$called) { $called++; };
+        $manager->notifyIfAlert($spy);
+
+        $this->assertSame(0, $called, 'no debe notificar si drawdown (5%) no supera el umbral (30)');
+        foreach (self::$dbxCalls as $sql) {
+            $this->assertStringNotContainsString('UPDATE alertas_config SET ultima_notificacion', $sql,
+                'no debe actualizar ultima_notificacion si no se superó el umbral');
+        }
+    }
+
+    public function testNotifyIfAlertSendsWhenThresholdExceeded(): void
+    {
+        $api = \Mockery::mock(BybitFutures::class);
+        $api->shouldReceive('positions')->andReturn([]);
+        $api->shouldReceive('balance')->andReturn(100.0);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $ref = new \ReflectionClass(GridManager::class);
+        $peakProp = $ref->getProperty('peakPnl');
+        $peakProp->setAccessible(true);
+        $peakProp->setValue($manager, 10.0);
+
+        self::$dbxFetchResult = ['p' => '3.0']; // pnl hoy 3 con peak 10 -> drawdown 70% > 30
+        self::$dbxFetchAllResult = [[
+            'id' => 1, 'tipo' => 'drawdown_pct', 'umbral' => 30.0, 'habilitado' => 1,
+            'telegram_chat_id' => '777', 'ultima_notificacion' => null, 'intervalo_min' => 30,
+        ]];
+        self::$dbxFetchColumnResult = '123:abc'; // bot_meta telegram_bot_token
+
+        $calls = [];
+        $spy = function (string $token, string $chatId, string $text) use (&$calls) {
+            $calls[] = [$token, $chatId, $text];
+        };
+        $manager->notifyIfAlert($spy);
+
+        $this->assertCount(1, $calls, 'debe notificar 1 vez cuando el drawdown supera el umbral');
+        $this->assertSame('123:abc', $calls[0][0]);
+        $this->assertSame('777', $calls[0][1]);
+
+        $hasUpdate = false;
+        foreach (self::$dbxCalls as $sql) {
+            if (str_contains($sql, 'UPDATE alertas_config SET ultima_notificacion')) $hasUpdate = true;
+        }
+        $this->assertTrue($hasUpdate, 'debe registrar ultima_notificacion tras notificar');
+    }
+
+    public function testApplyConfigUpdateAcceptsRiskFields(): void
+    {
+$api = \Mockery::mock(BybitFutures::class)->shouldIgnoreMissing();
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $ref = new \ReflectionClass(GridManager::class);
+        $method = $ref->getMethod('applyConfigUpdate');
+        $method->setAccessible(true);
+        $method->invoke($manager, [
+            'max_daily_loss' => 15.0, 'recovery_loss_pct' => 2.5, 'recovery_active' => 1,
+        ]);
+
+        $sql = self::$dbxCalls[0] ?? '';
+        $this->assertStringContainsString('max_daily_loss', $sql);
+        $this->assertStringContainsString('recovery_loss_pct', $sql);
+        $this->assertStringContainsString('recovery_active', $sql);
+    }
+
+    public function testApplyConfigUpdateRejectsOutOfRangeRiskField(): void
+    {
+        $api = \Mockery::mock(BybitFutures::class);
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $ref = new \ReflectionClass(GridManager::class);
+        $method = $ref->getMethod('applyConfigUpdate');
+        $method->setAccessible(true);
+        $method->invoke($manager, ['max_daily_loss' => 500]);
+
+        $this->assertEmpty(self::$dbxCalls, 'no debe escribir a BD con max_daily_loss fuera de [0.5, 50]');
+    }
+
+    public function testApplyConfigUpdateCoercesRecoveryActiveToBool(): void
+    {
+$api = \Mockery::mock(BybitFutures::class)->shouldIgnoreMissing();
+        $ai  = new GridAI();
+        $ml  = new GridML('/tmp/nonexistent_weights_' . uniqid() . '.json');
+        $manager = new GridManager($api, $ai, $ml);
+
+        $ref = new \ReflectionClass(GridManager::class);
+        $method = $ref->getMethod('applyConfigUpdate');
+        $method->setAccessible(true);
+        $method->invoke($manager, ['recovery_active' => 'on']);
+
+        $sql = self::$dbxCalls[0] ?? '';
+        $this->assertStringContainsString('recovery_active', $sql);
+    }
 }
 }
 
@@ -635,6 +818,12 @@ namespace
     }
     if (!defined('G_CAPITAL')) {
         define('G_CAPITAL', 100.0);
+    }
+    if (!defined('G_MAX_DAILY_LOSS')) {
+        define('G_MAX_DAILY_LOSS', 12.0);
+    }
+    if (!defined('G_RECOVERY_LOSS_PCT')) {
+        define('G_RECOVERY_LOSS_PCT', 3.0);
     }
     if (!defined('G_LEVERAGE')) {
         define('G_LEVERAGE', 20);

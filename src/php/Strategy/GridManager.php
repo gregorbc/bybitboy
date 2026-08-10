@@ -5,6 +5,7 @@ namespace BinanceBot\Strategy;
 
 use BinanceBot\Exchange\BybitFutures;
 use BinanceBot\Core\BotAccountingSync;
+use BinanceBot\Core\Notification;
 
 /**
  * Grid trading orchestration: build grids, detect fills, recycle entries, manage risk.
@@ -54,14 +55,23 @@ class GridManager {
     private $lastDirection = null;
     private $directionChangeCount = 0;
 
+    private float $riskMaxDailyLoss = 0.0;
+    private float $riskRecoveryLossPct = 0.0;
+    private float $lastPrice = 0.0;
+
     public function __construct($api, $ai, $ml, ?LiquidationProtector $liquidationProtector = null) {
         $this->api = $api;
         $this->ai = $ai;
         $this->ml = $ml;
         $this->liquidationProtector = $liquidationProtector;
         $this->volFile = dirname(__DIR__) . '/volatility_weights_ridge.json';
+        $this->riskMaxDailyLoss = defined('G_MAX_DAILY_LOSS') ? G_MAX_DAILY_LOSS : 12.0;
+        $this->riskRecoveryLossPct = defined('G_RECOVERY_LOSS_PCT') ? G_RECOVERY_LOSS_PCT : 3.0;
         $this->loadVolatilityModel();
     }
+
+    public function getRiskMaxDailyLoss(): float { return $this->riskMaxDailyLoss; }
+    public function getRiskRecoveryLossPct(): float { return $this->riskRecoveryLossPct; }
 
     private function loadVolatilityModel() {
         $ridgeFile = dirname(__DIR__) . '/volatility_weights_ridge.json';
@@ -230,6 +240,8 @@ class GridManager {
         while ($this->running) {
             if (function_exists('pcntl_signal_dispatch')) pcntl_signal_dispatch();
             $this->checkControl();
+            $this->applyRiskConfig();
+            $this->notifyIfAlert();
             if ($this->handlePause()) continue;
             $this->cycleN++;
 
@@ -248,6 +260,7 @@ class GridManager {
             try {
                 $price = $this->api->price(G_SYM);
                 if ($price <= 0) { lW("[MAIN] Precio 0"); sleep(G_CYCLE_SEC); continue; }
+                $this->lastPrice = (float)$price;
                 $adaptiveInterval = G_AI_INTERVAL;
                 $conf = (int)(isset($this->cfg['confidence']) ? $this->cfg['confidence'] : 50);
                 if ($conf >= 85) $adaptiveInterval = G_AI_INTERVAL * 2;
@@ -633,6 +646,13 @@ class GridManager {
             return $d->prepare("UPDATE grid_configs SET direction=?,confidence=?,ai_reason=?,last_ai_check=NOW(),levels=?,spacing_pct=?,long_levels=?,short_levels=?,qty_per_level=?,pp=?,qp=?,ml_accuracy=? WHERE symbol=?")
                 ->execute([$direction, $confidence, $reason, $levels, $spacing, $longLev, $shortLev, $qty, $f['pp'], $f['qp'], $mlAcc, G_SYM]);
         });
+        $this->persistAiDecision([
+            'senal' => $direction,
+            'confianza' => $confidence,
+            'razon' => $reason,
+            'accion_tomada' => $direction !== $prevDir ? 'cambio_direccion' : 'revision',
+            'precio' => (float)$price,
+        ]);
         $this->cfg = dbx(function($d) {
             $stmt = $d->prepare("SELECT * FROM grid_configs WHERE symbol=? LIMIT 1");
             $stmt->execute([G_SYM]);
@@ -1020,15 +1040,107 @@ class GridManager {
         } catch (\Exception $e) { lW("[RECYCLE_D] " . $e->getMessage()); }
     }
 
+    public function applyRiskConfig(): void {
+        $cfg = is_array($this->cfg) ? $this->cfg : [];
+        $max = $cfg['max_daily_loss'] ?? null;
+        $rec = $cfg['recovery_loss_pct'] ?? null;
+        $this->riskMaxDailyLoss = ($max !== null && $max !== '') ? (float)$max : G_MAX_DAILY_LOSS;
+        $this->riskRecoveryLossPct = ($rec !== null && $rec !== '') ? (float)$rec : G_RECOVERY_LOSS_PCT;
+    }
+
+    public function persistAiDecision(array $decision): void {
+        dbx(function($d) use ($decision) {
+            $stmt = $d->prepare('INSERT INTO logs_ia (senal, confianza, razon, accion_tomada, precio) VALUES (?, ?, ?, ?, ?)');
+            return $stmt->execute([
+                mb_substr((string)($decision['senal'] ?? ''), 0, 20),
+                (float)($decision['confianza'] ?? 0),
+                mb_substr((string)($decision['razon'] ?? ''), 0, 400),
+                mb_substr((string)($decision['accion_tomada'] ?? ''), 0, 50),
+                (float)($decision['precio'] ?? 0),
+            ]);
+        });
+    }
+
+    public function notifyIfAlert(?callable $send = null): void {
+        $rows = dbx(function($d) {
+            return $d->query('SELECT * FROM alertas_config WHERE habilitado = 1')->fetchAll();
+        }) ?? [];
+        if (empty($rows)) return;
+        $state = $this->getStateForAlerts();
+        foreach ($rows as $row) {
+            $tipo = (string)($row['tipo'] ?? '');
+            $value = $state[$tipo] ?? null;
+            if ($value === null) continue;
+            $intervalOk = true;
+            if (!empty($row['ultima_notificacion'])) {
+                $min = max(1, (int)($row['intervalo_min'] ?? 30));
+                $intervalOk = (time() - strtotime((string)$row['ultima_notificacion'])) >= ($min * 60);
+            }
+            if (!$intervalOk) continue;
+            if ($value <= (float)$row['umbral']) continue;
+            $token = $this->getTelegramToken();
+            $text = sprintf('[%s] %s superó el umbral: %.2f (umbral %.4f)',
+                date('Y-m-d H:i:s'), $tipo, $value, (float)$row['umbral']);
+            if ($token !== '' && !empty($row['telegram_chat_id'])) {
+                if ($send !== null) {
+                    $send($token, (string)$row['telegram_chat_id'], $text);
+                } else {
+                    Notification::sendTelegram($token, (string)$row['telegram_chat_id'], $text);
+                }
+            } else {
+                dbx(function($d) use ($text) {
+                    $stmt = $d->prepare('INSERT INTO logs_ia (senal, confianza, razon, accion_tomada, precio) VALUES (?, ?, ?, ?, ?)');
+                    return $stmt->execute(['ALERTA', 0, mb_substr($text, 0, 400), 'notify', 0]);
+                });
+            }
+            dbx(function($d) use ($row) {
+                $stmt = $d->prepare('UPDATE alertas_config SET ultima_notificacion = NOW() WHERE id = ?');
+                return $stmt->execute([(int)$row['id']]);
+            });
+        }
+    }
+
+    private function getStateForAlerts(): array {
+        $pnl = $this->getPnlToday();
+        $peak = (float)$this->peakPnl;
+        $drawdownPct = $peak > 0 ? max(0.0, ($peak - $pnl) / $peak * 100) : 0.0;
+        $dailyLossPct = $pnl < 0 ? abs($pnl) / G_CAPITAL * 100 : 0.0;
+        $liqDist = null;
+        foreach ($this->api->positions(G_SYM) as $pos) {
+            $liq = (float)(isset($pos['liquidationPrice']) ? $pos['liquidationPrice'] : 0);
+            if ($liq > 0) {
+                $dist = abs($liq - $this->lastPrice) / max($this->lastPrice, 0.0001) * 100;
+                $liqDist = $liqDist === null ? $dist : min($liqDist, $dist);
+            }
+        }
+        $balance = 0.0;
+        try { $balance = (float)$this->api->balance(); } catch (\Exception $e) {}
+        return [
+            'drawdown_pct' => round($drawdownPct, 4),
+            'daily_loss_pct' => round($dailyLossPct, 4),
+            'distancia_liquidacion_pct' => $liqDist === null ? null : round($liqDist, 4),
+            'saldo_min_usd' => round($balance, 4),
+        ];
+    }
+
+    private function getTelegramToken(): string {
+        $v = dbx(function($d) {
+            $stmt = $d->prepare("SELECT meta_value FROM bot_meta WHERE meta_key = 'telegram_bot_token'");
+            $stmt->execute();
+            return $stmt->fetchColumn();
+        });
+        return is_string($v) ? $v : '';
+    }
+
     private function riskCheck($price) {
         $pnlTdy  = $this->getPnlToday();
         $lossPct = $pnlTdy < 0 ? abs($pnlTdy) / G_CAPITAL * 100 : 0;
-        if ($lossPct >= G_RECOVERY_LOSS_PCT && !(isset($this->cfg['recovery_active']) && $this->cfg['recovery_active'])) {
+        if ($lossPct >= $this->riskRecoveryLossPct && !(isset($this->cfg['recovery_active']) && $this->cfg['recovery_active'])) {
             lW(sprintf("[RECOVERY] Pérdida diaria %.2f%% → activando", $lossPct));
             $this->enterRecovery($price, $pnlTdy);
         }
-        if ($lossPct >= G_MAX_DAILY_LOSS) {
-            lE(sprintf("[RISK] Límite diario %.1f%% → pausa 20min", G_MAX_DAILY_LOSS));
+        if ($lossPct >= $this->riskMaxDailyLoss) {
+            lE(sprintf("[RISK] Límite diario %.1f%% → pausa 20min", $this->riskMaxDailyLoss));
             $this->api->cancelAll(G_SYM);
             $this->closeAllPositions();
             $this->gridBuilt = false;
@@ -1262,6 +1374,20 @@ class GridManager {
         foreach ($allowed as $k) {
             if (array_key_exists($k, $updates) && is_numeric($updates[$k])) {
                 $fields[$k] = (float)$updates[$k];
+            }
+        }
+        if (array_key_exists('recovery_active', $updates)) {
+            $fields['recovery_active'] = $updates['recovery_active'] ? 1 : 0;
+        }
+        foreach (['max_daily_loss', 'recovery_loss_pct'] as $k) {
+            if (!array_key_exists($k, $updates)) continue;
+            $v = $updates[$k];
+            if ($v === null || $v === '') {
+                $fields[$k] = null;
+            } elseif (is_numeric($v)) {
+                $val = (float)$v;
+                if ($val < 0.5 || $val > 50) { lW("[CTL] $k fuera de rango [0.5, 50]: $val"); continue; }
+                $fields[$k] = $val;
             }
         }
         if (empty($fields)) { lW("[CTL] config_update sin campos válidos"); return; }
