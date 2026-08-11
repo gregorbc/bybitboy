@@ -15,8 +15,8 @@ export function initAiGauge() {
       const cls = direction === 'UP' ? 'green' : direction === 'DOWN' ? 'red' : 'accent';
       elDirection.className = `badge badge-${cls}`;
     }
-    if (elConfidence) elConfidence.textContent = confidence != null ? `${confidence}%` : '—';
+    if (elConfidence) elConfidence.textContent = confidence !== null ? `${confidence}%` : '—';
     if (elReason) elReason.textContent = reason || '';
-    if (elNextEval) elNextEval.textContent = next_eval != null ? `${next_eval}s` : '—';
+    if (elNextEval) elNextEval.textContent = next_eval !== null ? `${next_eval}s` : '—';
   });
 }
