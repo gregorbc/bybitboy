@@ -1,31 +1,4 @@
-```
-# PHP cache and compiled files
-*.php~
-*.php.bak
-*.phtml~
+(docs/ANALISIS_FALLAS_FLUJO.md is a documentation file, which is a source file, so it should not be added to .gitignore)
 
-# Dependencies
-vendor/
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-
-# Environment
-.env
-.env.local
-.env.*
-
-# Editors
-.vscode/
-.idea/
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# Build artifacts
-build/
-dist/
-```
+# Documentation
+# (No need to ignore documentation files like .md)
