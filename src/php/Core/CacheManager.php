@@ -1,9 +1,10 @@
 <?php
+namespace GridBot\Core;
+
 /**
  * Gestor de Caché Redis para Grid Bot v15.5
  * Optimiza consultas repetitivas a la base de datos
  */
-
 class CacheManager {
     private static $instance = null;
     private $redis = null;
@@ -27,7 +28,7 @@ class CacheManager {
             $port = (int)(getenv('REDIS_PORT') ?: 6379);
             $password = getenv('REDIS_PASSWORD') ?: null;
             
-            $this->redis = new Redis();
+            $this->redis = new \Redis();
             $this->redis->connect($host, $port, 2.5);
             
             if ($password) {
@@ -38,7 +39,7 @@ class CacheManager {
                 $this->enabled = true;
                 error_log("[CACHE] Redis conectado en {$host}:{$port}");
             }
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             error_log("[CACHE] Error conectando a Redis: " . $e->getMessage());
             $this->enabled = false;
         }
@@ -124,4 +125,3 @@ class CacheManager {
         return false;
     }
 }
-?>

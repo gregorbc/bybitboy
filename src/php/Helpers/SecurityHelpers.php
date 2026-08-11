@@ -1,4 +1,6 @@
 <?php
+namespace GridBot\Helpers;
+
 /**
  * SecurityHelpers.php - Funciones de seguridad para Grid Bot
  * 
