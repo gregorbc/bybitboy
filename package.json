@@ -1,8 +1,11 @@
 {
   "name": "grid-bot-dashboard",
-  "version": "15.0.0",
+  "version": "16.0.0",
   "type": "module",
   "scripts": {
+    "dev": "vite --config src/php/vite.config.ts",
+    "build": "tsc -p src/php/tsconfig.json && vite build --config src/php/vite.config.ts",
+    "preview": "vite preview --config src/php/vite.config.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -10,6 +13,8 @@
     "lint:fix": "eslint . --fix"
   },
   "devDependencies": {
+    "vite": "^5.4.0",
+    "typescript": "^5.5.0",
     "vitest": "^2.0.0",
     "@vitest/coverage-v8": "^2.0.0",
     "eslint": "^9.0.0",

@@ -1,5 +1,11 @@
 {
-  "enabledPlugins": {
-    "superpowers@claude-plugins-official": true
+  "env": {},
+  "includeCoAuthoredBy": true,
+  "cleanupPeriodDays": 30,
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [],
+    "deny": [],
+    "additionalDirectories": []
   }
 }

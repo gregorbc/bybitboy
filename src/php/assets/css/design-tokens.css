@@ -1,0 +1,80 @@
+/* ──────────────────────────────────────────────
+   DESIGN TOKENS — CSS Custom Properties
+   Colors, spacing, radii, fonts, shadows, z-index
+   ────────────────────────────────────────────── */
+
+:root {
+  /* Base colors */
+  --bg:        #06080e;
+  --bg2:       #0b0f18;
+  --bg3:       #10151f;
+  --bg4:       #141b26;
+
+  /* Borders */
+  --border:    #1a2535;
+  --border2:   #243448;
+
+  /* Text */
+  --text:      #c8daf0;
+  --muted:     #3a5270;
+  --dim:       #7a99bb;
+
+  /* Accent (blue) */
+  --accent:    #2d8cff;
+  --acc2:      #1a6fdd;
+  --acc-g:     rgba(45, 140, 255, .12);
+
+  /* Green (positive) */
+  --green:     #00c97a;
+  --gn-g:      rgba(0, 201, 122, .1);
+  --gn-s:      rgba(0, 201, 122, .4);
+
+  /* Red (negative) */
+  --red:       #f03c52;
+  --rd-g:      rgba(240, 60, 82, .1);
+  --rd-s:      rgba(240, 60, 82, .4);
+
+  /* Yellow (warning/recovery) */
+  --yellow:    #f5a623;
+  --yl-g:      rgba(245, 166, 35, .1);
+
+  /* Additional accent colors */
+  --purple:    #9b72f5;
+  --cyan:      #00d4cc;
+
+  /* Typography */
+  --mono:      'JetBrains Mono', monospace;
+  --sans:      'Inter', system-ui, sans-serif;
+
+  /* Radii */
+  --r:         10px;
+  --r2:        6px;
+
+  /* Shadows */
+  --sh:        0 4px 24px rgba(0, 0, 0, .4);
+
+  /* Layout constants */
+  --drawer-width: 280px;
+
+  /* Z-index layers */
+  --z-loader:       9999;
+  --z-topbar:       200;
+  --z-drawer-overlay: 140;
+  --z-sidebar-left:   150;
+  --z-sidebar-right:  160;
+  --z-toasts:       9000;
+  --z-modal:        9001;
+}
+
+/* Base reset using tokens */
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+}

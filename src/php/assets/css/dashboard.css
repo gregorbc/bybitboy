@@ -1,0 +1,154 @@
+/* ──────────────────────────────────────────────
+   DASHBOARD — Dashboard-specific overrides & state classes
+   .stale, .skel, and any page-specific tweaks
+   ────────────────────────────────────────────── */
+
+/* ─── Stale data state ─── */
+body.stale #app {
+  opacity: .6;
+  transition: opacity .8s;
+}
+
+/* ─── Skeleton loading (extends .skel from components) ─── */
+/* Additional skeleton variants can go here */
+
+/* ─── Dashboard-specific responsive tweaks ─── */
+@media (max-width: 767px) {
+  /* Hero column becomes static on mobile */
+  .hero-col {
+    position: static;
+    width: auto;
+    height: auto;
+    left: auto;
+    top: auto;
+    z-index: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+/* ─── Chart-specific ─── */
+.chart-sect {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Panel specific overrides ─── */
+.mkt-card .card-bd,
+.pnl-charts .card-bd,
+.pnl-cum-block .card-bd,
+.ladder-card .card-bd {
+  padding: 0;
+}
+
+/* ─── PnL cumulative chart container ─── */
+.pnl-cum-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ─── Print styles ─── */
+@media print {
+  .topbar,
+  .sidebar-left,
+  .sidebar-right,
+  .drawer-overlay,
+  .menu-btn,
+  .btns,
+  #toasts,
+  .modal-overlay {
+    display: none !important;
+  }
+
+  .main-grid {
+    grid-template-columns: 1fr !important;
+    grid-template-areas: "hero" "chart" "mkt" "pnl" "cum" "ladder" !important;
+  }
+
+  body {
+    overflow: visible;
+    height: auto;
+  }
+
+  .app {
+    height: auto;
+  }
+}
+
+/* ─── High contrast mode support ─── */
+@media (prefers-contrast: high) {
+  :root {
+    --border: #3d5a7a;
+    --border2: #4a6d8f;
+    --muted: #5a7a9a;
+    --dim: #9abccc;
+  }
+
+  .kpi::before { height: 3px; }
+  .gauge-ticks { color: var(--text); }
+}
+
+/* ─── Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .ldr-logo,
+  .ldr-prog,
+  .dot.active,
+  .g-fill-arc,
+  .ai-fill,
+  .lr-bar,
+  .rsi-fill,
+  .kpi-val,
+  .toast,
+  .modal,
+  .skel {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ─── Focus visible for accessibility ─── */
+.btn:focus-visible,
+.tab-btn:focus-visible,
+.chart-tab:focus-visible,
+.menu-btn:focus-visible,
+.log-search:focus-visible,
+.cfg-input:focus-visible,
+.toast-close:focus-visible,
+.modal button:focus-visible,
+.fills-pg button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ─── Scrollbar styling (WebKit) ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--bg);
+}
